@@ -19,8 +19,8 @@ export type KlingOutput = {
 };
 
 export const KLING_MODELS = {
-    text_to_video: 'fal-ai/kling-video/v2.5-turbo/text-to-video',
-    image_to_video: 'fal-ai/kling-video/v2.5-turbo/image-to-video',
+    text_to_video: 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video',
+    image_to_video: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
 } as const;
 
 export async function generateKlingVideo(input: KlingInput): Promise<KlingOutput> {

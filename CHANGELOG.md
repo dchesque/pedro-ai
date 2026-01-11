@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-01-10
+
+### Fixed
+- Updated **Kling** model paths to include `/pro/` prefix (`fal-ai/kling-video/v2.5-turbo/pro/...`).
+
+
 ## [1.1.1] - 2026-01-10
 
 ### Changed
