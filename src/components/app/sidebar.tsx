@@ -10,6 +10,7 @@ import {
   CreditCard,
   Settings,
   Bot,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,9 @@ type SidebarProps = {
 export const navigationItems = [
   { name: "Painel", href: "/dashboard", icon: Home },
   { name: "Chat com IA", href: "/ai-chat", icon: Bot },
+  { name: "AI Studio", href: "/ai-studio", icon: Wand2 },
   { name: "Cobrança", href: "/billing", icon: CreditCard },
- ];
+];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
@@ -63,7 +65,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </Button>
         </div>
       </div>
-      
+
       <ScrollArea className="flex-1 min-h-0">
         <nav className="flex flex-col gap-1 p-2" aria-label="Navegação principal">
           {navigationItems.map((item) => {
