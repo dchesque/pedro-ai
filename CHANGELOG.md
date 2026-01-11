@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-01-11
+
+### Added
+- **Refatoração da Pipeline de Shorts**: Implementação de fluxo em 2 etapas (Etapa 1: Roteiro, Etapa 2: Mídia).
+- **Controle do Usuário**: Nova página de edição de roteiro (`/shorts/[id]/edit`) permitindo revisão completa antes da geração de imagens.
+- **Storyboard Editável**: Suporte a reordenação de cenas (Drag & Drop), edição manual de narração/descrição e adição/remoção de cenas.
+- **Regeneração por Cena**: Função para regenerar apenas uma cena específica usando IA ou atualizar apenas a imagem de uma cena.
+- **Seleção de Modelo de IA**: Usuário agora pode escolher o modelo de texto (DeepSeek, Claude, GPT-4o, Llama 3) para geração do roteiro.
+- **Estimativa de Créditos**: Componente visual que detalha o custo por etapa (Roteiro vs Imagens).
+- **Novos Campos e Status**: Implementados status `DRAFT`, `SCRIPT_READY`, `SCRIPT_APPROVED`, etc. no banco de dados.
+
+### Changed
+- Refatorada a `pipeline.ts` para funções independentes e atômicas.
+- Atualizado o Hook `use-shorts.ts` com novas mutações granulares.
+- Melhorada a UX do formulário de criação focando primeiro na geração do roteiro.
+
 ## [1.5.0] - 2026-01-11
 
 ### Added
