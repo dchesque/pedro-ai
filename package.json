@@ -34,6 +34,7 @@
     "@clerk/backend": "^2.15.0",
     "@clerk/nextjs": "6.32.2",
     "@eslint/eslintrc": "^3.3.3",
+    "@fal-ai/client": "^1.8.3",
     "@hookform/resolvers": "^5.1.1",
     "@openrouter/ai-sdk-provider": "^1.2.0",
     "@prisma/client": "^6.16.3",

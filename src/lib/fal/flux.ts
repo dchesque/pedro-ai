@@ -1,4 +1,4 @@
-import { getFalClient } from './client';
+import { runFal } from './client';
 
 export type FluxInput = {
     prompt: string;
@@ -26,11 +26,9 @@ export const IMAGE_PRESETS = {
 } as const;
 
 export async function generateFluxImage(input: FluxInput): Promise<FluxOutput> {
-    const client = getFalClient();
-    // Flux Schnell é rápido, usar modo síncrono (run)
-    return await client.run<FluxOutput>('fal-ai/flux/schnell', {
+    return await runFal<FluxOutput>('fal-ai/flux/schnell', {
         ...input,
         num_inference_steps: input.num_inference_steps ?? 4,
         enable_safety_checker: input.enable_safety_checker ?? true,
-    }, { timeout: 60000 });
+    });
 }

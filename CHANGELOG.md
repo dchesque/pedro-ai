@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-01-10
+
+### Changed
+- Migrated **fal.ai** integration to the official SDK (`@fal-ai/client`).
+- Refactored `FalClient` to use SDK-native `run` and `subscribe` methods.
+- Optimized **Flux** (synchronous) and **Kling** (asynchronous) generation flows.
+
+
 ## [1.1.0] - 2026-01-10
 
 ### Added
