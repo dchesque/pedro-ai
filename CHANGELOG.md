@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-01-11
+
+### Added
+- Added image upload support in **VideoGenerationForm**.
+- Image preview and removal functionality before video generation.
+- URL fallback remains available for external image sources.
+- Integrated with `/api/upload` endpoint for secure file handling.
+
+
 ## [1.1.2] - 2026-01-10
 
 ### Fixed
