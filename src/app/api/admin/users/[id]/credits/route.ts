@@ -7,7 +7,7 @@ import { withApiLogging } from "@/lib/logging/api"
 
 async function handleAdminUserCredits(
   request: Request,
-  ctx: { params: Promise<{ id: string }> }
+  ctx: any
 ) {
   try {
     const { userId } = await auth()
@@ -19,30 +19,48 @@ async function handleAdminUserCredits(
     const { credits, adjustment } = body as { credits?: number; adjustment?: number }
 
     const { id } = await ctx.params
-    const creditBalance = await db.creditBalance.findUnique({
+    let creditBalance = await db.creditBalance.findUnique({
       where: { userId: id },
     })
 
-    if (!creditBalance) {
-      return NextResponse.json({ error: "Credit balance not found" }, { status: 404 })
+    // If no balance exists, we'll create one later or handle it now
+    const user = await db.user.findUnique({ where: { id } })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     let newBalance: number
     let delta = 0
+    const currentCredits = creditBalance?.creditsRemaining ?? 0
+
     if (typeof credits === "number") {
       newBalance = Math.max(0, Math.floor(credits))
-      delta = newBalance - creditBalance.creditsRemaining
+      delta = newBalance - currentCredits
     } else if (typeof adjustment === "number") {
       delta = Math.floor(adjustment)
-      newBalance = Math.max(0, creditBalance.creditsRemaining + delta)
+      newBalance = Math.max(0, currentCredits + delta)
     } else {
       return NextResponse.json({ error: "Provide 'credits' or 'adjustment' number" }, { status: 400 })
     }
 
-    const updated = await db.creditBalance.update({
-      where: { id: creditBalance.id },
-      data: { creditsRemaining: newBalance, lastSyncedAt: new Date() },
-    })
+    let updated: any
+    if (!creditBalance) {
+      // Create new balance
+      updated = await db.creditBalance.create({
+        data: {
+          userId: id,
+          clerkUserId: user.clerkId,
+          creditsRemaining: newBalance,
+        },
+      })
+      creditBalance = updated
+    } else {
+      // Update existing
+      updated = await db.creditBalance.update({
+        where: { id: creditBalance.id },
+        data: { creditsRemaining: newBalance, lastSyncedAt: new Date() },
+      })
+    }
 
     if (delta !== 0) {
       await db.usageHistory.create({

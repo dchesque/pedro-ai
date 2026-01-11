@@ -4,6 +4,8 @@ import { OperationType } from '../../../prisma/generated/client'
 export const FEATURE_CREDIT_COSTS = {
   ai_text_chat: 1,
   ai_image_generation: 5,
+  fal_image_generation: 1,
+  fal_video_generation: 1,
 } as const
 
 // Feature keys are derived from the config above to ensure type-safety across the codebase
@@ -13,6 +15,8 @@ export type FeatureKey = keyof typeof FEATURE_CREDIT_COSTS
 const FEATURE_TO_OPERATION: Record<FeatureKey, OperationType> = {
   ai_text_chat: OperationType.AI_TEXT_CHAT,
   ai_image_generation: OperationType.AI_IMAGE_GENERATION,
+  fal_image_generation: OperationType.FAL_IMAGE_GENERATION,
+  fal_video_generation: OperationType.FAL_VIDEO_GENERATION,
 }
 
 export function toPrismaOperationType(feature: FeatureKey): OperationType {
