@@ -41,6 +41,7 @@ model User {
   @@index([createdAt])
   @@index([isActive])
   @@index([currentPlanId])
+  shorts            Short[]
 }
 
 
@@ -102,6 +103,101 @@ enum OperationType {
   AI_IMAGE_GENERATION
   FAL_IMAGE_GENERATION
   FAL_VIDEO_GENERATION
+  SHORT_GENERATION
+}
+
+// Status do Short
+enum ShortStatus {
+  DRAFT           // Rascunho (só input)
+  SCRIPTING       // Gerando roteiro
+  PROMPTING       // Gerando prompts
+  GENERATING      // Gerando mídias
+  COMPLETED       // Concluído
+  FAILED          // Falhou
+}
+
+// Tipo de mídia da cena
+enum SceneMediaType {
+  IMAGE           // Imagem estática
+  VIDEO           // Vídeo animado
+}
+
+// Short principal
+model Short {
+  id              String       @id @default(cuid())
+  userId          String
+  clerkUserId     String
+  
+  // Input do usuário
+  title           String?      // Título (preenchido após roteiro)
+  theme           String       // Tema/nicho do short
+  targetDuration  Int          @default(30)  // Duração alvo em segundos
+  style           String       @default("engaging") // Estilo (engaging, educational, funny, etc)
+  
+  // Roteiro gerado
+  script          Json?        // Roteiro completo em JSON
+  hook            String?      // Gancho inicial
+  cta             String?      // Call to action final
+  
+  // Status e progresso
+  status          ShortStatus  @default(DRAFT)
+  progress        Int          @default(0)    // 0-100
+  errorMessage    String?
+  
+  // Custos
+  creditsUsed     Int          @default(0)
+  
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  completedAt     DateTime?
+  
+  // Relations
+  user            User         @relation(fields: [userId], references: [id])
+  scenes          ShortScene[]
+  
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Cena do Short
+model ShortScene {
+  id              String         @id @default(cuid())
+  shortId         String
+  
+  // Ordem e timing
+  order           Int            // Ordem da cena (0, 1, 2...)
+  duration        Int            @default(5)  // Duração em segundos
+  
+  // Conteúdo do roteiro
+  narration       String?        // Texto de narração
+  visualDesc      String?        // Descrição visual do roteiro
+  
+  // Prompts gerados
+  imagePrompt     String?        // Prompt para imagem
+  negativePrompt  String?        // Negative prompt
+  
+  // Mídia gerada
+  mediaType       SceneMediaType @default(IMAGE)
+  mediaUrl        String?        // URL da imagem/vídeo gerado
+  mediaWidth      Int?
+  mediaHeight     Int?
+  
+  // Status
+  isGenerated     Boolean        @default(false)
+  errorMessage    String?
+  
+  // Timestamps
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  short           Short          @relation(fields: [shortId], references: [id], onDelete: Cascade)
+  
+  @@index([shortId])
+  @@index([order])
 }
 
 // Singleton row storing admin-configurable credit settings

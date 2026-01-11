@@ -1,6 +1,18 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+ 
+## [1.2.0] - 2026-01-11
+ 
+### Added
+- **Shorts Pipeline**: Automated generation of short videos/reels.
+- **Agente Roteirista**: Integration with Claude 3.5 Sonnet to create detailed scripts from a theme.
+- **Agente Prompt Engineer**: Integration with Claude to optimize image prompts from script scenes.
+- **Geração Batch**: Parallel generation of all short scenes using **Flux Schnell**.
+- **Gestão de Shorts**: Interface to create, view, and delete shorts with status tracking.
+- **Sistema de Créditos**: Advanced credit management for shorts (base cost + per scene).
+- **Polling Automático**: Dashboard updates progress automatically while generating.
+- Added `@radix-ui/react-slider` for duration selection.
 
 ## [1.1.3] - 2026-01-11
 

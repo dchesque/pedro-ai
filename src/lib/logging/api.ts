@@ -4,7 +4,7 @@ import { getApiLogMinimumStatus, isApiLoggingEnabled, logDebug, logError, logWar
 type RouteParams = Record<string, string | string[]>
 
 type RouteContext<TParams extends RouteParams = RouteParams> = {
-  params?: TParams
+  params?: TParams | Promise<TParams>
   [key: string]: unknown
 }
 
@@ -110,7 +110,7 @@ export function withApiLogging<TParams extends RouteParams = RouteParams>(
           durationMs,
           requestId,
           feature: options.feature,
-          params: normalizeParams(context?.params as RouteParams),
+          params: normalizeParams((context?.params instanceof Promise ? await context.params : context?.params) as RouteParams),
           query: resolveSearchParams(request),
         })
       } else if (DEBUG_ENABLED()) {
