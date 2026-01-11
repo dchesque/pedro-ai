@@ -124,7 +124,7 @@ export default function ShortDetailPage() {
                             {short.status === 'FAILED' ? 'Tentar Novamente' : 'Gerar Short'}
                         </Button>
                     )}
-                    <Button variant="destructive" variant="outline" size="icon" onClick={handleDelete} disabled={isProcessing}>
+                    <Button variant="outline" size="icon" onClick={handleDelete} disabled={isProcessing}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
@@ -192,16 +192,20 @@ export default function ShortDetailPage() {
                                 </div>
                                 <CardContent className="p-3 bg-card/80 backdrop-blur-sm">
                                     <p className="text-xs font-medium line-clamp-2 min-h-[2.5rem]">
-                                        {scene.content}
+                                        {scene.narration}
                                     </p>
-                                    {scene.visualPrompt && (
+                                    {(scene.visualDesc || scene.imagePrompt) && (
                                         <Separator className="my-2" />
                                     )}
-                                    {scene.visualPrompt && (
+                                    {scene.imagePrompt ? (
                                         <p className="text-[10px] text-muted-foreground italic line-clamp-1 border-l-2 pl-2 border-primary/20">
-                                            {scene.visualPrompt}
+                                            {scene.imagePrompt}
                                         </p>
-                                    )}
+                                    ) : scene.visualDesc ? (
+                                        <p className="text-[10px] text-muted-foreground italic line-clamp-1 border-l-2 pl-2 border-primary/20">
+                                            {scene.visualDesc}
+                                        </p>
+                                    ) : null}
                                 </CardContent>
                             </Card>
                         ))}
@@ -243,7 +247,7 @@ export default function ShortDetailPage() {
                                     {short.scenes.map((scene) => (
                                         <div key={scene.id} className="space-y-1">
                                             <p className="text-[10px] font-bold text-primary">Cena {scene.order + 1}</p>
-                                            <p className="text-xs leading-relaxed">{scene.content}</p>
+                                            <p className="text-xs leading-relaxed">{scene.narration}</p>
                                             <Separator className="mt-2 opacity-50" />
                                         </div>
                                     ))}
@@ -257,7 +261,7 @@ export default function ShortDetailPage() {
                                         <div key={scene.id} className="space-y-1">
                                             <p className="text-[10px] font-bold text-primary">Prompt {scene.order + 1}</p>
                                             <p className="text-[10px] text-muted-foreground italic bg-muted p-2 rounded">
-                                                {scene.imagePrompt || scene.visualDescription || "Ainda não gerado"}
+                                                {scene.imagePrompt || scene.visualDesc || "Ainda não gerado"}
                                             </p>
                                         </div>
                                     ))}
