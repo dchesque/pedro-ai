@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-01-11
+
+### Added
+- **Biblioteca de Personagens**: Sistema completo para criação e gestão de personagens consistentes para shorts.
+- **Integração de Pipeline**: Agentes (Roteirista e Prompt Engineer) agora reconhecem e utilizam personagens definidos nas cenas para manter consistência visual.
+- **Gerador de Prompts**: API para analisar imagens e gerar descrições textuais otimizadas automaticamente (Vision AI) ou combinas traits manuais.
+- **Nova Página e Componentes**:
+  - `/characters`: Listagem, criação e edição de personagens.
+  - `CharacterDialog`: Formulário avançado com suporte a upload, traits e geração de prompts.
+  - `CharacterCard` e `CharacterSelector`: Componentes de UI integrados ao fluxo de criação de Shorts.
+- **Limites de Plano**: Implementação de limites para número de personagens por usuário e por short baseado no plano (Free, Starter, Pro, Business).
+
+## [1.4.0] - 2026-01-11
+
+### Added
+- **Sistema de Logging Profissional**: Implementação de logging centralizado, colorido e detalhado em toda a pipeline de Shorts.
+- Logger customizado com suporte a níveis (debug, info, warn, error), ícones, cores ANSI e rastreamento de contexto (IDs de usuário, shorts, medição de duração, etc.).
+- Integração de logs detalhados em todos os agentes (Scriptwriter, Prompt Engineer) e motores de geração (Flux, Kling).
+- Monitoramento em tempo real do progresso da pipeline via console.
+
+### Changed
+- Refatorada as APIs de geração de Shorts, Imagem e Vídeo para utilizar o novo sistema de logging mantendo a integridade do sistema de créditos.
+
+
 ## [1.3.1] - 2026-01-11
 
 ### Fixed

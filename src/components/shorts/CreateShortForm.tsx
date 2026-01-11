@@ -27,11 +27,13 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAvailableStyles } from "@/hooks/use-agents"
+import { CharacterSelector } from "../characters/CharacterSelector"
 
 const formSchema = z.object({
     theme: z.string().min(10, 'Descreva o tema com pelo menos 10 caracteres').max(500),
     targetDuration: z.number().int().min(15).max(60),
     style: z.string().min(1, 'Selecione um estilo'),
+    characterIds: z.array(z.string()).optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -87,6 +89,26 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                             </FormControl>
                             <FormDescription>
                                 Descreva o tema, nicho ou ideia principal do seu short.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="characterIds"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormControl>
+                                <CharacterSelector
+                                    selectedCharacterIds={field.value || []}
+                                    onSelect={(id) => field.onChange([...(field.value || []), id])}
+                                    onDeselect={(id) => field.onChange((field.value || []).filter(v => v !== id))}
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                Personagens selecionados aparecerão consistentemente nas cenas.
                             </FormDescription>
                             <FormMessage />
                         </FormItem>

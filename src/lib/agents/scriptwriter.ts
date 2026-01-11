@@ -3,16 +3,37 @@ import { generateText } from 'ai'
 import type { ShortScript } from './types'
 import { resolveAgent, resolveStyle } from './resolver'
 import { AgentType } from '../../../prisma/generated/client_final'
+import { createLogger } from '@/lib/logger'
+
+interface CharacterInfo {
+    name: string
+    description: string
+}
+
+const log = createLogger('agents/scriptwriter')
 
 const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-const USER_PROMPT_TEMPLATE = (theme: string, duration: number, styleName: string) => `
+const USER_PROMPT_TEMPLATE = (theme: string, duration: number, styleName: string, characters: CharacterInfo[] = []) => {
+    const charactersPrompt = characters.length > 0
+        ? `
+PERSONAGENS DISPONÍVEIS:
+${characters.map(c => `- ${c.name}: ${c.description}`).join('\n')}
+
+REGRAS DE PERSONAGEM:
+- Use os personagens pelo NOME nas cenas quando apropriado
+- Descreva ações específicas consistentes com a descrição deles
+`
+        : ''
+
+    return `
 Crie um roteiro para um short sobre:
 TEMA: ${theme}
 DURAÇÃO ALVO: ${duration} segundos
 ESTILO: ${styleName}
+${charactersPrompt}
 
 Retorne um JSON com a seguinte estrutura:
 {
@@ -32,45 +53,54 @@ Retorne um JSON com a seguinte estrutura:
   "style": "${styleName}"
 }
 `
+}
 
 export async function generateScript(
     theme: string,
     duration: number,
     styleKey: string,
-    userId?: string
+    userId?: string,
+    characters: CharacterInfo[] = []
 ): Promise<ShortScript> {
+    const startTime = log.start('Gerando script', { theme, duration, style: styleKey, userId })
+
     // Resolver agente e estilo
     const agent = await resolveAgent(AgentType.SCRIPTWRITER, userId)
     const style = await resolveStyle(styleKey, userId)
 
-    // Montar system prompt completo
-    const fullSystemPrompt = `${agent.systemPrompt}
-
-${style.scriptwriterPrompt}`
-
-    const { text } = await generateText({
-        model: openrouter(agent.model as any),
-        system: fullSystemPrompt,
-        prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name),
-        temperature: agent.temperature,
+    log.info('🤖 Configuração carregada', {
+        agentSource: agent.source,
+        styleSource: style.source,
+        model: agent.model
     })
 
-    // Parse JSON
-    const cleanText = text.replace(/```json\n?|\n?```/g, '').trim()
+    const fullSystemPrompt = `${agent.systemPrompt}\n\n${style.scriptwriterPrompt}`
+
     try {
+        log.debug('Chamando LLM', { model: agent.model, temperature: agent.temperature })
+
+        const { text } = await generateText({
+            model: openrouter(agent.model as any),
+            system: fullSystemPrompt,
+            prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name, characters),
+            temperature: agent.temperature,
+        })
+
+        const cleanText = text.replace(/```json\n?|\n?```/g, '').trim()
         const script: ShortScript = JSON.parse(cleanText)
 
         if (!script.title || !script.hook || !script.scenes || !script.cta) {
             throw new Error('Script inválido: campos obrigatórios ausentes')
         }
 
-        if (script.scenes.length === 0) {
-            throw new Error('Script inválido: nenhuma cena gerada')
-        }
+        log.success('Script gerado', startTime, {
+            title: script.title,
+            scenes: script.scenes.length
+        })
 
         return script
-    } catch (e) {
-        console.error('Failed to parse script JSON:', text)
+    } catch (error) {
+        log.fail('Geração de script', error, { theme, style: styleKey })
         throw new Error('Falha ao processar o roteiro gerado pela IA')
     }
 }

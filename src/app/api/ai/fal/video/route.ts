@@ -3,10 +3,12 @@ import { z } from 'zod';
 import { validateUserAuthentication } from '@/lib/auth-utils';
 import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFeature } from '@/lib/credits/deduct';
 import { InsufficientCreditsError } from '@/lib/credits/errors';
-import { withApiLogging } from '@/lib/logging/api';
 import { generateKlingVideo } from '@/lib/fal/kling';
+import { createLogger } from '@/lib/logger'
 
-const BodySchema = z.object({
+const log = createLogger('api/fal/video')
+
+const VideoSchema = z.object({
     prompt: z.string().min(1).max(2000),
     image_url: z.string().url().optional(),
     duration: z.enum(['5', '10']).optional().default('5'),
@@ -14,64 +16,81 @@ const BodySchema = z.object({
     negative_prompt: z.string().max(500).optional(),
 }).strict();
 
-async function handleVideoGeneration(req: Request) {
-    let userId: string | null = null;
-    try {
-        userId = await validateUserAuthentication();
-    } catch (e) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+async function handlePost(req: Request) {
+    const startTime = Date.now()
 
     try {
-        const json = await req.json();
-        const parsed = BodySchema.safeParse(json);
+        const clerkUserId = await validateUserAuthentication()
+        log.info('📥 Requisição de vídeo', { userId: clerkUserId })
+
+        const json = await req.json().catch(() => ({}))
+        const parsed = VideoSchema.safeParse(json)
+
         if (!parsed.success) {
-            return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 });
+            log.warn('Validação falhou', { issues: parsed.error.flatten() })
+            return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
         }
 
-        const { prompt, image_url, duration, aspect_ratio, negative_prompt } = parsed.data;
-        const feature = 'fal_video_generation';
-        const quantity = parseInt(duration); // 1 credit per second
+        const { prompt, image_url, duration, aspect_ratio, negative_prompt } = parsed.data
+        const isImageToVideo = !!image_url
+        const feature = 'fal_video_generation'
+        const quantity = parseInt(duration) // 1 credit per second
 
-        // 1. Validate Credits
+        log.info('🎬 Configuração', {
+            type: isImageToVideo ? 'image-to-video' : 'text-to-video',
+            duration: parseInt(duration),
+            aspectRatio: aspect_ratio
+        })
+
+        // Validar créditos
         try {
-            await validateCreditsForFeature(userId, feature, quantity);
-            await deductCreditsForFeature({ clerkUserId: userId, feature, quantity, details: { prompt: prompt.slice(0, 50), duration } });
+            await validateCreditsForFeature(clerkUserId, feature, quantity)
+            await deductCreditsForFeature({
+                clerkUserId,
+                feature,
+                quantity,
+                details: { prompt: prompt.substring(0, 50), duration }
+            })
         } catch (e) {
             if (e instanceof InsufficientCreditsError) {
-                return NextResponse.json({ error: 'insufficient_credits', required: e.required, available: e.available }, { status: 402 });
+                log.warn('Créditos insuficientes', { userId: clerkUserId, needed: quantity, available: e.available })
+                return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
             }
-            throw e;
+            throw e
         }
 
-        // 2. Generate Video
         try {
-            const output = await generateKlingVideo({
+            const result = await generateKlingVideo({
                 prompt,
                 image_url,
                 duration: duration as '5' | '10',
                 aspect_ratio: aspect_ratio as any,
                 negative_prompt,
-            });
+            })
+
+            log.success('Vídeo gerado', startTime, { userId: clerkUserId })
 
             return NextResponse.json({
-                ...output,
-                duration: quantity,
-            });
-        } catch (e) {
-            console.error('[fal-video] generation failed', e);
-            // Refund credits on failure
-            await refundCreditsForFeature({ clerkUserId: userId, feature, quantity, reason: 'generation_failed' });
-            return NextResponse.json({ error: 'Failed to generate video' }, { status: 500 });
+                ...result,
+                duration: quantity
+            })
+        } catch (error) {
+            log.fail('Geração de vídeo', error)
+            await refundCreditsForFeature({
+                clerkUserId,
+                feature,
+                quantity,
+                reason: 'generation_failed'
+            })
+            return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
         }
-    } catch (e) {
-        console.error('[fal-video] unexpected error', e);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    } catch (error) {
+        if ((error as Error).message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        log.error('Erro não tratado', { error })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
 
-export const POST = withApiLogging(handleVideoGeneration, {
-    method: 'POST',
-    route: '/api/ai/fal/video',
-    feature: 'fal_video',
-});
+export const POST = handlePost

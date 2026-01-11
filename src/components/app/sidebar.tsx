@@ -12,6 +12,7 @@ import {
   Bot,
   Wand2,
   Video,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export const navigationItems = [
   { name: "Chat com IA", href: "/ai-chat", icon: Bot },
   { name: "AI Studio", href: "/ai-studio", icon: Wand2 },
   { name: "Shorts", href: "/shorts", icon: Video },
+  { name: "Personagens", href: "/characters", icon: Users },
   { name: "Cobrança", href: "/billing", icon: CreditCard },
 ];
 

@@ -4,6 +4,9 @@ import { generatePrompts } from '@/lib/agents/prompt-engineer'
 import { generateFluxImage } from '@/lib/fal/flux'
 import { ShortStatus } from '../../../prisma/generated/client_final'
 import type { ShortScript, PromptEngineerOutput } from '@/lib/agents/types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('shorts/pipeline')
 
 interface CreateShortInput {
     userId: string
@@ -17,9 +20,16 @@ interface GenerateMediaOptions {
     useVideo?: boolean  // Se true, usa Kling para vídeo em vez de imagem (future use)
 }
 
-// Criar short (apenas salva input)
+// Criar short
 export async function createShort(input: CreateShortInput) {
-    return db.short.create({
+    log.info('📝 Criando short', {
+        userId: input.userId,
+        theme: input.theme,
+        duration: input.targetDuration,
+        style: input.style
+    })
+
+    const short = await db.short.create({
         data: {
             userId: input.userId,
             clerkUserId: input.clerkUserId,
@@ -29,30 +39,56 @@ export async function createShort(input: CreateShortInput) {
             status: 'DRAFT' as ShortStatus,
         },
     })
+
+    log.success('Short criado', undefined, { shortId: short.id })
+    return short
 }
 
 // Passo 1: Gerar roteiro
 export async function generateShortScript(shortId: string): Promise<ShortScript> {
     const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
 
-    // Atualizar status
+    const startTime = log.start('Gerando roteiro', {
+        shortId,
+        userId: short.userId,
+        theme: short.theme,
+        style: short.style
+    })
+
     await db.short.update({
         where: { id: shortId },
         data: { status: 'SCRIPTING' as ShortStatus, progress: 10 },
     })
 
+    const shortCharacters = await db.shortCharacter.findMany({
+        where: { shortId },
+        include: { character: true },
+        orderBy: { orderIndex: 'asc' }
+    })
+
+    const charactersForScript = shortCharacters.map(sc => ({
+        name: sc.character.name,
+        description: sc.character.description || sc.character.promptDescription,
+        role: sc.role
+    }))
+
     try {
-        // Gerar roteiro via agente
         const script = await generateScript(
             short.theme,
             short.targetDuration,
             short.style,
-            short.userId
+            short.userId,
+            charactersForScript
         )
 
-        // Salvar roteiro e criar cenas
+        log.info('📄 Roteiro recebido', {
+            shortId,
+            title: script.title,
+            scenes: script.scenes.length,
+            totalDuration: script.totalDuration
+        })
+
         await db.$transaction(async (tx) => {
-            // Atualizar short com roteiro
             await tx.short.update({
                 where: { id: shortId },
                 data: {
@@ -64,7 +100,6 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
                 },
             })
 
-            // Criar cenas
             for (const scene of script.scenes) {
                 await tx.shortScene.create({
                     data: {
@@ -78,8 +113,11 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
             }
         })
 
+        log.success('Roteiro salvo', startTime, { shortId, scenes: script.scenes.length })
         return script
     } catch (error) {
+        log.fail('Geração de roteiro', error, { shortId })
+
         await db.short.update({
             where: { id: shortId },
             data: { status: 'FAILED' as ShortStatus, errorMessage: (error as Error).message },
@@ -95,44 +133,55 @@ export async function generateShortPrompts(shortId: string): Promise<PromptEngin
         include: { scenes: { orderBy: { order: 'asc' } } },
     })
 
-    if (!short.script) {
-        throw new Error('Short não possui roteiro')
-    }
+    const startTime = log.start('Gerando prompts de imagem', { shortId, scenes: short.scenes.length })
 
     await db.short.update({
         where: { id: shortId },
-        data: { status: 'PROMPTING' as ShortStatus, progress: 40 },
+        data: { status: 'PROMPTING' as ShortStatus, progress: 35 },
     })
 
-    try {
-        // Gerar prompts via agente
-        const prompts = await generatePrompts(
-            short.script as any as ShortScript,
-            short.style,
-            short.userId
-        )
+    const shortCharacters = await db.shortCharacter.findMany({
+        where: { shortId },
+        include: { character: true },
+        orderBy: { orderIndex: 'asc' }
+    })
 
-        // Atualizar cenas com prompts
+    const charactersForPrompts = shortCharacters.map(sc => ({
+        name: sc.character.name,
+        promptDescription: sc.customPrompt || sc.character.promptDescription
+            + (sc.customClothing ? `, wearing ${sc.customClothing}` : ''),
+    }))
+
+    try {
+        const script = short.script as any as ShortScript
+        const prompts = await generatePrompts(script, short.style, short.userId, charactersForPrompts)
+
+        log.info('🎨 Prompts recebidos', { shortId, count: prompts.prompts.length })
+
         await db.$transaction(async (tx) => {
             for (const prompt of prompts.prompts) {
-                await tx.shortScene.updateMany({
-                    where: { shortId, order: prompt.sceneOrder },
-                    data: {
-                        imagePrompt: prompt.imagePrompt,
-                        negativePrompt: prompt.negativePrompt,
-                        duration: prompt.suggestedDuration,
-                    },
-                })
+                const scene = short.scenes.find((s) => s.order === prompt.sceneOrder)
+                if (scene) {
+                    await tx.shortScene.update({
+                        where: { id: scene.id },
+                        data: {
+                            imagePrompt: prompt.imagePrompt,
+                            negativePrompt: prompt.negativePrompt,
+                        },
+                    })
+                }
             }
-
             await tx.short.update({
                 where: { id: shortId },
                 data: { progress: 50 },
             })
         })
 
+        log.success('Prompts salvos', startTime, { shortId })
         return prompts
     } catch (error) {
+        log.fail('Geração de prompts', error, { shortId })
+
         await db.short.update({
             where: { id: shortId },
             data: { status: 'FAILED' as ShortStatus, errorMessage: (error as Error).message },
@@ -141,19 +190,15 @@ export async function generateShortPrompts(shortId: string): Promise<PromptEngin
     }
 }
 
-// Passo 3: Gerar mídias (batch)
-export async function generateShortMedia(
-    shortId: string,
-    options: GenerateMediaOptions = {}
-): Promise<void> {
+// Passo 3: Gerar mídia
+export async function generateShortMedia(shortId: string, _options?: GenerateMediaOptions): Promise<void> {
     const short = await db.short.findUniqueOrThrow({
         where: { id: shortId },
         include: { scenes: { orderBy: { order: 'asc' } } },
     })
 
-    if (short.scenes.some((s) => !s.imagePrompt)) {
-        throw new Error('Algumas cenas não possuem prompts')
-    }
+    const totalScenes = short.scenes.length
+    const startTime = log.start('Gerando imagens', { shortId, total: totalScenes })
 
     await db.short.update({
         where: { id: shortId },
@@ -161,33 +206,40 @@ export async function generateShortMedia(
     })
 
     try {
-        const totalScenes = short.scenes.length
         let completedScenes = 0
+        let failedScenes = 0
         let totalCreditsUsed = 0
+        const batchSize = 3
 
-        // Gerar mídias em paralelo (com limite de concorrência)
-        const concurrencyLimit = 3
-        const chunks: typeof short.scenes[] = []
+        for (let i = 0; i < short.scenes.length; i += batchSize) {
+            const batch = short.scenes.slice(i, i + batchSize)
 
-        for (let i = 0; i < short.scenes.length; i += concurrencyLimit) {
-            chunks.push(short.scenes.slice(i, i + concurrencyLimit))
-        }
+            log.debug(`Processando batch ${Math.floor(i / batchSize) + 1}`, {
+                shortId,
+                scenes: batch.map(s => s.order).join(',')
+            })
 
-        for (const chunk of chunks) {
             await Promise.all(
-                chunk.map(async (scene) => {
+                batch.map(async (scene) => {
+                    if (!scene.imagePrompt) {
+                        log.warn('Cena sem prompt, pulando', { shortId, sceneId: scene.id, order: scene.order })
+                        return
+                    }
+
+                    const sceneStart = Date.now()
+
                     try {
-                        // Gerar imagem com Flux Schnell
+                        log.debug(`Gerando imagem`, { shortId, sceneId: scene.id, order: scene.order })
+
                         const result = await generateFluxImage({
-                            prompt: scene.imagePrompt!,
-                            image_size: 'portrait_16_9', // 9:16 para shorts
-                            // Note: check available sizes in flux.ts if known. Usually 'portrait_16_9' is valid in fal.
+                            prompt: scene.imagePrompt,
+                            negative_prompt: scene.negativePrompt ?? undefined,
+                            image_size: 'portrait_16_9',
                             num_images: 1,
                         })
 
                         const image = result.images[0]
 
-                        // Atualizar cena com mídia
                         await db.shortScene.update({
                             where: { id: scene.id },
                             data: {
@@ -199,9 +251,19 @@ export async function generateShortMedia(
                             },
                         })
 
-                        totalCreditsUsed += 1 // 1 crédito por imagem
+                        totalCreditsUsed += 1
+                        completedScenes++
+
+                        log.info(`🖼️ Imagem gerada`, {
+                            shortId,
+                            progress: `${completedScenes}/${totalScenes}`,
+                            duration: Date.now() - sceneStart
+                        })
+
                     } catch (error) {
-                        console.error(`Cena ${scene.id} falhou:`, error)
+                        failedScenes++
+                        log.fail(`Imagem cena ${scene.order + 1}`, error, { shortId, sceneId: scene.id })
+
                         await db.shortScene.update({
                             where: { id: scene.id },
                             data: {
@@ -211,9 +273,8 @@ export async function generateShortMedia(
                         })
                     }
 
-                    completedScenes++
-                    const progress = 55 + Math.floor((completedScenes / totalScenes) * 40)
-
+                    // Atualizar progresso
+                    const progress = 55 + Math.floor(((completedScenes + failedScenes) / totalScenes) * 40)
                     await db.short.update({
                         where: { id: shortId },
                         data: { progress },
@@ -222,25 +283,39 @@ export async function generateShortMedia(
             )
         }
 
-        // Verificar se todas as cenas foram geradas
-        const updatedShort = await db.short.findUniqueOrThrow({
-            where: { id: shortId },
-            include: { scenes: true },
-        })
-
-        const allGenerated = updatedShort.scenes.every((s) => s.isGenerated)
+        // Status final
+        const allGenerated = failedScenes === 0
+        const finalStatus = allGenerated ? 'COMPLETED' : 'FAILED'
 
         await db.short.update({
             where: { id: shortId },
             data: {
-                status: allGenerated ? 'COMPLETED' as ShortStatus : 'FAILED' as ShortStatus,
-                progress: allGenerated ? 100 : updatedShort.progress,
+                status: finalStatus as ShortStatus,
+                progress: allGenerated ? 100 : short.progress,
                 creditsUsed: totalCreditsUsed,
                 completedAt: allGenerated ? new Date() : null,
-                errorMessage: allGenerated ? null : 'Algumas cenas falharam na geração',
+                errorMessage: allGenerated ? null : `${failedScenes} cena(s) falharam`,
             },
         })
+
+        if (allGenerated) {
+            log.success('Pipeline concluído', startTime, {
+                shortId,
+                scenes: `${completedScenes}/${totalScenes}`,
+                credits: totalCreditsUsed
+            })
+        } else {
+            log.warn('Pipeline concluído com erros', {
+                shortId,
+                success: completedScenes,
+                failed: failedScenes,
+                duration: Date.now() - startTime
+            })
+        }
+
     } catch (error) {
+        log.fail('Geração de mídia', error, { shortId })
+
         await db.short.update({
             where: { id: shortId },
             data: { status: 'FAILED' as ShortStatus, errorMessage: (error as Error).message },
@@ -249,9 +324,18 @@ export async function generateShortMedia(
     }
 }
 
-// Pipeline completo (executa todos os passos)
+// Pipeline completo
 export async function runFullPipeline(shortId: string): Promise<void> {
-    await generateShortScript(shortId)
-    await generateShortPrompts(shortId)
-    await generateShortMedia(shortId)
+    const pipelineStart = log.start('Pipeline completo', { shortId })
+
+    try {
+        await generateShortScript(shortId)
+        await generateShortPrompts(shortId)
+        await generateShortMedia(shortId)
+
+        log.success('🎉 Pipeline finalizado', pipelineStart, { shortId })
+    } catch (error) {
+        log.fail('Pipeline', error, { shortId })
+        throw error
+    }
 }

@@ -44,6 +44,7 @@ model User {
   shorts            Short[]
   userAgents        UserAgent[]
   userStyles        UserStyle[]
+  characters        Character[]
 }
 
 
@@ -157,6 +158,7 @@ model Short {
   // Relations
   user            User         @relation(fields: [userId], references: [id])
   scenes          ShortScene[]
+  characters      ShortCharacter[]
   
   @@index([userId])
   @@index([clerkUserId])
@@ -394,4 +396,81 @@ model UserStyle {
   @@index([userId])
   @@index([clerkUserId])
   @@index([key])
+}
+
+// ============================================
+// SISTEMA DE BIBLIOTECA DE PERSONAGENS
+// ============================================
+
+model Character {
+  id                String   @id @default(cuid())
+  userId            String
+  clerkUserId       String
+  
+  // Informações básicas
+  name              String              // "Maria"
+  description       String?  @db.Text   // Descrição livre
+  
+  // Imagem de referência
+  imageUrl          String              // URL da imagem uploaded
+  thumbnailUrl      String?             // Versão menor para listagem
+  
+  // Características físicas (JSON estruturado)
+  traits            Json?
+  // Estrutura sugerida:
+  // {
+  //   "age": "6 anos",
+  //   "gender": "female",
+  //   "hairColor": "castanho",
+  //   "hairStyle": "rabo de cavalo",
+  //   "skinTone": "clara",
+  //   "eyeColor": "castanho",
+  //   "clothing": "vestido rosa",
+  //   "accessories": "laço vermelho",
+  //   "bodyType": "criança magra",
+  //   "distinctiveFeatures": "sardas no rosto"
+  // }
+  
+  // Prompt otimizado (gerado automaticamente ou editado pelo usuário)
+  promptDescription String   @db.Text   // Prompt em inglês otimizado para IA
+  
+  // Metadados
+  isActive          Boolean  @default(true)
+  usageCount        Int      @default(0)  // Quantos shorts usaram este personagem
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortCharacters   ShortCharacter[]
+  
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([isActive])
+  @@index([usageCount])
+}
+
+model ShortCharacter {
+  id            String    @id @default(cuid())
+  shortId       String
+  characterId   String
+  
+  // Papel no short
+  role          String    @default("character")  // "protagonist", "sidekick", "antagonist", "supporting"
+  orderIndex    Int       @default(0)            // Ordem de importância/aparição
+  
+  // Customização para este short específico (opcional)
+  customPrompt  String?   @db.Text               // Override do prompt para este short
+  customClothing String?                          // Roupa diferente neste short
+  
+  createdAt     DateTime  @default(now())
+  
+  // Relations
+  short         Short     @relation(fields: [shortId], references: [id], onDelete: Cascade)
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  
+  @@unique([shortId, characterId])  // Mesmo personagem não pode ser adicionado 2x
+  @@index([shortId])
+  @@index([characterId])
 }
