@@ -1,6 +1,26 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## [1.3.1] - 2026-01-11
+
+### Fixed
+- Corrigido erro de validação (400) na rota `/api/shorts` para permitir estilos dinâmicos/personalizados.
+
+## [1.3.0] - 2026-01-11
+
+### Added
+- **Sistema de Agentes e Estilos**: Configuração personalizada de IA com 3 níveis de prioridade (Usuário > Admin > Padrão).
+- **Resolver de Identidade**: Lógica centralizada para injetar prompts e modelos específicos por usuário ou globais.
+- **Personalização por Usuário**: Nova página em `/settings/styles` para criar roteiros e prompts visuais personalizados.
+- **Painel Administrativo**: Interface em `/admin/agents` para configurar Agentes Globais (Scriptwriter, Prompt Engineer, Narrator).
+- **Estilos Dinâmicos**: O formulário de criação de shorts agora carrega estilos (Envolvente, Educacional, etc.) direto do banco de dados.
+- Novos modelos Prisma: `GlobalAgent`, `UserAgent`, `GlobalStyle`, `UserStyle`.
+
+### Fixed
+- **Prisma Client Generation**: Resolvido erro `EPERM` e falhas de `TypeError` ao centralizar a geração do cliente em um diretório não bloqueado (`client_final`).
+- Corrigido caminhos de importação do Prisma em toda a aplicação e utilitários.
+- Erro de sintaxe no import do webhook de usuários.
  
 ## [1.2.0] - 2026-01-11
  

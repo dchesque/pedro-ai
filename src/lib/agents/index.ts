@@ -1,3 +1,5 @@
 export * from './types'
+export * from './defaults'
+export * from './resolver'
 export * from './scriptwriter'
 export * from './prompt-engineer'

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/admin-utils";
 import { OperationType } from "@/lib/prisma-types";
-import type { Prisma } from "../../../../../prisma/generated/client";
+import type { Prisma } from "../../../../../prisma/generated/client_final";
 import { withApiLogging } from "@/lib/logging/api";
 
 async function handleAdminUsageGet(request: Request) {

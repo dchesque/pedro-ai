@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "./generated/client_new"
+  output   = "./generated/client_final"
 }
 
 datasource db {
@@ -42,6 +42,8 @@ model User {
   @@index([isActive])
   @@index([currentPlanId])
   shorts            Short[]
+  userAgents        UserAgent[]
+  userStyles        UserStyle[]
 }
 
 
@@ -279,4 +281,117 @@ model SubscriptionEvent {
 
   @@index([clerkUserId, occurredAt])
   @@index([userId, occurredAt])
+}
+
+// ============================================
+// SISTEMA DE AGENTES E ESTILOS CONFIGURÁVEIS
+// ============================================
+
+// Tipo de agente
+enum AgentType {
+  SCRIPTWRITER      // Roteirista - cria roteiros
+  PROMPT_ENGINEER   // Engenheiro de Prompts - cria prompts de imagem
+  NARRATOR          // Narrador (futuro - ElevenLabs)
+}
+
+// Agente Global (Admin) - fallback para todos os usuários
+model GlobalAgent {
+  id              String      @id @default(cuid())
+  type            AgentType   @unique  // Apenas 1 por tipo
+  name            String
+  description     String?
+  systemPrompt    String      @db.Text
+  model           String      @default("anthropic/claude-3.5-sonnet")
+  temperature     Float       @default(0.7)
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([type])
+  @@index([isActive])
+}
+
+// Agente do Usuário - sobrepõe o global se existir
+model UserAgent {
+  id              String      @id @default(cuid())
+  userId          String
+  clerkUserId     String
+  type            AgentType
+  name            String
+  description     String?
+  systemPrompt    String      @db.Text
+  model           String?     // Se null, usa o do global ou default
+  temperature     Float?
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, type])  // 1 agente por tipo por usuário
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([type])
+}
+
+// Estilo Global (Admin) - disponível para todos
+model GlobalStyle {
+  id              String      @id @default(cuid())
+  key             String      @unique  // ex: "engaging", "educational", "tech_review"
+  name            String               // ex: "Envolvente", "Educacional"
+  description     String?              // Descrição para UI
+  icon            String?              // Emoji ou nome do ícone (ex: "🔥", "Flame")
+  
+  // Prompts adicionais injetados no agente
+  scriptwriterPrompt    String?   @db.Text  // Adicional para o roteirista
+  promptEngineerPrompt  String?   @db.Text  // Adicional para prompt engineer
+  
+  // Configurações visuais para geração de imagem
+  visualStyle     String?     @db.Text  // Ex: "cinematic, dramatic lighting, 8k"
+  negativePrompt  String?     @db.Text  // Ex: "cartoon, anime, low quality"
+  
+  sortOrder       Int         @default(0)
+  isActive        Boolean     @default(true)
+  isDefault       Boolean     @default(false)  // Estilo padrão selecionado
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([key])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Estilo do Usuário - customização pessoal
+model UserStyle {
+  id              String      @id @default(cuid())
+  userId          String
+  clerkUserId     String
+  
+  key             String      // ex: "meu_estilo_gaming", "reviews_tech"
+  name            String
+  description     String?
+  icon            String?
+  
+  // Prompts adicionais
+  scriptwriterPrompt    String?   @db.Text
+  promptEngineerPrompt  String?   @db.Text
+  
+  // Configurações visuais
+  visualStyle     String?     @db.Text
+  negativePrompt  String?     @db.Text
+  
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, key])  // Key única por usuário
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([key])
 }

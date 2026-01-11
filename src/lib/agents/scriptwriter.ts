@@ -1,41 +1,18 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText } from 'ai'
 import type { ShortScript } from './types'
+import { resolveAgent, resolveStyle } from './resolver'
+import { AgentType } from '../../../prisma/generated/client_final'
 
 const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-const SCRIPTWRITER_SYSTEM_PROMPT = `Você é um roteirista especialista em criar roteiros virais para shorts/reels.
-
-Seu objetivo é criar roteiros que:
-- Prendam a atenção nos primeiros 3 segundos (gancho forte)
-- Mantenham o espectador engajado até o final
-- Tenham uma narrativa clara com começo, meio e fim
-- Terminem com um CTA (call to action) relevante
-
-REGRAS:
-1. Cada cena deve ter entre 3-7 segundos
-2. A narração deve ser concisa e impactante
-3. A descrição visual deve ser detalhada o suficiente para gerar imagens
-4. O total de cenas deve resultar na duração alvo
-5. Use linguagem apropriada para o estilo solicitado
-
-ESTILOS DISPONÍVEIS:
-- engaging: Conteúdo envolvente e dinâmico
-- educational: Informativo e didático
-- funny: Humorístico e leve
-- dramatic: Intenso e emocionante
-- inspirational: Motivacional e positivo
-
-Responda APENAS com JSON válido, sem markdown ou explicações.
-A resposta deve ser obrigatoriamente um objeto JSON com campos: title, hook, scenes (array), cta, totalDuration, style.`
-
-const SCRIPTWRITER_USER_PROMPT = (theme: string, duration: number, style: string) => `
+const USER_PROMPT_TEMPLATE = (theme: string, duration: number, styleName: string) => `
 Crie um roteiro para um short sobre:
 TEMA: ${theme}
 DURAÇÃO ALVO: ${duration} segundos
-ESTILO: ${style}
+ESTILO: ${styleName}
 
 Retorne um JSON com a seguinte estrutura:
 {
@@ -52,28 +29,37 @@ Retorne um JSON com a seguinte estrutura:
   ],
   "cta": "Call to action final",
   "totalDuration": ${duration},
-  "style": "${style}"
+  "style": "${styleName}"
 }
 `
 
 export async function generateScript(
     theme: string,
     duration: number,
-    style: string
+    styleKey: string,
+    userId?: string
 ): Promise<ShortScript> {
+    // Resolver agente e estilo
+    const agent = await resolveAgent(AgentType.SCRIPTWRITER, userId)
+    const style = await resolveStyle(styleKey, userId)
+
+    // Montar system prompt completo
+    const fullSystemPrompt = `${agent.systemPrompt}
+
+${style.scriptwriterPrompt}`
+
     const { text } = await generateText({
-        model: openrouter('anthropic/claude-3.5-sonnet:beta'),
-        system: SCRIPTWRITER_SYSTEM_PROMPT,
-        prompt: SCRIPTWRITER_USER_PROMPT(theme, duration, style),
-        temperature: 0.7,
+        model: openrouter(agent.model as any),
+        system: fullSystemPrompt,
+        prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name),
+        temperature: agent.temperature,
     })
 
-    // Parse JSON da resposta
+    // Parse JSON
     const cleanText = text.replace(/```json\n?|\n?```/g, '').trim()
     try {
         const script: ShortScript = JSON.parse(cleanText)
 
-        // Validar estrutura básica
         if (!script.title || !script.hook || !script.scenes || !script.cta) {
             throw new Error('Script inválido: campos obrigatórios ausentes')
         }

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { Prisma } from '../../../prisma/generated/client'
+import { Prisma } from '../../../prisma/generated/client_final'
 
 function isDatabaseUnavailableError(error: unknown) {
   if (!error) return false

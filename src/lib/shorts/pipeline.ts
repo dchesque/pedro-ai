@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { generateScript } from '@/lib/agents/scriptwriter'
 import { generatePrompts } from '@/lib/agents/prompt-engineer'
 import { generateFluxImage } from '@/lib/fal/flux'
-import { ShortStatus } from '../../../prisma/generated/client'
+import { ShortStatus } from '../../../prisma/generated/client_final'
 import type { ShortScript, PromptEngineerOutput } from '@/lib/agents/types'
 
 interface CreateShortInput {
@@ -43,7 +43,12 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
 
     try {
         // Gerar roteiro via agente
-        const script = await generateScript(short.theme, short.targetDuration, short.style)
+        const script = await generateScript(
+            short.theme,
+            short.targetDuration,
+            short.style,
+            short.userId
+        )
 
         // Salvar roteiro e criar cenas
         await db.$transaction(async (tx) => {
@@ -101,7 +106,11 @@ export async function generateShortPrompts(shortId: string): Promise<PromptEngin
 
     try {
         // Gerar prompts via agente
-        const prompts = await generatePrompts(short.script as any as ShortScript)
+        const prompts = await generatePrompts(
+            short.script as any as ShortScript,
+            short.style,
+            short.userId
+        )
 
         // Atualizar cenas com prompts
         await db.$transaction(async (tx) => {

@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { isAdmin } from "@/lib/admin-utils"
-import type { Prisma } from "../../../../../prisma/generated/client"
+import { Prisma } from "../../../../../prisma/generated/client_final";
 import { withApiLogging } from "@/lib/logging/api"
 
 async function handleAdminCreditsGet(request: Request) {
@@ -55,12 +55,12 @@ async function handleAdminCreditsGet(request: Request) {
           },
           ...(includeUsageCount
             ? {
-                _count: {
-                  select: {
-                    usageHistory: true
-                  }
+              _count: {
+                select: {
+                  usageHistory: true
                 }
               }
+            }
             : {})
         },
         orderBy: {

@@ -1,4 +1,4 @@
-import { OperationType } from '../../../prisma/generated/client'
+import { OperationType } from '../../../prisma/generated/client_final'
 
 // Single source of truth for feature costs (examples below)
 export const FEATURE_CREDIT_COSTS = {

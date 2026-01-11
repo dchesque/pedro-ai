@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
+import { Prisma } from "../../../../../prisma/generated/client_final";
 
 import { db } from '@/lib/db'
 import { withApiLogging } from '@/lib/logging/api'

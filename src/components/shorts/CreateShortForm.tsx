@@ -25,11 +25,13 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useAvailableStyles } from "@/hooks/use-agents"
 
 const formSchema = z.object({
     theme: z.string().min(10, 'Descreva o tema com pelo menos 10 caracteres').max(500),
     targetDuration: z.number().int().min(15).max(60),
-    style: z.enum(['engaging', 'educational', 'funny', 'dramatic', 'inspirational']),
+    style: z.string().min(1, 'Selecione um estilo'),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -39,23 +41,28 @@ interface CreateShortFormProps {
     isLoading?: boolean
 }
 
-const STYLES = [
-    { value: 'engaging', label: 'Envolvente', desc: 'Conteúdo dinâmico e cativante' },
-    { value: 'educational', label: 'Educacional', desc: 'Informativo e didático' },
-    { value: 'funny', label: 'Divertido', desc: 'Humorístico e leve' },
-    { value: 'dramatic', label: 'Dramático', desc: 'Intenso e emocionante' },
-    { value: 'inspirational', label: 'Inspiracional', desc: 'Motivacional e positivo' },
-]
-
 export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
+    const { data: stylesData, isLoading: loadingStyles } = useAvailableStyles()
+    const styles = stylesData?.styles ?? []
+
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             theme: "",
             targetDuration: 30,
-            style: "engaging",
+            style: "",
         },
     })
+
+    // Selecionar estilo padrão quando carregar
+    React.useEffect(() => {
+        if (styles.length > 0 && !form.getValues('style')) {
+            const defaultStyle = styles.find(s => s.source === 'default' && s.key === 'engaging') ??
+                styles.find(s => s.source === 'default') ??
+                styles[0]
+            form.setValue('style', defaultStyle.key)
+        }
+    }, [styles, form])
 
     const duration = form.watch("targetDuration")
     const estimatedScenes = Math.ceil(duration / 5)
@@ -116,29 +123,42 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Estilo</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione um estilo" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {STYLES.map((style) => (
-                                        <SelectItem key={style.value} value={style.value}>
-                                            <div>
-                                                <span className="font-medium">{style.label}</span>
-                                                <span className="ml-2 text-muted-foreground text-xs">{style.desc}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {loadingStyles ? (
+                                <Skeleton className="h-10 w-full" />
+                            ) : (
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione um estilo" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {styles.map((style) => (
+                                            <SelectItem key={style.key} value={style.key}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{style.icon}</span>
+                                                    <span className="font-medium">{style.name}</span>
+                                                    {style.source === 'user' && (
+                                                        <span className="text-xs text-muted-foreground">(Meu)</span>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            <FormDescription>
+                                Defina o tom e estilo visual do seu short.
+                                <a href="/settings/styles" className="ml-1 text-primary hover:underline">
+                                    Criar estilo personalizado
+                                </a>
+                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || loadingStyles}>
                     {isLoading ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

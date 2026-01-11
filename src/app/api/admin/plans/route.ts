@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isAdmin } from '@/lib/admin-utils'
 import { db } from '@/lib/db'
-import { Prisma } from '../../../../../prisma/generated/client'
+import { Prisma } from '../../../../../prisma/generated/client_final'
 import { withApiLogging } from '@/lib/logging/api'
 import { ASAAS_MIN_VALUE } from '@/lib/asaas/config'
 
@@ -187,26 +187,28 @@ async function handleAdminPlansPost(req: Request) {
         data.features = Prisma.JsonNull
       }
       const created = await db.plan.create({ data })
-      return NextResponse.json({ plan: {
-        id: created.id,
-        clerkId: created.clerkId,
-        name: created.name,
-        credits: created.credits,
-        active: created.active,
-        sortOrder: created.sortOrder ?? 0,
-        clerkName: created.clerkName || null,
-        currency: created.currency || null,
-        priceMonthlyCents: created.priceMonthlyCents ?? null,
-        priceYearlyCents: created.priceYearlyCents ?? null,
-        description: created.description ?? null,
-        features: created.features ?? null,
-        badge: created.badge ?? null,
-        highlight: created.highlight ?? null,
-        ctaType: created.ctaType ?? null,
-        ctaLabel: created.ctaLabel ?? null,
-        ctaUrl: created.ctaUrl ?? null,
-        billingSource: created.billingSource ?? 'manual',
-      } }, { status: 201 })
+      return NextResponse.json({
+        plan: {
+          id: created.id,
+          clerkId: created.clerkId,
+          name: created.name,
+          credits: created.credits,
+          active: created.active,
+          sortOrder: created.sortOrder ?? 0,
+          clerkName: created.clerkName || null,
+          currency: created.currency || null,
+          priceMonthlyCents: created.priceMonthlyCents ?? null,
+          priceYearlyCents: created.priceYearlyCents ?? null,
+          description: created.description ?? null,
+          features: created.features ?? null,
+          badge: created.badge ?? null,
+          highlight: created.highlight ?? null,
+          ctaType: created.ctaType ?? null,
+          ctaLabel: created.ctaLabel ?? null,
+          ctaUrl: created.ctaUrl ?? null,
+          billingSource: created.billingSource ?? 'manual',
+        }
+      }, { status: 201 })
     } catch (e: unknown) {
       if (String((e as { code?: string })?.code) === 'P2002') {
         return NextResponse.json({ error: 'clerkId já existe' }, { status: 409 })
@@ -311,15 +313,17 @@ async function handleAdminPlansPut(_req: Request, ctx: { params: Promise<{ clerk
     if (body.ctaLabel !== undefined) data.ctaLabel = body.ctaLabel === null ? null : (String(body.ctaLabel).trim() || null)
     if (body.ctaUrl !== undefined) data.ctaUrl = body.ctaUrl === null ? null : (String(body.ctaUrl).trim() || null)
     const updated = await db.plan.update({ where: { id: current.id }, data })
-    return NextResponse.json({ plan: {
-      id: updated.id,
-      clerkId: updated.clerkId,
-      name: updated.name,
-      credits: updated.credits,
-      active: updated.active,
-      sortOrder: updated.sortOrder ?? 0,
-      clerkName: updated.clerkName || null,
-    } })
+    return NextResponse.json({
+      plan: {
+        id: updated.id,
+        clerkId: updated.clerkId,
+        name: updated.name,
+        credits: updated.credits,
+        active: updated.active,
+        sortOrder: updated.sortOrder ?? 0,
+        clerkName: updated.clerkName || null,
+      }
+    })
   } catch (e: unknown) {
     const errorCode = (e as { code?: string })?.code;
     if (String(errorCode) === 'P2025') return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })

@@ -42,7 +42,7 @@ async function handleGet(req: Request) {
 const CreateShortSchema = z.object({
     theme: z.string().min(3).max(500),
     targetDuration: z.number().int().min(15).max(60).optional().default(30),
-    style: z.enum(['engaging', 'educational', 'funny', 'dramatic', 'inspirational']).optional().default('engaging'),
+    style: z.string().min(1).optional().default('engaging'),
 }).strict()
 
 async function handlePost(req: Request) {
