@@ -29,6 +29,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { useUpdateShort } from "@/hooks/use-shorts"
+import { useAIModels } from "@/hooks/use-ai-models"
 import { toast } from "sonner"
 
 export default function ShortDetailPage() {
@@ -37,6 +38,7 @@ export default function ShortDetailPage() {
     const id = params.id as string
 
     const { data, isLoading, error, refetch } = useShort(id)
+    const { data: aiModelsData } = useAIModels()
     type FormValues = {
         theme: string
         targetDuration: number
@@ -329,10 +331,17 @@ export default function ShortDetailPage() {
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Tema</p>
                                 <p className="text-sm">{short.theme}</p>
                             </div>
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Estilo</p>
                                     <Badge variant="outline" className="capitalize">{short.style}</Badge>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Modelo IA</p>
+                                    <Badge variant="secondary" className="gap-1.5 py-0.5">
+                                        <span>{aiModelsData?.find(m => m.id === short.aiModel)?.icon || '🚀'}</span>
+                                        {aiModelsData?.find(m => m.id === short.aiModel)?.name || short.aiModel || 'Padrão'}
+                                    </Badge>
                                 </div>
                             </div>
                         </CardContent>

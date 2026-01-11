@@ -102,11 +102,10 @@ model UsageHistory {
 }
 
 enum OperationType {
-  AI_TEXT_CHAT
-  AI_IMAGE_GENERATION
-  FAL_IMAGE_GENERATION
-  FAL_VIDEO_GENERATION
   SHORT_GENERATION
+  SCRIPT_GENERATION
+  SCRIPT_REGENERATION
+  SCENE_REGENERATION
 }
 
 // Status do Short
@@ -140,7 +139,7 @@ model Short {
   style           String       @default("engaging") // Estilo (engaging, educational, funny, etc)
   
   // Novo: Modelo de IA escolhido pelo usuário
-  aiModel           String?     @default("deepseek/deepseek-chat")
+  aiModel           String?     @default("deepseek/deepseek-v3.2")
 
   // Novo: Resumo da história (gerado junto com roteiro)
   summary           String?     @db.Text

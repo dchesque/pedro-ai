@@ -6,7 +6,10 @@ export const FEATURE_CREDIT_COSTS = {
   ai_image_generation: 5,
   fal_image_generation: 1,
   fal_video_generation: 1,
-  short_generation: 10,  // NOVO - custo base por short (+ custo das mídias)
+  short_generation: 10,
+  script_generation: 1,
+  script_regeneration: 1,
+  scene_regeneration: 1,
 } as const
 
 // Feature keys are derived from the config above to ensure type-safety across the codebase
@@ -19,6 +22,9 @@ const FEATURE_TO_OPERATION: Record<FeatureKey, OperationType> = {
   fal_image_generation: OperationType.FAL_IMAGE_GENERATION,
   fal_video_generation: OperationType.FAL_VIDEO_GENERATION,
   short_generation: OperationType.SHORT_GENERATION,
+  script_generation: OperationType.SCRIPT_GENERATION,
+  script_regeneration: OperationType.SCRIPT_REGENERATION,
+  scene_regeneration: OperationType.SCENE_REGENERATION,
 }
 
 export function toPrismaOperationType(feature: FeatureKey): OperationType {

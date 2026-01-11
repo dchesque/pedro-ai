@@ -61,7 +61,8 @@ export async function generateScript(
     duration: number,
     styleKey: string,
     userId?: string,
-    characters: CharacterInfo[] = []
+    characters: CharacterInfo[] = [],
+    modelOverride?: string
 ): Promise<ShortScript> {
     const startTime = log.start('Gerando script', { theme, duration, style: styleKey, userId })
 
@@ -78,10 +79,10 @@ export async function generateScript(
     const fullSystemPrompt = `${agent.systemPrompt}\n\n${style.scriptwriterPrompt}`
 
     try {
-        log.debug('Chamando LLM', { model: agent.model, temperature: agent.temperature })
+        const modelToUse = modelOverride || agent.model
 
         const { text } = await generateText({
-            model: openrouter(agent.model as any),
+            model: openrouter(modelToUse as any),
             system: fullSystemPrompt,
             prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name, characters),
             temperature: agent.temperature,

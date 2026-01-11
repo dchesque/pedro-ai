@@ -5,6 +5,9 @@ import { generateFluxImage } from '@/lib/fal/flux'
 import { ShortStatus } from '../../../prisma/generated/client_final'
 import type { ShortScript, PromptEngineerOutput } from '@/lib/agents/types'
 import { createLogger } from '@/lib/logger'
+import { getModelById, isModelFree, getModelCredits } from '@/lib/ai/models'
+import { validateCreditsForFeature, deductCreditsForFeature } from '@/lib/credits/deduct'
+import { FeatureKey } from '@/lib/credits/feature-config'
 
 const log = createLogger('shorts/pipeline')
 
@@ -50,12 +53,31 @@ export async function createShort(input: CreateShortInput) {
 export async function generateScript(shortId: string): Promise<ShortScript> {
     const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
 
+    const modelId = short.aiModel ?? 'deepseek/deepseek-v3.2'
+    const model = getModelById(modelId)
+
+    // Verificar se precisa cobrar créditos
+    const creditsToCharge = model?.isFree ? 0 : (model?.creditsPerUse ?? 2)
+
+    if (creditsToCharge > 0) {
+        // Validar e deduzir créditos antes de começar (para evitar gasto de IA se não tiver crédito)
+        await validateCreditsForFeature(short.clerkUserId, 'script_generation', creditsToCharge)
+        await deductCreditsForFeature({
+            clerkUserId: short.clerkUserId,
+            feature: 'script_generation',
+            quantity: creditsToCharge,
+            details: { shortId, modelId, modelName: model?.name }
+        })
+    }
+
     const startTime = log.start('Gerando roteiro', {
         shortId,
         userId: short.userId,
         theme: short.theme,
         style: short.style,
-        model: short.aiModel
+        model: modelId,
+        credits: creditsToCharge,
+        isFree: model?.isFree
     })
 
     await db.short.update({
@@ -81,7 +103,8 @@ export async function generateScript(shortId: string): Promise<ShortScript> {
             short.targetDuration,
             short.style,
             short.userId,
-            charactersForScript
+            charactersForScript,
+            modelId // Passar o modelo para o agente
         )
 
         log.info('📄 Roteiro recebido', {

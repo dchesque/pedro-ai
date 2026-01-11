@@ -15,19 +15,19 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { useAIModels } from '@/hooks/use-ai-models'
 
-interface AIModelSelectorProps {
+interface ModelSelectorProps {
     value: string
     onChange: (modelId: string) => void
     disabled?: boolean
     className?: string
 }
 
-export function AIModelSelector({
+export function ModelSelector({
     value,
     onChange,
     disabled,
     className,
-}: AIModelSelectorProps) {
+}: ModelSelectorProps) {
     const { data: models, isLoading } = useAIModels()
 
     const selectedModel = models?.find((m) => m.id === value)
@@ -43,7 +43,7 @@ export function AIModelSelector({
     return (
         <div className={cn("space-y-2", className)}>
             <label className="text-sm font-medium flex items-center gap-2">
-                <span>🤖</span> Modelo de IA (Roteiro)
+                <span>🤖</span> Modelo de IA
             </label>
 
             <DropdownMenu>
@@ -54,7 +54,7 @@ export function AIModelSelector({
                         disabled={disabled}
                     >
                         <div className="flex items-center gap-3">
-                            <span className="text-xl">{selectedModel?.icon || '🚀'}</span>
+                            <span className="text-xl">{selectedModel?.icon || '🤖'}</span>
                             <div className="flex flex-col">
                                 <span className="font-semibold text-sm leading-tight">
                                     {selectedModel?.name || 'Selecionar Modelo'}

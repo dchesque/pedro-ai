@@ -28,6 +28,7 @@ import { Slider } from "@/components/ui/slider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAvailableStyles } from "@/hooks/use-agents"
 import { CharacterSelector } from "../characters/CharacterSelector"
+import { useCredits } from "@/hooks/use-credits"
 
 import { AIModelSelector } from "./AIModelSelector"
 import { CreditEstimate } from "./CreditEstimate"
@@ -36,7 +37,7 @@ const formSchema = z.object({
     theme: z.string().min(10, 'Descreva o tema com pelo menos 10 caracteres').max(500),
     targetDuration: z.number().int().min(15).max(60),
     style: z.string().min(1, 'Selecione um estilo'),
-    aiModel: z.string().min(1).default('deepseek/deepseek-chat'),
+    aiModel: z.string().min(1),
     characterIds: z.array(z.string()).optional(),
 })
 
@@ -50,6 +51,7 @@ interface CreateShortFormProps {
 export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
     const { data: stylesData, isLoading: loadingStyles } = useAvailableStyles()
     const styles = stylesData?.styles ?? []
+    const { credits } = useCredits()
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -57,7 +59,7 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
             theme: "",
             targetDuration: 30,
             style: "",
-            aiModel: 'deepseek/deepseek-chat'
+            aiModel: 'deepseek/deepseek-v3.2'
         },
     })
 
@@ -72,6 +74,7 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
     }, [styles, form])
 
     const duration = form.watch("targetDuration")
+    const aiModel = form.watch("aiModel")
     const estimatedScenes = Math.ceil(duration / 5)
 
     return (
@@ -193,7 +196,11 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                     )}
                 />
 
-                <CreditEstimate sceneCount={estimatedScenes} />
+                <CreditEstimate
+                    modelId={aiModel}
+                    estimatedScenes={estimatedScenes}
+                    userBalance={credits?.creditsRemaining}
+                />
 
                 <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isLoading || loadingStyles}>
                     {isLoading ? (

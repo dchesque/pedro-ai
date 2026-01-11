@@ -3,17 +3,25 @@ import { db } from '@/lib/db'
 import { validateUserAuthentication, getUserFromClerkId } from '@/lib/auth-utils'
 import { withApiLogging } from '@/lib/logging/api'
 import { generateScript } from '@/lib/shorts/pipeline'
+import { getModelById, isModelFree, getModelCredits, getDefaultModel } from '@/lib/ai/models'
+import { validateCreditsForFeature, deductCreditsForFeature } from '@/lib/credits/deduct'
+import { FeatureKey } from '@/lib/credits/feature-config'
+import { InsufficientCreditsError } from '@/lib/credits/errors'
+import { createLogger } from '@/lib/logger'
 
-async function handlePost(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const log = createLogger('api/shorts/generate-script')
+
+async function handlePost(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+
     try {
         const clerkUserId = await validateUserAuthentication()
         const user = await getUserFromClerkId(clerkUserId)
-        const { id } = await params
 
-        // Verificar posse do short
+        const json = await req.json().catch(() => ({}))
+        const { aiModel } = json
+
+        // Buscar short
         const short = await db.short.findFirst({
             where: { id, userId: user.id }
         })
@@ -22,36 +30,80 @@ async function handlePost(
             return NextResponse.json({ error: 'Short not found' }, { status: 404 })
         }
 
-        const json = await req.json().catch(() => ({}))
-        const { aiModel } = json
+        // Determinar modelo a usar
+        const modelId = aiModel ?? short.aiModel ?? getDefaultModel().id
+        const model = getModelById(modelId)
 
-        if (aiModel) {
+        if (!model) {
+            return NextResponse.json({ error: 'Invalid model' }, { status: 400 })
+        }
+
+        // Calcular créditos (usamos a lógica da pipeline, mas validamos aqui para retornar 402 amigável)
+        const creditsNeeded = model.isFree ? 0 : (model.creditsPerUse || 2)
+
+        log.info('📥 Gerando roteiro', {
+            shortId: id,
+            model: modelId,
+            isFree: model.isFree,
+            credits: creditsNeeded
+        })
+
+        // Validar créditos apenas se modelo não for gratuito
+        if (creditsNeeded > 0) {
+            try {
+                await validateCreditsForFeature(clerkUserId, 'script_generation' as FeatureKey, creditsNeeded)
+            } catch (e) {
+                if (e instanceof InsufficientCreditsError) {
+                    return NextResponse.json({
+                        error: 'insufficient_credits',
+                        required: creditsNeeded,
+                        available: e.available,
+                        suggestion: 'Use o modelo gratuito DeepSeek V3.2'
+                    }, { status: 402 })
+                }
+                throw e
+            }
+
+            // A dedução será feita DENTRO da pipeline.generateScript para garantir atomicidade e 
+            // suporte a background jobs no futuro. 
+            // Se chamarmos aqui e lá, cobrará 2x. 
+            // Como a pipeline já tem a lógica (implementada no passo anterior), aqui só validamos.
+        }
+
+        // Atualizar modelo no short se diferente
+        if (modelId !== short.aiModel) {
             await db.short.update({
                 where: { id },
-                data: { aiModel }
+                data: { aiModel: modelId }
             })
         }
 
+        // Gerar roteiro
         const script = await generateScript(id)
 
-        // Buscar short atualizado
-        const updatedShort = await db.short.findUnique({
+        const updatedShort = await db.short.findUniqueOrThrow({
             where: { id },
             include: { scenes: { orderBy: { order: 'asc' } } }
         })
 
         return NextResponse.json({
             short: updatedShort,
-            creditsUsed: 2 // Custo fixo por enquanto
+            creditsUsed: creditsNeeded,
+            model: {
+                id: model.id,
+                name: model.name,
+                isFree: model.isFree
+            }
         })
+
     } catch (error) {
-        console.error('[shorts/[id]/generate-script] error:', error)
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+        log.fail('Geração de roteiro', error, { shortId: id })
+        return NextResponse.json({ error: (error as Error).message || 'Generation failed' }, { status: 500 })
     }
 }
 
 export const POST = withApiLogging(handlePost, {
     method: 'POST',
     route: '/api/shorts/[id]/generate-script',
-    feature: 'shorts_generate_script' as any,
+    feature: 'script_generation' as any,
 })
