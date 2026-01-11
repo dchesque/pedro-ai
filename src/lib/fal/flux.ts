@@ -27,6 +27,7 @@ export const IMAGE_PRESETS = {
 
 export async function generateFluxImage(input: FluxInput): Promise<FluxOutput> {
     const client = getFalClient();
+    // Flux Schnell é rápido, usar modo síncrono (run)
     return await client.run<FluxOutput>('fal-ai/flux/schnell', {
         ...input,
         num_inference_steps: input.num_inference_steps ?? 4,

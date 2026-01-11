@@ -1,17 +1,47 @@
 export class FalClient {
     private apiKey: string;
-    private baseUrl = 'https://queue.fal.run';
 
     constructor(apiKey: string) {
         this.apiKey = apiKey;
     }
 
-    async run<T>(model: string, input: any, options: { timeout?: number; pollingInterval?: number } = {}): Promise<T> {
-        const { timeout = 60000, pollingInterval = 2000 } = options;
+    // Modo síncrono (para modelos rápidos como Flux Schnell)
+    async run<T>(model: string, input: any, options: { timeout?: number } = {}): Promise<T> {
+        const { timeout = 60000 } = options;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            // Usar endpoint síncrono diretamente
+            const res = await fetch(`https://fal.run/${model}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Key ${this.apiKey}`,
+                },
+                body: JSON.stringify(input),
+                signal: controller.signal,
+            });
+
+            if (!res.ok) {
+                const error = await res.text();
+                throw new Error(`Fal API error: ${res.status} ${error}`);
+            }
+
+            return await res.json();
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // Modo assíncrono (para modelos lentos como Kling Video)
+    async runAsync<T>(model: string, input: any, options: { timeout?: number; pollingInterval?: number } = {}): Promise<T> {
+        const { timeout = 300000, pollingInterval = 2000 } = options;
         const startTime = Date.now();
 
-        // 1. Submit request to queue
-        const submitRes = await fetch(`${this.baseUrl}/${model}`, {
+        // 1. Submit to queue
+        const submitRes = await fetch(`https://queue.fal.run/${model}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -27,30 +57,19 @@ export class FalClient {
 
         const { request_id } = await submitRes.json();
 
-        // 2. Polling for result
+        // 2. Poll for result
         while (Date.now() - startTime < timeout) {
-            const statusRes = await fetch(`${this.baseUrl}/${model}/requests/${request_id}/status`, {
+            const resultRes = await fetch(`https://queue.fal.run/${model}/requests/${request_id}`, {
                 headers: { Authorization: `Key ${this.apiKey}` },
             });
 
-            if (!statusRes.ok) {
-                throw new Error(`Fal API error (status): ${statusRes.status}`);
-            }
-
-            const { status } = await statusRes.json();
-
-            if (status === 'COMPLETED') {
-                const resultRes = await fetch(`${this.baseUrl}/${model}/requests/${request_id}`, {
-                    headers: { Authorization: `Key ${this.apiKey}` },
-                });
-                if (!resultRes.ok) {
-                    throw new Error(`Fal API error (result): ${resultRes.status}`);
-                }
+            if (resultRes.status === 200) {
                 return await resultRes.json();
             }
 
-            if (status === 'FAILED') {
-                throw new Error('Fal API generation failed');
+            if (resultRes.status !== 202) {
+                const error = await resultRes.text();
+                throw new Error(`Fal API error (poll): ${resultRes.status} ${error}`);
             }
 
             await new Promise((resolve) => setTimeout(resolve, pollingInterval));

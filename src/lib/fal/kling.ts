@@ -27,11 +27,12 @@ export async function generateKlingVideo(input: KlingInput): Promise<KlingOutput
     const client = getFalClient();
     const model = input.image_url ? KLING_MODELS.image_to_video : KLING_MODELS.text_to_video;
 
-    return await client.run<KlingOutput>(model, {
+    // Kling é lento, usar modo assíncrono
+    return await client.runAsync<KlingOutput>(model, {
         prompt: input.prompt,
         image_url: input.image_url,
         duration: input.duration ?? '5',
         aspect_ratio: input.aspect_ratio ?? '9:16',
         negative_prompt: input.negative_prompt,
-    }, { timeout: 300000 }); // 5 minutes timeout for videos
+    }, { timeout: 300000 });
 }
