@@ -66,10 +66,56 @@ async function handleDelete(
     }
 }
 
+// PATCH - Atualizar short (aiModel, title, summary)
+async function handlePatch(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const clerkUserId = await validateUserAuthentication()
+        const user = await getUserFromClerkId(clerkUserId)
+        const { id } = await params
+
+        const shortExists = await db.short.findFirst({
+            where: { id, userId: user.id },
+        })
+
+        if (!shortExists) {
+            return NextResponse.json({ error: 'Short not found' }, { status: 404 })
+        }
+
+        const json = await req.json()
+        const { aiModel, title, summary } = json
+
+        const updatedShort = await db.short.update({
+            where: { id },
+            data: {
+                aiModel: aiModel !== undefined ? aiModel : undefined,
+                title: title !== undefined ? title : undefined,
+                summary: summary !== undefined ? summary : undefined,
+            },
+        })
+
+        return NextResponse.json({ short: updatedShort })
+    } catch (error) {
+        if ((error as Error).message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        console.error('[shorts/[id]/patch] error:', error)
+        return NextResponse.json({ error: 'Failed to update short' }, { status: 500 })
+    }
+}
+
 export const GET = withApiLogging(handleGet, {
     method: 'GET',
     route: '/api/shorts/[id]',
     feature: 'shorts_detail' as any,
+})
+
+export const PATCH = withApiLogging(handlePatch, {
+    method: 'PATCH',
+    route: '/api/shorts/[id]',
+    feature: 'shorts_update' as any,
 })
 
 export const DELETE = withApiLogging(handleDelete, {

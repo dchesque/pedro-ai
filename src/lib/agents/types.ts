@@ -10,6 +10,7 @@ export interface ScriptScene {
 
 export interface ShortScript {
     title: string
+    summary?: string
     hook: string
     scenes: ScriptScene[]
     cta: string

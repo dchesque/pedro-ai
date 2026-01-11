@@ -43,6 +43,7 @@ const CreateShortSchema = z.object({
     theme: z.string().min(3).max(500),
     targetDuration: z.number().int().min(15).max(60).optional().default(30),
     style: z.string().min(1).optional().default('engaging'),
+    aiModel: z.string().min(1).optional().default('deepseek/deepseek-chat'),
 }).strict()
 
 async function handlePost(req: Request) {
@@ -57,7 +58,7 @@ async function handlePost(req: Request) {
             return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
         }
 
-        const { theme, targetDuration, style } = parsed.data
+        const { theme, targetDuration, style, aiModel } = parsed.data
 
         const short = await createShort({
             userId: user.id,
@@ -65,6 +66,7 @@ async function handlePost(req: Request) {
             theme,
             targetDuration,
             style,
+            aiModel,
         })
 
         return NextResponse.json({ short }, { status: 201 })

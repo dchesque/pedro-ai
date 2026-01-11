@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { generateScript } from '@/lib/agents/scriptwriter'
+import { generateScript as aiGenerateScript } from '@/lib/agents/scriptwriter'
 import { generatePrompts } from '@/lib/agents/prompt-engineer'
 import { generateFluxImage } from '@/lib/fal/flux'
 import { ShortStatus } from '../../../prisma/generated/client_final'
@@ -14,13 +14,12 @@ interface CreateShortInput {
     theme: string
     targetDuration?: number
     style?: string
+    aiModel?: string
 }
 
-interface GenerateMediaOptions {
-    useVideo?: boolean  // Se true, usa Kling para vídeo em vez de imagem (future use)
-}
-
-// Criar short
+/**
+ * 2.1. Criar Short (DRAFT)
+ */
 export async function createShort(input: CreateShortInput) {
     log.info('📝 Criando short', {
         userId: input.userId,
@@ -36,6 +35,7 @@ export async function createShort(input: CreateShortInput) {
             theme: input.theme,
             targetDuration: input.targetDuration ?? 30,
             style: input.style ?? 'engaging',
+            aiModel: input.aiModel ?? 'deepseek/deepseek-chat',
             status: 'DRAFT' as ShortStatus,
         },
     })
@@ -44,20 +44,23 @@ export async function createShort(input: CreateShortInput) {
     return short
 }
 
-// Passo 1: Gerar roteiro
-export async function generateShortScript(shortId: string): Promise<ShortScript> {
+/**
+ * 2.2. Gerar Roteiro (DRAFT → SCRIPT_READY)
+ */
+export async function generateScript(shortId: string): Promise<ShortScript> {
     const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
 
     const startTime = log.start('Gerando roteiro', {
         shortId,
         userId: short.userId,
         theme: short.theme,
-        style: short.style
+        style: short.style,
+        model: short.aiModel
     })
 
     await db.short.update({
         where: { id: shortId },
-        data: { status: 'SCRIPTING' as ShortStatus, progress: 10 },
+        data: { status: 'GENERATING_SCRIPT' as ShortStatus, progress: 10 },
     })
 
     const shortCharacters = await db.shortCharacter.findMany({
@@ -73,7 +76,7 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
     }))
 
     try {
-        const script = await generateScript(
+        const script = await aiGenerateScript(
             short.theme,
             short.targetDuration,
             short.style,
@@ -84,19 +87,23 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
         log.info('📄 Roteiro recebido', {
             shortId,
             title: script.title,
-            scenes: script.scenes.length,
-            totalDuration: script.totalDuration
+            scenes: script.scenes.length
         })
 
         await db.$transaction(async (tx) => {
+            // Limpa cenas antigas se houver
+            await tx.shortScene.deleteMany({ where: { shortId } })
+
             await tx.short.update({
                 where: { id: shortId },
                 data: {
                     title: script.title,
+                    summary: script.summary,
                     script: script as any,
                     hook: script.hook,
                     cta: script.cta,
-                    progress: 30,
+                    status: 'SCRIPT_READY' as ShortStatus,
+                    progress: 100, // No fluxo em etapas, cada etapa concluída é 100% daquela etapa
                 },
             })
 
@@ -113,7 +120,7 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
             }
         })
 
-        log.success('Roteiro salvo', startTime, { shortId, scenes: script.scenes.length })
+        log.success('Roteiro pronto', startTime, { shortId, scenes: script.scenes.length })
         return script
     } catch (error) {
         log.fail('Geração de roteiro', error, { shortId })
@@ -126,18 +133,165 @@ export async function generateShortScript(shortId: string): Promise<ShortScript>
     }
 }
 
-// Passo 2: Gerar prompts
-export async function generateShortPrompts(shortId: string): Promise<PromptEngineerOutput> {
+/**
+ * 2.3. Regenerar Roteiro Completo
+ */
+export async function regenerateScript(shortId: string): Promise<ShortScript> {
+    const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
+
+    await db.short.update({
+        where: { id: shortId },
+        data: {
+            scriptVersion: { increment: 1 },
+            status: 'DRAFT' as ShortStatus // Volta para draft para gerar denovo
+        }
+    })
+
+    return generateScript(shortId)
+}
+
+/**
+ * 2.4. Regenerar Cena Específica (Mock/Draft logic)
+ * Nota: Isso precisaria de um agente especializado que recebe o contexto do roteiro e a instrução.
+ * Por enquanto vamos implementar a estrutura.
+ */
+export async function regenerateScene(
+    shortId: string,
+    sceneId: string,
+    instructions?: string
+) {
+    log.info('Regenerando cena (IA)', { shortId, sceneId, instructions })
+    // TODO: Implementar agente de regeneração de cena única
+    // Por enquanto, apenas retorna a cena atual ou erro para implementar depois
+    const scene = await db.shortScene.findUniqueOrThrow({ where: { id: sceneId } })
+    return scene
+}
+
+/**
+ * 2.5. Atualizar Cena Manualmente
+ */
+export async function updateScene(
+    sceneId: string,
+    data: { narration?: string; visualDesc?: string; duration?: number }
+) {
+    log.info('Atualizando cena manualmente', { sceneId, ...data })
+    const scene = await db.shortScene.update({
+        where: { id: sceneId },
+        data
+    })
+    return scene
+}
+
+/**
+ * 2.6. Adicionar Nova Cena
+ */
+export async function addScene(
+    shortId: string,
+    data: {
+        order: number
+        narration?: string
+        visualDesc?: string
+        duration?: number
+        generateWithAI?: boolean
+        aiInstructions?: string
+    }
+) {
+    log.info('Adicionando nova cena', { shortId, order: data.order })
+
+    // Reordenar cenas existentes
+    await db.shortScene.updateMany({
+        where: { shortId, order: { gte: data.order } },
+        data: { order: { increment: 1 } }
+    })
+
+    const scene = await db.shortScene.create({
+        data: {
+            shortId,
+            order: data.order,
+            narration: data.narration || '',
+            visualDesc: data.visualDesc || '',
+            duration: data.duration ?? 5,
+        }
+    })
+
+    return scene
+}
+
+/**
+ * 2.7. Remover Cena
+ */
+export async function removeScene(sceneId: string) {
+    const scene = await db.shortScene.findUniqueOrThrow({ where: { id: sceneId } })
+
+    await db.$transaction([
+        db.shortScene.delete({ where: { id: sceneId } }),
+        db.shortScene.updateMany({
+            where: { shortId: scene.shortId, order: { gt: scene.order } },
+            data: { order: { decrement: 1 } }
+        })
+    ])
+
+    log.info('Cena removida', { sceneId, shortId: scene.shortId })
+}
+
+/**
+ * 2.8. Reordenar Cenas
+ */
+export async function reorderScenes(shortId: string, sceneIds: string[]) {
+    log.info('Reordenando cenas', { shortId, count: sceneIds.length })
+
+    await db.$transaction(
+        sceneIds.map((id, index) =>
+            db.shortScene.update({
+                where: { id },
+                data: { order: index }
+            })
+        )
+    )
+}
+
+/**
+ * 2.9. Aprovar Roteiro (SCRIPT_READY → SCRIPT_APPROVED)
+ */
+export async function approveScript(shortId: string) {
+    log.info('Aprovando roteiro', { shortId })
+
+    const scenes = await db.shortScene.findMany({ where: { shortId } })
+    if (scenes.length === 0) {
+        throw new Error('O short deve ter pelo menos uma cena')
+    }
+
+    const short = await db.short.update({
+        where: { id: shortId },
+        data: {
+            status: 'SCRIPT_APPROVED' as ShortStatus,
+            scriptApprovedAt: new Date(),
+            progress: 0, // Reinicia progresso para a etapa de mídia
+        }
+    })
+
+    return short
+}
+
+/**
+ * 2.10. Gerar Mídia (SCRIPT_APPROVED → COMPLETED)
+ */
+export async function generateMedia(shortId: string): Promise<void> {
     const short = await db.short.findUniqueOrThrow({
         where: { id: shortId },
         include: { scenes: { orderBy: { order: 'asc' } } },
     })
 
-    const startTime = log.start('Gerando prompts de imagem', { shortId, scenes: short.scenes.length })
+    if (short.status !== ('SCRIPT_APPROVED' as ShortStatus)) {
+        throw new Error('O roteiro precisa ser aprovado antes de gerar a mídia')
+    }
 
+    const startTime = log.start('Iniciando geração de mídia', { shortId })
+
+    // 1. Gerar Prompts
     await db.short.update({
         where: { id: shortId },
-        data: { status: 'PROMPTING' as ShortStatus, progress: 35 },
+        data: { status: 'GENERATING_PROMPTS' as ShortStatus, progress: 10 },
     })
 
     const shortCharacters = await db.shortCharacter.findMany({
@@ -153,10 +307,23 @@ export async function generateShortPrompts(shortId: string): Promise<PromptEngin
     }))
 
     try {
-        const script = short.script as any as ShortScript
-        const prompts = await generatePrompts(script, short.style, short.userId, charactersForPrompts)
+        const script: ShortScript = {
+            title: short.title || '',
+            summary: short.summary || undefined,
+            hook: short.hook || '',
+            cta: short.cta || '',
+            totalDuration: short.targetDuration,
+            style: short.style,
+            scenes: short.scenes.map(s => ({
+                order: s.order,
+                narration: s.narration || '',
+                visualDescription: s.visualDesc || '',
+                duration: s.duration,
+                mood: 'neutral'
+            }))
+        }
 
-        log.info('🎨 Prompts recebidos', { shortId, count: prompts.prompts.length })
+        const prompts = await generatePrompts(script, short.style, short.userId, charactersForPrompts)
 
         await db.$transaction(async (tx) => {
             for (const prompt of prompts.prompts) {
@@ -171,66 +338,32 @@ export async function generateShortPrompts(shortId: string): Promise<PromptEngin
                     })
                 }
             }
-            await tx.short.update({
-                where: { id: shortId },
-                data: { progress: 50 },
-            })
         })
 
-        log.success('Prompts salvos', startTime, { shortId })
-        return prompts
-    } catch (error) {
-        log.fail('Geração de prompts', error, { shortId })
-
+        // 2. Gerar Imagens
         await db.short.update({
             where: { id: shortId },
-            data: { status: 'FAILED' as ShortStatus, errorMessage: (error as Error).message },
+            data: { status: 'GENERATING_MEDIA' as ShortStatus, progress: 30 },
         })
-        throw error
-    }
-}
 
-// Passo 3: Gerar mídia
-export async function generateShortMedia(shortId: string, _options?: GenerateMediaOptions): Promise<void> {
-    const short = await db.short.findUniqueOrThrow({
-        where: { id: shortId },
-        include: { scenes: { orderBy: { order: 'asc' } } },
-    })
+        // Recarregar cenas com prompts
+        const scenesWithPrompts = await db.shortScene.findMany({
+            where: { shortId },
+            orderBy: { order: 'asc' }
+        })
 
-    const totalScenes = short.scenes.length
-    const startTime = log.start('Gerando imagens', { shortId, total: totalScenes })
-
-    await db.short.update({
-        where: { id: shortId },
-        data: { status: 'GENERATING' as ShortStatus, progress: 55 },
-    })
-
-    try {
         let completedScenes = 0
-        let failedScenes = 0
         let totalCreditsUsed = 0
         const batchSize = 3
 
-        for (let i = 0; i < short.scenes.length; i += batchSize) {
-            const batch = short.scenes.slice(i, i + batchSize)
-
-            log.debug(`Processando batch ${Math.floor(i / batchSize) + 1}`, {
-                shortId,
-                scenes: batch.map(s => s.order).join(',')
-            })
+        for (let i = 0; i < scenesWithPrompts.length; i += batchSize) {
+            const batch = scenesWithPrompts.slice(i, i + batchSize)
 
             await Promise.all(
                 batch.map(async (scene) => {
-                    if (!scene.imagePrompt) {
-                        log.warn('Cena sem prompt, pulando', { shortId, sceneId: scene.id, order: scene.order })
-                        return
-                    }
-
-                    const sceneStart = Date.now()
+                    if (!scene.imagePrompt) return
 
                     try {
-                        log.debug(`Gerando imagem`, { shortId, sceneId: scene.id, order: scene.order })
-
                         const result = await generateFluxImage({
                             prompt: scene.imagePrompt,
                             negative_prompt: scene.negativePrompt ?? undefined,
@@ -251,30 +384,18 @@ export async function generateShortMedia(shortId: string, _options?: GenerateMed
                             },
                         })
 
-                        totalCreditsUsed += 1
+                        totalCreditsUsed += 2 // 2 créditos por imagem flux
                         completedScenes++
-
-                        log.info(`🖼️ Imagem gerada`, {
-                            shortId,
-                            progress: `${completedScenes}/${totalScenes}`,
-                            duration: Date.now() - sceneStart
-                        })
-
                     } catch (error) {
-                        failedScenes++
-                        log.fail(`Imagem cena ${scene.order + 1}`, error, { shortId, sceneId: scene.id })
-
+                        log.fail(`Erro na cena ${scene.order}`, error)
                         await db.shortScene.update({
                             where: { id: scene.id },
-                            data: {
-                                isGenerated: false,
-                                errorMessage: (error as Error).message,
-                            },
+                            data: { errorMessage: (error as Error).message }
                         })
                     }
 
                     // Atualizar progresso
-                    const progress = 55 + Math.floor(((completedScenes + failedScenes) / totalScenes) * 40)
+                    const progress = 30 + Math.floor((completedScenes / scenesWithPrompts.length) * 70)
                     await db.short.update({
                         where: { id: shortId },
                         data: { progress },
@@ -283,39 +404,19 @@ export async function generateShortMedia(shortId: string, _options?: GenerateMed
             )
         }
 
-        // Status final
-        const allGenerated = failedScenes === 0
-        const finalStatus = allGenerated ? 'COMPLETED' : 'FAILED'
-
         await db.short.update({
             where: { id: shortId },
             data: {
-                status: finalStatus as ShortStatus,
-                progress: allGenerated ? 100 : short.progress,
-                creditsUsed: totalCreditsUsed,
-                completedAt: allGenerated ? new Date() : null,
-                errorMessage: allGenerated ? null : `${failedScenes} cena(s) falharam`,
+                status: 'COMPLETED' as ShortStatus,
+                progress: 100,
+                creditsUsed: { increment: totalCreditsUsed },
+                completedAt: new Date()
             },
         })
 
-        if (allGenerated) {
-            log.success('Pipeline concluído', startTime, {
-                shortId,
-                scenes: `${completedScenes}/${totalScenes}`,
-                credits: totalCreditsUsed
-            })
-        } else {
-            log.warn('Pipeline concluído com erros', {
-                shortId,
-                success: completedScenes,
-                failed: failedScenes,
-                duration: Date.now() - startTime
-            })
-        }
-
+        log.success('Mídia gerada com sucesso', startTime, { shortId, totalCreditsUsed })
     } catch (error) {
         log.fail('Geração de mídia', error, { shortId })
-
         await db.short.update({
             where: { id: shortId },
             data: { status: 'FAILED' as ShortStatus, errorMessage: (error as Error).message },
@@ -324,14 +425,64 @@ export async function generateShortMedia(shortId: string, _options?: GenerateMed
     }
 }
 
-// Pipeline completo
+/**
+ * 2.11. Regenerar Imagem de Cena
+ */
+export async function regenerateSceneImage(
+    sceneId: string,
+    options?: {
+        newPrompt?: string
+        newNegativePrompt?: string
+    }
+) {
+    log.info('Regenerando imagem da cena', { sceneId, ...options })
+
+    const scene = await db.shortScene.findUniqueOrThrow({ where: { id: sceneId } })
+    const prompt = options?.newPrompt || scene.imagePrompt
+
+    if (!prompt) throw new Error('Cena não possui prompt de imagem')
+
+    const result = await generateFluxImage({
+        prompt: prompt,
+        negative_prompt: options?.newNegativePrompt || scene.negativePrompt || undefined,
+        image_size: 'portrait_16_9',
+        num_images: 1,
+    })
+
+    const image = result.images[0]
+
+    const updatedScene = await db.shortScene.update({
+        where: { id: sceneId },
+        data: {
+            mediaUrl: image.url,
+            mediaWidth: image.width,
+            mediaHeight: image.height,
+            isGenerated: true,
+            imagePrompt: options?.newPrompt || scene.imagePrompt,
+            negativePrompt: options?.newNegativePrompt || scene.negativePrompt,
+            errorMessage: null
+        }
+    })
+
+    // Incrementar créditos do short
+    await db.short.update({
+        where: { id: scene.shortId },
+        data: { creditsUsed: { increment: 2 } }
+    })
+
+    return updatedScene
+}
+
+/**
+ * Pipeline completo (Mantido para compatibilidade)
+ */
 export async function runFullPipeline(shortId: string): Promise<void> {
-    const pipelineStart = log.start('Pipeline completo', { shortId })
+    const pipelineStart = log.start('Pipeline completo (legado)', { shortId })
 
     try {
-        await generateShortScript(shortId)
-        await generateShortPrompts(shortId)
-        await generateShortMedia(shortId)
+        await generateScript(shortId)
+        await approveScript(shortId)
+        await generateMedia(shortId)
 
         log.success('🎉 Pipeline finalizado', pipelineStart, { shortId })
     } catch (error) {

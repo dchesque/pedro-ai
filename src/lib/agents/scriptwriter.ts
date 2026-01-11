@@ -38,6 +38,7 @@ ${charactersPrompt}
 Retorne um JSON com a seguinte estrutura:
 {
   "title": "Título chamativo do short",
+  "summary": "Resumo de 2-3 frases da história para controle interno",
   "hook": "Frase de gancho para os primeiros 3 segundos",
   "scenes": [
     {

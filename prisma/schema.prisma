@@ -111,12 +111,14 @@ enum OperationType {
 
 // Status do Short
 enum ShortStatus {
-  DRAFT           // Rascunho (só input)
-  SCRIPTING       // Gerando roteiro
-  PROMPTING       // Gerando prompts
-  GENERATING      // Gerando mídias
-  COMPLETED       // Concluído
-  FAILED          // Falhou
+  DRAFT              // Rascunho inicial (só tema/config)
+  GENERATING_SCRIPT  // Gerando roteiro
+  SCRIPT_READY       // Roteiro pronto - aguardando aprovação do usuário
+  SCRIPT_APPROVED    // Roteiro aprovado - pronto para gerar mídia
+  GENERATING_PROMPTS // Gerando prompts de imagem
+  GENERATING_MEDIA   // Gerando imagens
+  COMPLETED          // Concluído
+  FAILED             // Falhou
 }
 
 // Tipo de mídia da cena
@@ -137,16 +139,28 @@ model Short {
   targetDuration  Int          @default(30)  // Duração alvo em segundos
   style           String       @default("engaging") // Estilo (engaging, educational, funny, etc)
   
+  // Novo: Modelo de IA escolhido pelo usuário
+  aiModel           String?     @default("deepseek/deepseek-chat")
+
+  // Novo: Resumo da história (gerado junto com roteiro)
+  summary           String?     @db.Text
+  
   // Roteiro gerado
   script          Json?        // Roteiro completo em JSON
   hook            String?      // Gancho inicial
   cta             String?      // Call to action final
+  
+  // Novo: Versão do roteiro (para histórico futuro)
+  scriptVersion     Int         @default(1)
   
   // Status e progresso
   status          ShortStatus  @default(DRAFT)
   progress        Int          @default(0)    // 0-100
   errorMessage    String?
   
+  // Novo: Data de aprovação do roteiro
+  scriptApprovedAt  DateTime?
+
   // Custos
   creditsUsed     Int          @default(0)
   

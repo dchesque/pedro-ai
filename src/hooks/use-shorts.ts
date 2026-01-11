@@ -24,16 +24,20 @@ export interface ShortScene {
 export interface Short {
     id: string
     title?: string
+    summary?: string
     theme: string
     targetDuration: number
     style: string
+    aiModel?: string
     script?: any
     hook?: string
     cta?: string
-    status: 'DRAFT' | 'SCRIPTING' | 'PROMPTING' | 'GENERATING' | 'COMPLETED' | 'FAILED'
+    status: 'DRAFT' | 'GENERATING_SCRIPT' | 'SCRIPT_READY' | 'SCRIPT_APPROVED' | 'GENERATING_PROMPTS' | 'GENERATING_MEDIA' | 'COMPLETED' | 'FAILED'
     progress: number
     errorMessage?: string
     creditsUsed: number
+    scriptVersion: number
+    scriptApprovedAt?: string
     createdAt: string
     updatedAt: string
     completedAt?: string
@@ -43,7 +47,8 @@ export interface Short {
 export interface CreateShortInput {
     theme: string
     targetDuration?: number
-    style?: 'engaging' | 'educational' | 'funny' | 'dramatic' | 'inspirational'
+    style?: string
+    aiModel?: string
 }
 
 // Hook para listar shorts
@@ -87,31 +92,154 @@ export function useCreateShort() {
     })
 }
 
-// Hook para gerar short (executar pipeline)
-export function useGenerateShort() {
+// Hook para atualizar dados do short
+export function useUpdateShort() {
     const queryClient = useQueryClient()
     const { toast } = useToast()
 
     return useMutation({
-        mutationFn: ({ id, step }: { id: string; step?: 'full' | 'script' | 'prompts' | 'media' }) =>
-            api.post<{ short: Short }>(`/api/shorts/${id}/generate`, { step }),
+        mutationFn: ({ id, data }: { id: string; data: Partial<Short> }) =>
+            api.patch<{ short: Short }>(`/api/shorts/${id}`, data),
         onSuccess: (data) => {
-            toast({ title: 'Pipeline iniciado com sucesso!' })
-            queryClient.invalidateQueries({ queryKey: ['shorts'] })
+            queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
+        },
+    })
+}
+
+// Gerar apenas roteiro
+export function useGenerateScript() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, aiModel }: { shortId: string; aiModel?: string }) =>
+            api.post<{ short: Short; creditsUsed: number }>(`/api/shorts/${shortId}/generate-script`, { aiModel }),
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
             queryClient.invalidateQueries({ queryKey: ['credits'] })
-        },
-        onError: (error: Error) => {
-            const isInsufficientCredits = error.message.includes('insufficient_credits') || error.message.includes('402')
+        }
+    })
+}
 
-            toast({
-                title: isInsufficientCredits ? 'Créditos insuficientes' : 'Falha no pipeline',
-                description: isInsufficientCredits
-                    ? 'Você não tem créditos suficientes para gerar este short.'
-                    : error.message,
-                variant: 'destructive',
-            })
-        },
+// Regenerar roteiro completo
+export function useRegenerateScript() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, instructions }: { shortId: string; instructions?: string }) =>
+            api.post<{ short: Short; creditsUsed: number }>(`/api/shorts/${shortId}/regenerate-script`, { instructions }),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
+            queryClient.invalidateQueries({ queryKey: ['credits'] })
+        }
+    })
+}
+
+// Aprovar roteiro
+export function useApproveScript() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: (shortId: string) =>
+            api.post<{ short: Short }>(`/api/shorts/${shortId}/approve-script`),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
+        }
+    })
+}
+
+// Gerar mídia (imagens)
+export function useGenerateMedia() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: (shortId: string) =>
+            api.post<{ short: Short; creditsUsed: number }>(`/api/shorts/${shortId}/generate-media`),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
+            queryClient.invalidateQueries({ queryKey: ['credits'] })
+        }
+    })
+}
+
+// Atualizar cena
+export function useUpdateScene() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, sceneId, data }: {
+            shortId: string
+            sceneId: string
+            data: { narration?: string; visualDesc?: string; duration?: number }
+        }) => api.put<{ scene: ShortScene }>(`/api/shorts/${shortId}/scenes/${sceneId}`, data),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+        }
+    })
+}
+
+// Adicionar cena
+export function useAddScene() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, data }: {
+            shortId: string
+            data: { order: number; narration?: string; visualDesc?: string; duration?: number; generateWithAI?: boolean }
+        }) => api.post<{ scene: ShortScene }>(`/api/shorts/${shortId}/scenes`, data),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+        }
+    })
+}
+
+// Remover cena
+export function useRemoveScene() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, sceneId }: { shortId: string; sceneId: string }) =>
+            api.delete(`/api/shorts/${shortId}/scenes/${sceneId}`),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+        }
+    })
+}
+
+// Reordenar cenas
+export function useReorderScenes() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, sceneIds }: { shortId: string; sceneIds: string[] }) =>
+            api.post(`/api/shorts/${shortId}/scenes/reorder`, { sceneIds }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+        }
+    })
+}
+
+// Regenerar cena específica
+export function useRegenerateScene() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, sceneId, instructions }: {
+            shortId: string
+            sceneId: string
+            instructions?: string
+        }) => api.post<{ scene: ShortScene; creditsUsed: number }>(`/api/shorts/${shortId}/scenes/${sceneId}/regenerate`, { instructions }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+            queryClient.invalidateQueries({ queryKey: ['credits'] })
+        }
+    })
+}
+
+// Regenerar imagem de cena
+export function useRegenerateSceneImage() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ shortId, sceneId, prompt, negativePrompt }: {
+            shortId: string
+            sceneId: string
+            prompt?: string
+            negativePrompt?: string
+        }) => api.post<{ scene: ShortScene; creditsUsed: number }>(`/api/shorts/${shortId}/scenes/${sceneId}/regenerate-image`, { prompt, negativePrompt }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })
+            queryClient.invalidateQueries({ queryKey: ['credits'] })
+        }
     })
 }
 

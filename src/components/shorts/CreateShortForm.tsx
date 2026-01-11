@@ -29,10 +29,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAvailableStyles } from "@/hooks/use-agents"
 import { CharacterSelector } from "../characters/CharacterSelector"
 
+import { AIModelSelector } from "./AIModelSelector"
+import { CreditEstimate } from "./CreditEstimate"
+
 const formSchema = z.object({
     theme: z.string().min(10, 'Descreva o tema com pelo menos 10 caracteres').max(500),
     targetDuration: z.number().int().min(15).max(60),
     style: z.string().min(1, 'Selecione um estilo'),
+    aiModel: z.string().min(1).default('deepseek/deepseek-chat'),
     characterIds: z.array(z.string()).optional(),
 })
 
@@ -53,6 +57,7 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
             theme: "",
             targetDuration: 30,
             style: "",
+            aiModel: 'deepseek/deepseek-chat'
         },
     })
 
@@ -68,7 +73,6 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
 
     const duration = form.watch("targetDuration")
     const estimatedScenes = Math.ceil(duration / 5)
-    const estimatedCredits = 10 + estimatedScenes
 
     return (
         <Form {...form}>
@@ -100,6 +104,7 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                     name="characterIds"
                     render={({ field }) => (
                         <FormItem>
+                            <FormLabel>Personagens (Opcional)</FormLabel>
                             <FormControl>
                                 <CharacterSelector
                                     selectedCharacterIds={field.value || []}
@@ -115,79 +120,89 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                     )}
                 />
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                        control={form.control}
+                        name="targetDuration"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Duração: {field.value}s</FormLabel>
+                                <FormControl>
+                                    <Slider
+                                        min={15}
+                                        max={60}
+                                        step={5}
+                                        value={[field.value]}
+                                        onValueChange={(v) => field.onChange(v[0])}
+                                        disabled={isLoading}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    ~{estimatedScenes} cenas
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="style"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Estilo Visuall</FormLabel>
+                                {loadingStyles ? (
+                                    <Skeleton className="h-10 w-full" />
+                                ) : (
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione um estilo" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {styles.map((style) => (
+                                                <SelectItem key={style.key} value={style.key}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{style.icon}</span>
+                                                        <span className="font-medium">{style.name}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
                 <FormField
                     control={form.control}
-                    name="targetDuration"
+                    name="aiModel"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Duração: {field.value}s</FormLabel>
-                            <FormControl>
-                                <Slider
-                                    min={15}
-                                    max={60}
-                                    step={5}
-                                    value={[field.value]}
-                                    onValueChange={(v) => field.onChange(v[0])}
-                                    disabled={isLoading}
-                                />
-                            </FormControl>
-                            <FormDescription>
-                                ~{estimatedScenes} cenas • ~{estimatedCredits} créditos
-                            </FormDescription>
+                            <AIModelSelector
+                                value={field.value}
+                                onChange={field.onChange}
+                                disabled={isLoading}
+                            />
                             <FormMessage />
                         </FormItem>
                     )}
                 />
 
-                <FormField
-                    control={form.control}
-                    name="style"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Estilo</FormLabel>
-                            {loadingStyles ? (
-                                <Skeleton className="h-10 w-full" />
-                            ) : (
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione um estilo" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {styles.map((style) => (
-                                            <SelectItem key={style.key} value={style.key}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>{style.icon}</span>
-                                                    <span className="font-medium">{style.name}</span>
-                                                    {style.source === 'user' && (
-                                                        <span className="text-xs text-muted-foreground">(Meu)</span>
-                                                    )}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            <FormDescription>
-                                Defina o tom e estilo visual do seu short.
-                                <a href="/settings/styles" className="ml-1 text-primary hover:underline">
-                                    Criar estilo personalizado
-                                </a>
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                <CreditEstimate sceneCount={estimatedScenes} />
 
-                <Button type="submit" className="w-full" disabled={isLoading || loadingStyles}>
+                <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isLoading || loadingStyles}>
                     {isLoading ? (
                         <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Criando...
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Criando e Gerando Roteiro...
                         </>
                     ) : (
-                        <>Criar Short ({estimatedCredits} créditos)</>
+                        <>Criar e Gerar Roteiro</>
                     )}
                 </Button>
             </form>
