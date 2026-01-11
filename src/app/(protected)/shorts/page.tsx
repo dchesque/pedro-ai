@@ -5,7 +5,7 @@ import { Plus, Video, Loader2, Play, Trash2, RefreshCw } from "lucide-react"
 
 import { usePageConfig } from "@/hooks/use-page-config"
 import { useCredits } from "@/hooks/use-credits"
-import { useShorts, useCreateShort, useGenerateShort, useDeleteShort, type Short } from "@/hooks/use-shorts"
+import { useShorts, useCreateShort, useGenerateScript, useDeleteShort, type Short } from "@/hooks/use-shorts"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,7 +45,7 @@ export default function ShortsPage() {
     const { credits } = useCredits()
     const { data, isLoading, error, refetch } = useShorts()
     const createShort = useCreateShort()
-    const generateShort = useGenerateShort()
+    const generateScript = useGenerateScript()
     const deleteShort = useDeleteShort()
 
     const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
@@ -53,7 +53,7 @@ export default function ShortsPage() {
     // Polling para shorts em processamento
     React.useEffect(() => {
         const hasProcessing = data?.shorts.some(s =>
-            ['SCRIPTING', 'PROMPTING', 'GENERATING'].includes(s.status)
+            ['GENERATING_SCRIPT', 'GENERATING_PROMPTS', 'GENERATING_MEDIA'].includes(s.status)
         )
 
         if (hasProcessing) {
@@ -64,16 +64,20 @@ export default function ShortsPage() {
         }
     }, [data, refetch])
 
-    const handleCreate = async (values: { theme: string; targetDuration: number; style: string }) => {
+    const handleCreate = async (values: { theme: string; targetDuration: number; style: string; aiModel: string }) => {
         try {
             const result = await createShort.mutateAsync({
                 theme: values.theme,
                 targetDuration: values.targetDuration,
                 style: values.style as any,
+                aiModel: values.aiModel
             })
             setCreateDialogOpen(false)
-            // Iniciar pipeline automaticamente
-            generateShort.mutate({ id: result.short.id, step: 'full' })
+            // Iniciar geração do roteiro automaticamente
+            generateScript.mutate({
+                shortId: result.short.id,
+                aiModel: values.aiModel
+            })
         } catch (e) {
             // Erro já tratado no hook
         }
@@ -157,9 +161,9 @@ export default function ShortsPage() {
                         <ShortCard
                             key={short.id}
                             short={short}
-                            onGenerate={(step) => generateShort.mutate({ id: short.id, step })}
+                            onGenerate={() => generateScript.mutate({ shortId: short.id })}
                             onDelete={() => deleteShort.mutate(short.id)}
-                            isGenerating={generateShort.isPending}
+                            isGenerating={generateScript.isPending}
                             isDeleting={deleteShort.isPending}
                         />
                     ))}

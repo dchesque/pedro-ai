@@ -32,9 +32,11 @@ interface ShortCardProps {
 
 const STATUS_CONFIG = {
     DRAFT: { label: 'Rascunho', variant: 'secondary' as const, icon: AlertCircle },
-    SCRIPTING: { label: 'Gerando roteiro...', variant: 'default' as const, icon: Loader2 },
-    PROMPTING: { label: 'Gerando prompts...', variant: 'default' as const, icon: Loader2 },
-    GENERATING: { label: 'Gerando mídias...', variant: 'default' as const, icon: Loader2 },
+    GENERATING_SCRIPT: { label: 'Escrevendo roteiro...', variant: 'default' as const, icon: Loader2 },
+    SCRIPT_READY: { label: 'Roteiro Pronto', variant: 'success' as const, icon: CheckCircle },
+    SCRIPT_APPROVED: { label: 'Aprovado', variant: 'default' as const, icon: RefreshCw },
+    GENERATING_PROMPTS: { label: 'Preparando artes...', variant: 'default' as const, icon: Loader2 },
+    GENERATING_MEDIA: { label: 'Pintando cenas...', variant: 'default' as const, icon: Loader2 },
     COMPLETED: { label: 'Concluído', variant: 'success' as const, icon: CheckCircle },
     FAILED: { label: 'Falhou', variant: 'destructive' as const, icon: XCircle },
 }
@@ -42,8 +44,10 @@ const STATUS_CONFIG = {
 export function ShortCard({ short, onGenerate, onDelete, isGenerating, isDeleting }: ShortCardProps) {
     const status = STATUS_CONFIG[short.status] || STATUS_CONFIG.DRAFT
     const StatusIcon = status.icon
-    const isProcessing = ['SCRIPTING', 'PROMPTING', 'GENERATING'].includes(short.status)
+    const isProcessing = ['GENERATING_SCRIPT', 'GENERATING_PROMPTS', 'GENERATING_MEDIA'].includes(short.status)
     const canRetry = short.status === 'FAILED' || short.status === 'DRAFT'
+    const needsReview = short.status === 'SCRIPT_READY'
+    const readyToGenerate = short.status === 'SCRIPT_APPROVED'
 
     const completedScenes = short.scenes.filter((s) => s.isGenerated).length
     const totalScenes = short.scenes.length
@@ -140,11 +144,25 @@ export function ShortCard({ short, onGenerate, onDelete, isGenerating, isDeletin
                             Ver Short
                         </Link>
                     </Button>
+                ) : needsReview ? (
+                    <Button asChild className="flex-1" size="sm" variant="outline">
+                        <Link href={`/shorts/${short.id}/edit`}>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Revisar Roteiro
+                        </Link>
+                    </Button>
+                ) : readyToGenerate ? (
+                    <Button asChild className="flex-1" size="sm">
+                        <Link href={`/shorts/${short.id}/edit`}>
+                            <Play className="mr-2 h-4 w-4" />
+                            Gerar Imagens
+                        </Link>
+                    </Button>
                 ) : canRetry ? (
                     <Button
                         className="flex-1"
                         size="sm"
-                        onClick={() => onGenerate('full')}
+                        onClick={() => onGenerate('script')}
                         disabled={isGenerating}
                     >
                         {isGenerating ? (
@@ -152,7 +170,7 @@ export function ShortCard({ short, onGenerate, onDelete, isGenerating, isDeletin
                         ) : (
                             <RefreshCw className="mr-2 h-4 w-4" />
                         )}
-                        {short.status === 'FAILED' ? 'Tentar Novamente' : 'Gerar Short'}
+                        {short.status === 'FAILED' ? 'Tentar Novamente' : 'Gerar Roteiro'}
                     </Button>
                 ) : (
                     <Button className="flex-1" size="sm" disabled>
