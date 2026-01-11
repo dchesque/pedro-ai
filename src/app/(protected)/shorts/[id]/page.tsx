@@ -223,14 +223,10 @@ export default function ShortDetailPage() {
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Tema</p>
                                 <p className="text-sm">{short.theme}</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Estilo</p>
                                     <Badge variant="outline" className="capitalize">{short.style}</Badge>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Voz (Script)</p>
-                                    <p className="text-sm font-medium">{short.voiceId || "Padrão"}</p>
                                 </div>
                             </div>
                         </CardContent>
