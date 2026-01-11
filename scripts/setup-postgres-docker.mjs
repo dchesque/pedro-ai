@@ -13,13 +13,13 @@ import { promisify } from 'node:util'
 const exec = promisify(_exec)
 
 const CONFIG = {
-  container: process.env.PG_CONTAINER_NAME || 'saas_template',
+  container: process.env.PG_CONTAINER_NAME || 'saas_pedro_ai',
   db: process.env.PG_DB || 'saas_template',
   user: process.env.PG_USER || 'postgres',
   password: process.env.PG_PASSWORD || 'postgres',
   port: Number(process.env.PG_PORT || 5432),
   image: process.env.PG_IMAGE || 'postgres:16',
-  volume: process.env.PG_VOLUME || 'saas_template_data',
+  volume: process.env.PG_VOLUME || 'saas_pedro_ai',
 }
 
 async function hasDocker() {

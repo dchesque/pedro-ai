@@ -353,13 +353,13 @@ O script `scripts/setup-postgres-docker.mjs`:
 - Mapeia a porta local escolhida e imprime a `DATABASE_URL` pronta para colar no `.env`
 
 Personalização via variáveis de ambiente:
-- `PG_CONTAINER_NAME` (padrão: `saas_template`)
+- `PG_CONTAINER_NAME` (padrão: `saas_pedro_ai`)
 - `PG_DB` (padrão: `saas_template`)
 - `PG_USER` (padrão: `postgres`)
 - `PG_PASSWORD` (padrão: `postgres`)
 - `PG_PORT` (padrão: `5432`)
 - `PG_IMAGE` (padrão: `postgres:16`)
-- `PG_VOLUME` (padrão: `saas_template_data`)
+- `PG_VOLUME` (padrão: `saas_pedro_ai`)
 
 Exemplos:
 ```bash
