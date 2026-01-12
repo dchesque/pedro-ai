@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-01-12
+
+### Added
+- **Configuração Centralizada de Modelos LLM**: Nova página administrativa em `/admin/models` para gerir o modelo padrão de cada funcionalidade do sistema.
+- **Resolver de Modelos**: Implementado `model-resolver.ts` com cache inteligente e fallback hierárquico (Usuário > Admin Global > Hardcoded).
+- **Flexibilidade de Provedores**: Suporte para troca dinâmica entre DeepSeek, Claude, GPT-4o, Gemini, Llama, etc., sem alteração de código.
+- **Dashboard Admin**: Interface premium com cards informativos, seleção por categoria (text/image/vision) e feedback visual de mudanças.
+- **Novo Campo no Banco**: Adicionado `defaultModels` Json ao modelo `AdminSettings`.
+
+### Changed
+- Agentes de roteiro e prompt agora utilizam o modelo global configurado pelo administrador.
+- Endpoint de geração de imagem (`/api/ai/image`) e análise de personagem agora honram as configurações globais.
+
+
+## [1.6.4] - 2026-01-12
+
+### Fixed
+- **React Hooks Order**: Corrigido o erro de consistência de Hooks no `ScriptEditPage` movendo a chamada do hook `useGenerateMedia` para o topo do componente.
+
 ## [1.6.0] - 2026-01-11
 
 ### Added

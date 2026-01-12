@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { AgentType } from '../../../prisma/generated/client_final'
 import { DEFAULT_AGENT_PROMPTS, DEFAULT_STYLES, getDefaultStyle } from './defaults'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 
 // ============================================
 // TIPOS
@@ -41,10 +42,13 @@ export async function resolveAgent(
         })
 
         if (userAgent) {
+            // Se o usuário não definiu um modelo, buscar do admin/default
+            const model = userAgent.model ?? await getDefaultModelForAgent(type)
+
             return {
                 name: userAgent.name,
                 systemPrompt: userAgent.systemPrompt,
-                model: userAgent.model ?? DEFAULT_AGENT_PROMPTS[type].model,
+                model,
                 temperature: userAgent.temperature ?? DEFAULT_AGENT_PROMPTS[type].temperature,
                 source: 'user',
             }
@@ -66,15 +70,28 @@ export async function resolveAgent(
         }
     }
 
-    // 3. Usar fallback hardcoded
+    // 3. Usar configuração admin de modelos + fallback hardcoded
+    const model = await getDefaultModelForAgent(type)
     const defaultAgent = DEFAULT_AGENT_PROMPTS[type]
+
     return {
         name: defaultAgent.name,
         systemPrompt: defaultAgent.systemPrompt,
-        model: defaultAgent.model,
+        model,
         temperature: defaultAgent.temperature,
         source: 'default',
     }
+}
+
+// Helper para mapear AgentType para LLMFeatureKey
+async function getDefaultModelForAgent(type: AgentType): Promise<string> {
+    const featureKeyMap: Record<AgentType, string> = {
+        SCRIPTWRITER: 'agent_scriptwriter',
+        PROMPT_ENGINEER: 'agent_prompt_engineer',
+        NARRATOR: 'agent_narrator',
+    }
+
+    return getDefaultModel(featureKeyMap[type] as any)
 }
 
 // ============================================

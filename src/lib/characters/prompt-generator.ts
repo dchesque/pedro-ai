@@ -1,5 +1,6 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText } from 'ai'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { CharacterTraits } from './types'
 import { createLogger } from '@/lib/logger'
 
@@ -37,8 +38,9 @@ export async function analyzeCharacterImage(imageUrl: string): Promise<{ traits:
     log.info('Analisando imagem do personagem', { imageUrl })
 
     try {
+        const model = await getDefaultModel('character_analysis')
         const { text } = await generateText({
-            model: openrouter('anthropic/claude-3.5-sonnet'),
+            model: openrouter(model),
             system: `Analise esta imagem de um personagem e extraia as características visuais.
 Retorne um JSON com:
 {

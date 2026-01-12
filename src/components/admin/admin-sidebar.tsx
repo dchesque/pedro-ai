@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Users,
   DollarSign,
+  Cpu,
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,6 +47,7 @@ const reports: Item[] = [
   { title: "Histórico de Uso", href: "/admin/usage", icon: Activity },
 ];
 const settings: Item[] = [
+  { title: "Modelos de IA", href: "/admin/models", icon: Cpu },
   { title: "Custos por Funcionalidade", href: "/admin/settings/features", icon: SlidersHorizontal },
   { title: "Planos de Assinatura", href: "/admin/settings/plans", icon: DollarSign },
 ];
@@ -56,21 +58,21 @@ function NavList({ items, pathname, devMode }: { items: Item[]; pathname: string
       {items
         .filter((item) => (item.requiresDevMode ? devMode : true))
         .map((item) => {
-        const isActive =
-          pathname === item.href ||
-          (item.href !== "/admin" && pathname.startsWith(item.href));
-        const Icon = item.icon;
-        return (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-              <Link href={item.href}>
-                <Icon />
-                <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      })}
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/admin" && pathname.startsWith(item.href));
+          const Icon = item.icon;
+          return (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                <Link href={item.href}>
+                  <Icon />
+                  <span>{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          );
+        })}
     </SidebarMenu>
   );
 }

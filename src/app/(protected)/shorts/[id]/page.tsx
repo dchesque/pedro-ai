@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 import { usePageConfig } from "@/hooks/use-page-config"
-import { useShort, useDeleteShort, useGenerateScript } from "@/hooks/use-shorts"
+import { useShort, useDeleteShort, useGenerateScript, useGenerateMedia, type Short } from "@/hooks/use-shorts"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { useUpdateShort } from "@/hooks/use-shorts"
 import { useAIModels } from "@/hooks/use-ai-models"
+import { CreateShortForm } from "@/components/shorts/CreateShortForm"
+import { CreditEstimate } from "@/components/shorts/CreditEstimate"
 import { toast } from "sonner"
 
 export default function ShortDetailPage() {
@@ -39,14 +41,8 @@ export default function ShortDetailPage() {
 
     const { data, isLoading, error, refetch } = useShort(id)
     const { data: aiModelsData } = useAIModels()
-    type FormValues = {
-        theme: string
-        targetDuration: number
-        style: string
-        aiModel: string
-        characterIds?: string[]
-    }
     const generateScript = useGenerateScript()
+    const generateMedia = useGenerateMedia()
     const deleteShort = useDeleteShort()
     const updateShort = useUpdateShort()
 
@@ -76,7 +72,7 @@ export default function ShortDetailPage() {
 
     // Polling se estiver processando
     React.useEffect(() => {
-        if (data?.short && ['SCRIPTING', 'PROMPTING', 'GENERATING'].includes(data.short.status)) {
+        if (data?.short && ['GENERATING_SCRIPT', 'GENERATING_PROMPTS', 'GENERATING_MEDIA'].includes(data.short.status)) {
             const interval = setInterval(() => {
                 refetch()
             }, 3000)
@@ -149,9 +145,14 @@ export default function ShortDetailPage() {
 
                     {short.status === 'SCRIPT_APPROVED' && (
                         <Button
-                            onClick={() => router.push(`/shorts/${id}/edit`)}
+                            onClick={() => generateMedia.mutate(id)}
+                            disabled={generateMedia.isPending}
                         >
-                            <Play className="mr-2 h-4 w-4" />
+                            {generateMedia.isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Play className="mr-2 h-4 w-4" />
+                            )}
                             Gerar Imagens
                         </Button>
                     )}
@@ -346,6 +347,13 @@ export default function ShortDetailPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {short.status === 'SCRIPT_APPROVED' && (
+                        <CreditEstimate
+                            modelId={short.aiModel || "deepseek/deepseek-v3.2"}
+                            estimatedScenes={short.scenes.length}
+                        />
+                    )}
 
                     <Tabs defaultValue="script">
                         <TabsList className="w-full">

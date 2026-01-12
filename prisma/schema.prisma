@@ -225,6 +225,7 @@ model ShortScene {
 model AdminSettings {
   id           String   @id @default("singleton")
   featureCosts Json?
+  defaultModels Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

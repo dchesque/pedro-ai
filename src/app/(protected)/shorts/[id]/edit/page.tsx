@@ -26,6 +26,7 @@ import {
     useRemoveScene,
     useReorderScenes,
     useRegenerateScene,
+    useGenerateMedia,
     useUpdateShort,
     ShortScene
 } from "@/hooks/use-shorts"
@@ -61,6 +62,7 @@ export default function ScriptEditPage() {
     const reorderScenes = useReorderScenes()
     const regenerateScene = useRegenerateScene()
     const updateShort = useUpdateShort()
+    const generateMedia = useGenerateMedia()
 
     const [editingTitle, setEditingTitle] = useState(false)
     const [editingSummary, setEditingSummary] = useState(false)
@@ -91,10 +93,12 @@ export default function ScriptEditPage() {
 
     const { short } = data
 
+
     const handleApprove = async () => {
         try {
             await approveScript.mutateAsync(id)
-            toast.success("Roteiro aprovado! Redirecionando para geração de mídia...")
+            toast.success("Roteiro aprovado! Iniciando geração das imagens...")
+            generateMedia.mutate(id)
             router.push(`/shorts/${id}`)
         } catch (error) {
             toast.error("Falha ao aprovar roteiro.")
@@ -321,7 +325,7 @@ export default function ScriptEditPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <AIModelSelector
-                                value={short.aiModel || "deepseek/deepseek-chat"}
+                                value={short.aiModel || "deepseek/deepseek-v3.2"}
                                 onChange={(model) => handleUpdateShortData('aiModel', model)}
                             />
 
@@ -337,7 +341,10 @@ export default function ScriptEditPage() {
 
                             <Separator />
 
-                            <CreditEstimate sceneCount={short.scenes.length} />
+                            <CreditEstimate
+                                modelId={short.aiModel || "deepseek/deepseek-v3.2"}
+                                estimatedScenes={short.scenes.length}
+                            />
                         </CardContent>
                     </Card>
 

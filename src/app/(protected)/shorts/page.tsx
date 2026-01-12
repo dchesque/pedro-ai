@@ -5,7 +5,7 @@ import { Plus, Video, Loader2, Play, Trash2, RefreshCw } from "lucide-react"
 
 import { usePageConfig } from "@/hooks/use-page-config"
 import { useCredits } from "@/hooks/use-credits"
-import { useShorts, useCreateShort, useGenerateScript, useDeleteShort, type Short } from "@/hooks/use-shorts"
+import { useShorts, useCreateShort, useGenerateScript, useGenerateMedia, useDeleteShort, type Short } from "@/hooks/use-shorts"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,19 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-    DialogFooter,
 } from "@/components/ui/dialog"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 
 import { CreateShortForm } from "@/components/shorts/CreateShortForm"
 import { ShortCard } from "@/components/shorts/ShortCard"
@@ -46,6 +34,7 @@ export default function ShortsPage() {
     const { data, isLoading, error, refetch } = useShorts()
     const createShort = useCreateShort()
     const generateScript = useGenerateScript()
+    const generateMedia = useGenerateMedia()
     const deleteShort = useDeleteShort()
 
     const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
@@ -80,6 +69,14 @@ export default function ShortsPage() {
             })
         } catch (e) {
             // Erro já tratado no hook
+        }
+    }
+
+    const handleGenerate = (short: Short) => {
+        if (short.status === 'SCRIPT_APPROVED') {
+            generateMedia.mutate(short.id)
+        } else {
+            generateScript.mutate({ shortId: short.id })
         }
     }
 
@@ -161,9 +158,9 @@ export default function ShortsPage() {
                         <ShortCard
                             key={short.id}
                             short={short}
-                            onGenerate={() => generateScript.mutate({ shortId: short.id })}
+                            onGenerate={() => handleGenerate(short)}
                             onDelete={() => deleteShort.mutate(short.id)}
-                            isGenerating={generateScript.isPending}
+                            isGenerating={generateScript.isPending || generateMedia.isPending}
                             isDeleting={deleteShort.isPending}
                         />
                     ))}

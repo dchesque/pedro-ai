@@ -5,6 +5,7 @@ import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFea
 import { InsufficientCreditsError } from '@/lib/credits/errors'
 import { type FeatureKey } from '@/lib/credits/feature-config'
 import { withApiLogging } from '@/lib/logging/api'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 
 type ImageUrl = {
   type?: string
@@ -44,7 +45,7 @@ const BodySchema = z
       // basic vendor/model pattern used by OpenRouter
       .regex(/^[a-z0-9-]+\/[a-z0-9_.:-]+$/i, 'Invalid OpenRouter model id')
       .max(100)
-      .default('google/gemini-2.5-flash-image-preview'),
+      .optional(),
     prompt: z.string().min(1).max(2000),
     // Optional knobs kept for API stability, though not used by chat/completions
     size: z
@@ -68,12 +69,18 @@ async function handleImageGeneration(req: Request) {
       throw e
     }
 
-    const parsed = BodySchema.safeParse(await req.json())
+    const bodyJson = await req.json()
+    const parsed = BodySchema.safeParse(bodyJson)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
     }
     let { model } = parsed.data
     const { prompt, count, attachments } = parsed.data
+
+    // Se o modelo não foi passado, usar o padrão configurado
+    if (!model) {
+      model = await getDefaultModel('ai_image')
+    }
 
     // Charge credits before calling provider
     const feature: FeatureKey = 'ai_image_generation'
@@ -125,17 +132,17 @@ async function handleImageGeneration(req: Request) {
     // Use OpenAI-compatible parts for chat/completions: `text` and `image_url`
     const userMessage = hasImages
       ? {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            ...attachments.map(att => ({ type: 'image_url', image_url: { url: att.url } })),
-          ],
-        }
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          ...attachments.map(att => ({ type: 'image_url', image_url: { url: att.url } })),
+        ],
+      }
       : {
-          role: 'user',
-          // For text-only requests, content should be plain string per OpenAI compatibility
-          content: prompt,
-        }
+        role: 'user',
+        // For text-only requests, content should be plain string per OpenAI compatibility
+        content: prompt,
+      }
 
     const payload: {
       model: string;
@@ -188,11 +195,11 @@ async function handleImageGeneration(req: Request) {
         })
         try {
           console.error('[img] payload debug', JSON.stringify(payload).slice(0, 2000))
-        } catch {}
+        } catch { }
         try {
           const first = (payload?.messages && payload.messages[0]) || null
           console.error('[img] first message debug', JSON.stringify(first).slice(0, 2000))
-        } catch {}
+        } catch { }
       }
       const errorPayload: Record<string, unknown> = { error: 'Failed to generate image' }
       if (process.env.NODE_ENV !== 'production') {
@@ -284,8 +291,8 @@ async function handleImageGeneration(req: Request) {
     // Attempt refund on unexpected error path
     try {
       // best-effort: we don't have quantity here; default to 1
-      await refundCreditsForFeature({ clerkUserId: (await validateUserAuthentication().catch(()=>null)) || '', feature: 'ai_image_generation', quantity: 1, reason: 'unhandled_error' })
-    } catch {}
+      await refundCreditsForFeature({ clerkUserId: (await validateUserAuthentication().catch(() => null)) || '', feature: 'ai_image_generation', quantity: 1, reason: 'unhandled_error' })
+    } catch { }
     return NextResponse.json(payload, { status: 500 })
   }
 }

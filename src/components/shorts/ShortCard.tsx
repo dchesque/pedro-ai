@@ -152,11 +152,18 @@ export function ShortCard({ short, onGenerate, onDelete, isGenerating, isDeletin
                         </Link>
                     </Button>
                 ) : readyToGenerate ? (
-                    <Button asChild className="flex-1" size="sm">
-                        <Link href={`/shorts/${short.id}/edit`}>
+                    <Button
+                        className="flex-1"
+                        size="sm"
+                        onClick={() => onGenerate('media')}
+                        disabled={isGenerating}
+                    >
+                        {isGenerating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
                             <Play className="mr-2 h-4 w-4" />
-                            Gerar Imagens
-                        </Link>
+                        )}
+                        Gerar Imagens
                     </Button>
                 ) : canRetry ? (
                     <Button
