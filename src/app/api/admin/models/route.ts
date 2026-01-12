@@ -13,7 +13,7 @@ export async function GET() {
 
         return NextResponse.json({
             models,
-            features: LLM_FEATURES, // Enviar metadados das features para a UI
+            features: LLM_FEATURES,
         })
     } catch (error: any) {
         console.error('[admin-models-get] Erro:', error)
@@ -21,11 +21,23 @@ export async function GET() {
     }
 }
 
-// PUT - Salvar modelos padrão
-const SaveModelsSchema = z.object({
-    models: z.record(z.string(), z.string()),
+// Schema para novo formato
+const FeatureModelConfigSchema = z.object({
+    provider: z.string().min(1),
+    modelId: z.string().min(1),
 })
 
+const SaveModelsSchema = z.object({
+    models: z.record(
+        z.string(),
+        z.union([
+            z.string(), // Formato antigo (só modelId)
+            FeatureModelConfigSchema, // Novo formato
+        ])
+    ),
+})
+
+// PUT - Salvar modelos padrão
 export async function PUT(req: Request) {
     try {
         await requireAdmin()
@@ -34,7 +46,7 @@ export async function PUT(req: Request) {
         const result = SaveModelsSchema.safeParse(json)
 
         if (!result.success) {
-            return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
+            return NextResponse.json({ error: 'Dados inválidos', issues: result.error.flatten() }, { status: 400 })
         }
 
         const { models } = result.data
@@ -50,7 +62,7 @@ export async function PUT(req: Request) {
             }
         }
 
-        await saveDefaultModels(models as Record<string, string>)
+        await saveDefaultModels(models as Record<string, any>)
 
         return NextResponse.json({ success: true, models })
     } catch (error: any) {
