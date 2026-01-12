@@ -16,9 +16,20 @@ interface CreateShortInput {
     userId: string
     clerkUserId: string
     theme: string
+    title?: string
+    synopsis?: string
+    tone?: string
     targetDuration?: number
     style?: string
     aiModel?: string
+    status?: string
+    characterIds?: string[]
+    scenes?: Array<{
+        order: number
+        duration?: number
+        narration?: string
+        visualDesc?: string
+    }>
 }
 
 /**
@@ -28,23 +39,59 @@ export async function createShort(input: CreateShortInput) {
     log.info('📝 Criando short', {
         userId: input.userId,
         theme: input.theme,
-        duration: input.targetDuration,
-        style: input.style
+        title: input.title,
+        status: input.status,
     })
 
-    const short = await db.short.create({
-        data: {
-            userId: input.userId,
-            clerkUserId: input.clerkUserId,
-            theme: input.theme,
-            targetDuration: input.targetDuration ?? 30,
-            style: input.style ?? 'engaging',
-            aiModel: input.aiModel ?? 'deepseek/deepseek-chat',
-            status: 'DRAFT' as ShortStatus,
-        },
+    const short = await db.$transaction(async (tx) => {
+        // 1. Criar o Short
+        const newShort = await tx.short.create({
+            data: {
+                userId: input.userId,
+                clerkUserId: input.clerkUserId,
+                theme: input.theme,
+                title: input.title,
+                synopsis: input.synopsis,
+                tone: input.tone,
+                targetDuration: input.targetDuration ?? 30,
+                style: input.style ?? 'engaging',
+                aiModel: input.aiModel ?? 'deepseek/deepseek-chat',
+                status: (input.status || 'DRAFT') as ShortStatus,
+            },
+        })
+
+        // 2. Criar Cenas se fornecidas
+        if (input.scenes && input.scenes.length > 0) {
+            for (const scene of input.scenes) {
+                await tx.shortScene.create({
+                    data: {
+                        shortId: newShort.id,
+                        order: scene.order,
+                        duration: scene.duration ?? 5,
+                        narration: scene.narration || '',
+                        visualDesc: scene.visualDesc || '',
+                    },
+                })
+            }
+        }
+
+        // 3. Associar Personagens se fornecidos
+        if (input.characterIds && input.characterIds.length > 0) {
+            for (let i = 0; i < input.characterIds.length; i++) {
+                await tx.shortCharacter.create({
+                    data: {
+                        shortId: newShort.id,
+                        characterId: input.characterIds[i],
+                        orderIndex: i,
+                    },
+                })
+            }
+        }
+
+        return newShort
     })
 
-    log.success('Short criado', undefined, { shortId: short.id })
+    log.success('Short criado com sucesso', undefined, { shortId: short.id })
     return short
 }
 

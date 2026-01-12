@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.2] - 2026-01-12
+
+### Changed
+- **Layout Full Width**: Removida a limitação de largura máxima (`max-width`) no conteúdo principal para aproveitar 100% do espaço em monitores grandes.
+- **Responsividade**: Ajustado o padding lateral (`px-4 md:px-8`) para manter a legibilidade em resoluções altas.
+- **Componente Roteirista**: Otimizado para expandir e alinhar com o novo layout de largura total.
+
 ## [1.7.1] - 2026-01-12
 
 ### Fixed

@@ -80,7 +80,7 @@ export default function ProtectedLayout({
             <Topbar onToggleSidebar={toggleCollapse} sidebarCollapsed={collapsed} />
             <main
               className={cn(
-                "container mx-auto w-full max-w-[1400px] pb-10 pt-6"
+                "w-full pb-10 pt-6 px-4 md:px-8"
               )}
             >
               {/* layered glow behind the main content for futuristic feel */}

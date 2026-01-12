@@ -41,10 +41,21 @@ async function handleGet(req: Request) {
 // POST - Criar novo short
 const CreateShortSchema = z.object({
     theme: z.string().min(3).max(500),
+    title: z.string().optional(),
+    synopsis: z.string().optional(),
+    tone: z.string().optional(),
     targetDuration: z.number().int().min(15).max(60).optional().default(30),
     style: z.string().min(1).optional().default('engaging'),
     aiModel: z.string().min(1).optional().default('deepseek/deepseek-chat'),
-}).strict()
+    status: z.string().optional(),
+    characterIds: z.array(z.string()).optional(),
+    scenes: z.array(z.object({
+        order: z.number(),
+        duration: z.number().optional(),
+        narration: z.string().optional(),
+        visualDesc: z.string().optional(),
+    })).optional(),
+})
 
 async function handlePost(req: Request) {
     try {
@@ -58,15 +69,21 @@ async function handlePost(req: Request) {
             return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
         }
 
-        const { theme, targetDuration, style, aiModel } = parsed.data
+        const { theme, title, synopsis, tone, targetDuration, style, aiModel, status, scenes, characterIds } = parsed.data
 
         const short = await createShort({
             userId: user.id,
             clerkUserId,
             theme,
+            title,
+            synopsis,
+            tone,
             targetDuration,
             style,
             aiModel,
+            status,
+            scenes,
+            characterIds,
         })
 
         return NextResponse.json({ short }, { status: 201 })

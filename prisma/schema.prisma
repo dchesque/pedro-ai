@@ -118,9 +118,12 @@ enum ShortStatus {
   GENERATING_SCRIPT  // Gerando roteiro
   SCRIPT_READY       // Roteiro pronto - aguardando aprovação do usuário
   SCRIPT_APPROVED    // Roteiro aprovado - pronto para gerar mídia
-  GENERATING_PROMPTS // Gerando prompts de imagem
-  GENERATING_MEDIA   // Gerando imagens
-  COMPLETED          // Concluído
+  GENERATING_IMAGES  // Gerando imagens
+  IMAGES_READY       // Imagens prontas - pronto para vídeo
+  GENERATING_VIDEO   // Gerando vídeo
+  VIDEO_READY        // Vídeo pronto
+  PUBLISHED          // Publicado
+  COMPLETED          // Concluído (Legado/Geral)
   FAILED             // Falhou
 }
 
@@ -147,6 +150,8 @@ model Short {
 
   // Novo: Resumo da história (gerado junto com roteiro)
   summary           String?     @db.Text
+  synopsis          String?     @db.Text  // Sinopse expandida para o roteirista
+  tone              String?               // Tom: épico, dramático, etc.
   
   // Roteiro gerado
   script          Json?        // Roteiro completo em JSON
@@ -194,7 +199,8 @@ model ShortScene {
   
   // Conteúdo do roteiro
   narration       String?        // Texto de narração
-  visualDesc      String?        // Descrição visual do roteiro
+  visualDesc      String?        // Descrição visual do roteiro (original)
+  visualPrompt    String?        @db.Text // Prompt visual detalhado para IA
   
   // Prompts gerados
   imagePrompt     String?        // Prompt para imagem

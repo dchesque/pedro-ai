@@ -11,6 +11,7 @@ export interface ShortScene {
     duration: number
     narration?: string
     visualDesc?: string
+    visualPrompt?: string // Novo campo
     imagePrompt?: string
     negativePrompt?: string
     mediaType: 'IMAGE' | 'VIDEO'
@@ -29,10 +30,12 @@ export interface Short {
     targetDuration: number
     style: string
     aiModel?: string
+    synopsis?: string // Novo campo
+    tone?: string    // Novo campo
     script?: any
     hook?: string
     cta?: string
-    status: 'DRAFT' | 'GENERATING_SCRIPT' | 'SCRIPT_READY' | 'SCRIPT_APPROVED' | 'GENERATING_PROMPTS' | 'GENERATING_MEDIA' | 'COMPLETED' | 'FAILED'
+    status: 'DRAFT' | 'GENERATING_SCRIPT' | 'SCRIPT_READY' | 'SCRIPT_APPROVED' | 'GENERATING_IMAGES' | 'IMAGES_READY' | 'GENERATING_VIDEO' | 'VIDEO_READY' | 'PUBLISHED' | 'COMPLETED' | 'FAILED'
     progress: number
     errorMessage?: string
     creditsUsed: number
