@@ -45,25 +45,38 @@ export class OpenRouterAdapter implements ProviderAdapter {
         isEnabled: true,
     }
 
-    private apiKey: string | undefined
-
+    // NÃO armazenar apiKey no constructor
     constructor() {
-        this.apiKey = process.env.OPENROUTER_API_KEY
+        // Vazio intencionalmente
     }
 
+    /**
+     * Verifica se o provider está configurado
+     * IMPORTANTE: Lê process.env dinamicamente
+     */
     isConfigured(): boolean {
-        return !!this.apiKey
+        const apiKey = process.env.OPENROUTER_API_KEY
+        return typeof apiKey === 'string' && apiKey.trim().length > 0
+    }
+
+    /**
+     * Retorna a API key (para uso interno)
+     */
+    private getApiKey(): string | undefined {
+        return process.env.OPENROUTER_API_KEY
     }
 
     async fetchModels(): Promise<ProviderModel[]> {
-        if (!this.isConfigured()) {
+        const apiKey = this.getApiKey()
+
+        if (!apiKey) {
             console.warn('[OpenRouterAdapter] API key not configured')
             return []
         }
 
         const response = await fetch('https://openrouter.ai/api/v1/models', {
             headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
+                'Authorization': `Bearer ${apiKey}`,
                 'Accept': 'application/json',
             },
             next: { revalidate: 3600 }, // Cache de 1 hora no Next.js

@@ -19,32 +19,44 @@ interface CacheEntry {
 const modelCache = new Map<ProviderType, CacheEntry>()
 const CACHE_TTL = 60 * 60 * 1000 // 1 hora
 
-// Registry de adapters
-const adapters: Record<ProviderType, ProviderAdapter> = {
-    openrouter: new OpenRouterAdapter(),
-    fal: new FalAdapter(),
-    anthropic: {} as any, // Placeholder para tipagem
-    openai: {} as any,    // Placeholder para tipagem
-} as Record<ProviderType, ProviderAdapter>
+// Registry de adapters - apenas os implementados
+const adapters = new Map<ProviderType, ProviderAdapter>([
+    ['openrouter', new OpenRouterAdapter()],
+    ['fal', new FalAdapter()],
+])
 
 /**
  * Retorna informações de todos os providers disponíveis
  */
 export function getAllProviders(): ProviderInfo[] {
-    return Object.values(adapters)
-        .filter(adapter => adapter && typeof adapter.isConfigured === 'function')
-        .map(adapter => ({
-            ...adapter.providerInfo,
-            isEnabled: adapter.isConfigured(),
-        }))
+    const providers: ProviderInfo[] = []
+
+    adapters.forEach((adapter, providerId) => {
+        try {
+            const isConfigured = adapter.isConfigured()
+            console.log(`[Registry] Provider ${providerId}: isConfigured = ${isConfigured}`)
+
+            providers.push({
+                ...adapter.providerInfo,
+                isEnabled: isConfigured,
+            })
+        } catch (error) {
+            console.error(`[Registry] Error checking provider ${providerId}:`, error)
+        }
+    })
+
+    return providers
 }
 
 /**
  * Retorna informações de um provider específico
  */
 export function getProvider(providerId: ProviderType): ProviderInfo | null {
-    const adapter = adapters[providerId]
-    if (!adapter || typeof adapter.isConfigured !== 'function') return null
+    const adapter = adapters.get(providerId)
+    if (!adapter) {
+        console.warn(`[Registry] Provider not found: ${providerId}`)
+        return null
+    }
 
     return {
         ...adapter.providerInfo,
@@ -59,9 +71,9 @@ export async function getModelsFromProvider(
     providerId: ProviderType,
     forceRefresh = false
 ): Promise<ModelsApiResponse> {
-    const adapter = adapters[providerId]
-    if (!adapter || typeof adapter.isConfigured !== 'function') {
-        throw new Error(`Provider not found or not implemented: ${providerId}`)
+    const adapter = adapters.get(providerId)
+    if (!adapter) {
+        throw new Error(`Provider not found: ${providerId}`)
     }
 
     const now = Date.now()
@@ -69,6 +81,7 @@ export async function getModelsFromProvider(
 
     // Retornar do cache se válido
     if (!forceRefresh && cached && cached.expiresAt > now) {
+        console.log(`[Registry] Returning cached models for ${providerId}`)
         return {
             provider: { ...adapter.providerInfo, isEnabled: adapter.isConfigured() },
             models: cached.data,
@@ -77,8 +90,10 @@ export async function getModelsFromProvider(
         }
     }
 
-    // Buscar da API
+    // Buscar da API/lista
+    console.log(`[Registry] Fetching models for ${providerId}...`)
     const models = await adapter.fetchModels()
+    console.log(`[Registry] Fetched ${models.length} models for ${providerId}`)
 
     // Atualizar cache
     const cacheEntry: CacheEntry = {
@@ -136,8 +151,8 @@ export function getCacheStats(): Record<string, { cached: boolean; expiresIn?: n
     const now = Date.now()
     const stats: Record<string, { cached: boolean; expiresIn?: number }> = {}
 
-    for (const providerId of Object.keys(adapters)) {
-        const cached = modelCache.get(providerId as ProviderType)
+    adapters.forEach((_, providerId) => {
+        const cached = modelCache.get(providerId)
         if (cached) {
             stats[providerId] = {
                 cached: cached.expiresAt > now,
@@ -148,7 +163,14 @@ export function getCacheStats(): Record<string, { cached: boolean; expiresIn?: n
                 cached: false,
             }
         }
-    }
+    })
 
     return stats
+}
+
+/**
+ * Lista todos os provider IDs disponíveis
+ */
+export function getAvailableProviderIds(): ProviderType[] {
+    return Array.from(adapters.keys())
 }

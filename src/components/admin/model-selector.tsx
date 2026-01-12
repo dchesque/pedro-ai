@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { Loader2, DollarSign, Zap } from 'lucide-react'
+import { Loader2, DollarSign, Zap, AlertTriangle } from 'lucide-react'
 import { useProviders, useProviderModels } from '@/hooks/use-providers'
 import { Label } from '@/components/ui/label'
 import {
@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ProviderCapability, ProviderModel } from '@/lib/ai/providers/types'
 
 interface ModelSelectorProps {
@@ -46,7 +47,7 @@ export function ModelSelector({
     showPricing = true,
     disabled = false,
 }: ModelSelectorProps) {
-    const { data: providersData, isLoading: loadingProviders } = useProviders()
+    const { data: providersData, isLoading: loadingProviders, error: providersError } = useProviders()
     const { data: modelsData, isLoading: loadingModels } = useProviderModels(
         selectedProvider || null,
         { capability, enabled: !!selectedProvider }
@@ -54,6 +55,9 @@ export function ModelSelector({
 
     // Encontrar modelo selecionado para exibir pricing
     const selectedModelData = modelsData?.models.find(m => m.id === selectedModel)
+
+    // Encontrar provider selecionado para verificar se está configurado
+    const selectedProviderData = providersData?.providers.find(p => p.id === selectedProvider)
 
     // Quando provider muda, limpar modelo selecionado
     const handleProviderChange = (providerId: string) => {
@@ -71,7 +75,19 @@ export function ModelSelector({
         )
     }
 
-    const providers = providersData?.providers.filter(p => p.isEnabled) || []
+    if (providersError) {
+        return (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                    Erro ao carregar providers: {providersError.message}
+                </AlertDescription>
+            </Alert>
+        )
+    }
+
+    // IMPORTANTE: Mostrar TODOS os providers, não apenas os habilitados
+    const providers = providersData?.providers || []
 
     return (
         <div className="space-y-4">
@@ -100,10 +116,21 @@ export function ModelSelector({
                         </SelectTrigger>
                         <SelectContent>
                             {providers.map(provider => (
-                                <SelectItem key={provider.id} value={provider.id}>
-                                    <div className="flex items-center gap-2">
+                                <SelectItem
+                                    key={provider.id}
+                                    value={provider.id}
+                                    disabled={!provider.isEnabled}
+                                >
+                                    <div className="flex items-center gap-2 w-full">
                                         <span>{provider.icon}</span>
-                                        <span>{provider.name}</span>
+                                        <span className={!provider.isEnabled ? 'text-muted-foreground' : ''}>
+                                            {provider.name}
+                                        </span>
+                                        {!provider.isEnabled && (
+                                            <Badge variant="outline" className="ml-auto text-xs text-destructive border-destructive/50">
+                                                Não configurado
+                                            </Badge>
+                                        )}
                                     </div>
                                 </SelectItem>
                             ))}
@@ -117,7 +144,7 @@ export function ModelSelector({
                     <Select
                         value={selectedModel}
                         onValueChange={onModelChange}
-                        disabled={disabled || !selectedProvider || loadingModels}
+                        disabled={disabled || !selectedProvider || loadingModels || !selectedProviderData?.isEnabled}
                     >
                         <SelectTrigger>
                             {loadingModels ? (
@@ -134,7 +161,7 @@ export function ModelSelector({
                                 <SelectItem key={model.id} value={model.id}>
                                     <div className="flex items-center justify-between w-full gap-2">
                                         <span className="truncate">{model.name}</span>
-                                        {model.pricing.estimatedCreditsPerUse && (
+                                        {model.pricing.estimatedCreditsPerUse !== undefined && (
                                             <Badge variant="outline" className="text-xs shrink-0">
                                                 {model.pricing.estimatedCreditsPerUse} cr
                                             </Badge>
@@ -152,8 +179,19 @@ export function ModelSelector({
                 </div>
             </div>
 
+            {/* Aviso se provider não está configurado */}
+            {selectedProvider && selectedProviderData && !selectedProviderData.isEnabled && (
+                <Alert variant="destructive" className="py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                        O provider <strong>{selectedProviderData.name}</strong> não está configurado.
+                        Adicione a variável de ambiente correspondente para usar este provider.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Pricing Card */}
-            {showPricing && selectedModelData && (
+            {showPricing && selectedModelData && selectedProviderData?.isEnabled && (
                 <ModelPricingCard model={selectedModelData} />
             )}
         </div>
@@ -176,10 +214,10 @@ function ModelPricingCard({ model }: { model: ProviderModel }) {
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">{model.name}</span>
-                            {model.pricing.estimatedCreditsPerUse && (
+                            {pricing.estimatedCreditsPerUse !== undefined && (
                                 <Badge className="bg-primary/10 text-primary border-0">
                                     <Zap className="h-3 w-3 mr-1" />
-                                    ~{model.pricing.estimatedCreditsPerUse} créditos/uso
+                                    ~{pricing.estimatedCreditsPerUse} créditos/uso
                                 </Badge>
                             )}
                         </div>
@@ -189,23 +227,27 @@ function ModelPricingCard({ model }: { model: ProviderModel }) {
                                 <>
                                     <div className="flex justify-between">
                                         <span>Input:</span>
-                                        <span className="font-mono">${pricing.inputPer1M?.toFixed(2)}/1M tokens</span>
+                                        <span className="font-mono">
+                                            ${pricing.inputPer1M?.toFixed(2) ?? '—'}/1M tokens
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Output:</span>
-                                        <span className="font-mono">${pricing.outputPer1M?.toFixed(2)}/1M tokens</span>
+                                        <span className="font-mono">
+                                            ${pricing.outputPer1M?.toFixed(2) ?? '—'}/1M tokens
+                                        </span>
                                     </div>
                                 </>
                             )}
 
-                            {pricing.billingType === 'per-image' && pricing.perImage && (
+                            {pricing.billingType === 'per-image' && pricing.perImage !== undefined && (
                                 <div className="flex justify-between">
                                     <span>Por imagem:</span>
                                     <span className="font-mono">${pricing.perImage.toFixed(3)}</span>
                                 </div>
                             )}
 
-                            {pricing.billingType === 'per-second' && pricing.perSecond && (
+                            {pricing.billingType === 'per-second' && pricing.perSecond !== undefined && (
                                 <div className="flex justify-between">
                                     <span>Por segundo:</span>
                                     <span className="font-mono">${pricing.perSecond.toFixed(3)}</span>

@@ -207,26 +207,44 @@ export class FalAdapter implements ProviderAdapter {
         icon: '🎨',
         website: 'https://fal.ai',
         capabilities: ['image', 'video', 'audio'],
-        isEnabled: true,
+        isEnabled: true, // Será sobrescrito dinamicamente
     }
 
-    private apiKey: string | undefined
-
+    // NÃO armazenar apiKey no constructor - ler dinamicamente
     constructor() {
-        this.apiKey = process.env.FAL_KEY
+        // Vazio intencionalmente - env é lida dinamicamente
     }
 
+    /**
+     * Verifica se o provider está configurado
+     * IMPORTANTE: Lê process.env dinamicamente (não no build time)
+     * NOTA: Usa FAL_API_KEY (não FAL_KEY) para consistência com .env.example
+     */
     isConfigured(): boolean {
-        return !!this.apiKey
+        // Ler dinamicamente a cada chamada
+        // Suporta ambos os nomes por compatibilidade
+        const apiKey = process.env.FAL_API_KEY || process.env.FAL_KEY
+        return typeof apiKey === 'string' && apiKey.trim().length > 0
+    }
+
+    /**
+     * Retorna a API key (para uso interno)
+     * Suporta FAL_API_KEY (preferido) ou FAL_KEY (legado)
+     */
+    private getApiKey(): string | undefined {
+        return process.env.FAL_API_KEY || process.env.FAL_KEY
     }
 
     async fetchModels(): Promise<ProviderModel[]> {
-        // fal.ai não tem API pública de listagem, usamos lista curada
+        // Log para debug
+        const isConfigured = this.isConfigured()
+        console.log('[FalAdapter] isConfigured:', isConfigured, 'FAL_API_KEY exists:', !!process.env.FAL_API_KEY, 'FAL_KEY exists:', !!process.env.FAL_KEY)
 
-        if (!this.isConfigured()) {
-            console.warn('[FalAdapter] API key not configured')
+        if (!isConfigured) {
+            console.warn('[FalAdapter] API key not configured - returning models anyway for display')
         }
 
+        // Retornar modelos mesmo sem API key (para exibição na UI)
         return FAL_KNOWN_MODELS.map(model => ({
             ...model,
             provider: 'fal' as const,

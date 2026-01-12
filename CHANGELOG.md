@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.1] - 2026-01-12
+
+### Fixed
+- **Visibilidade fal.ai**: Corrigido problema onde o provider fal.ai não aparecia no seletor de modelos devido à leitura estática de variáveis de ambiente.
+- **Adapters Dinâmicos**: Implementada leitura dinâmica de `FAL_API_KEY` e `OPENROUTER_API_KEY` para evitar problemas de build-time.
+
 ## [1.7.0] - 2026-01-12
 
 ### Added
