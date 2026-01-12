@@ -16,6 +16,14 @@ export const AVAILABLE_MODELS = {
     image: [
         { id: 'google/gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash Image (Padrão)' },
         { id: 'openai/gpt-image-1', label: 'DALL-E 3 (GPT Image)' },
+        { id: 'fal-ai/flux/schnell', label: 'Flux Schnell (fal.ai)', provider: 'fal' },
+        { id: 'fal-ai/flux/dev', label: 'Flux Dev (fal.ai)', provider: 'fal' },
+    ],
+
+    // Modelos de vídeo
+    video: [
+        { id: 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video', label: 'Kling 2.5 Turbo (fal.ai)', provider: 'fal' },
+        { id: 'fal-ai/luma-dream-machine', label: 'Luma Dream Machine (fal.ai)', provider: 'fal' },
     ],
 
     // Modelos com vision (análise de imagem)
@@ -70,10 +78,17 @@ export const LLM_FEATURES = {
         modelType: 'vision' as const,
         defaultModel: 'anthropic/claude-3.5-sonnet',
     },
+    ai_video: {
+        label: 'Geração de Vídeo',
+        description: 'Modelo padrão para gerar vídeos (fal.ai)',
+        icon: '🎬',
+        modelType: 'video' as const,
+        defaultModel: 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video',
+    },
 } as const
 
 export type LLMFeatureKey = keyof typeof LLM_FEATURES
-export type ModelType = 'text' | 'image' | 'vision'
+export type ModelType = 'text' | 'image' | 'vision' | 'video'
 
 // Função para obter modelos disponíveis por feature
 export function getAvailableModelsForFeature(featureKey: LLMFeatureKey) {

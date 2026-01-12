@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { validateUserAuthentication, getUserFromClerkId } from '@/lib/auth-utils'
 import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFeature } from '@/lib/credits/deduct'
 import { InsufficientCreditsError } from '@/lib/credits/errors'
-import { runFullPipeline, generateShortScript, generateShortPrompts, generateShortMedia } from '@/lib/shorts/pipeline'
+import { runFullPipeline, generateScript, generateMedia } from '@/lib/shorts/pipeline'
 import { FeatureKey } from '@/lib/credits/feature-config'
 import { createLogger } from '@/lib/logger'
 
@@ -72,13 +72,10 @@ async function handlePost(req: Request, { params }: { params: Promise<{ id: stri
         try {
             switch (step) {
                 case 'script':
-                    await generateShortScript(id)
-                    break
-                case 'prompts':
-                    await generateShortPrompts(id)
+                    await generateScript(id)
                     break
                 case 'media':
-                    await generateShortMedia(id)
+                    await generateMedia(id)
                     break
                 case 'full':
                 default:

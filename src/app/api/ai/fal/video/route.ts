@@ -5,6 +5,7 @@ import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFea
 import { InsufficientCreditsError } from '@/lib/credits/errors';
 import { generateKlingVideo } from '@/lib/fal/kling';
 import { createLogger } from '@/lib/logger'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 
 const log = createLogger('api/fal/video')
 
@@ -60,12 +61,14 @@ async function handlePost(req: Request) {
         }
 
         try {
+            const model = await getDefaultModel('ai_video')
             const result = await generateKlingVideo({
                 prompt,
                 image_url,
                 duration: duration as '5' | '10',
                 aspect_ratio: aspect_ratio as any,
                 negative_prompt,
+                model,
             })
 
             log.success('Vídeo gerado', startTime, { userId: clerkUserId })

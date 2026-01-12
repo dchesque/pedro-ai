@@ -11,6 +11,7 @@ export type FluxInput = {
     seed?: number;
     enable_safety_checker?: boolean;
     negative_prompt?: string;
+    model?: string;
 };
 
 export type FluxOutput = {
@@ -38,7 +39,8 @@ export async function generateFluxImage(input: FluxInput): Promise<FluxOutput> {
     try {
         log.debug('Prompt', { prompt: input.prompt.substring(0, 100) })
 
-        const result = await runFal<FluxOutput>('fal-ai/flux/schnell', {
+        const model = input.model || 'fal-ai/flux/schnell';
+        const result = await runFal<FluxOutput>(model, {
             ...input,
             num_inference_steps: input.num_inference_steps ?? 4,
             enable_safety_checker: input.enable_safety_checker ?? true,

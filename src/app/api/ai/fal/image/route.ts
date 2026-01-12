@@ -5,6 +5,7 @@ import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFea
 import { InsufficientCreditsError } from '@/lib/credits/errors';
 import { generateFluxImage, IMAGE_PRESETS } from '@/lib/fal/flux';
 import { createLogger } from '@/lib/logger'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 
 const log = createLogger('api/fal/image')
 
@@ -55,12 +56,14 @@ async function handlePost(req: Request) {
         }
 
         try {
+            const model = await getDefaultModel('ai_image')
             const result = await generateFluxImage({
                 prompt,
                 negative_prompt,
                 image_size,
                 num_images,
                 seed,
+                model,
             })
 
             log.success('Imagens geradas', startTime, {

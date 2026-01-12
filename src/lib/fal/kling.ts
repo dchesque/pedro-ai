@@ -9,6 +9,7 @@ export type KlingInput = {
     duration?: '5' | '10';
     aspect_ratio?: '16:9' | '9:16' | '1:1';
     negative_prompt?: string;
+    model?: string;
 };
 
 export type KlingOutput = {
@@ -33,7 +34,7 @@ export async function generateKlingVideo(input: KlingInput): Promise<KlingOutput
         hasImage: !!input.image_url
     })
 
-    const model = input.image_url ? KLING_MODELS.image_to_video : KLING_MODELS.text_to_video;
+    const model = input.model || (input.image_url ? KLING_MODELS.image_to_video : KLING_MODELS.text_to_video);
 
     try {
         log.info('📹 Iniciando geração', { model, prompt: input.prompt.substring(0, 50) })

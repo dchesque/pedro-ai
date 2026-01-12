@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logger'
 import { getModelById, isModelFree, getModelCredits } from '@/lib/ai/models'
 import { validateCreditsForFeature, deductCreditsForFeature } from '@/lib/credits/deduct'
 import { FeatureKey } from '@/lib/credits/feature-config'
+import { getDefaultModel } from '@/lib/ai/model-resolver'
 
 const log = createLogger('shorts/pipeline')
 
@@ -53,7 +54,7 @@ export async function createShort(input: CreateShortInput) {
 export async function generateScript(shortId: string): Promise<ShortScript> {
     const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
 
-    const modelId = short.aiModel ?? 'deepseek/deepseek-v3.2'
+    const modelId = short.aiModel || await getDefaultModel('agent_scriptwriter')
     const model = getModelById(modelId)
 
     // Verificar se precisa cobrar créditos
@@ -387,11 +388,13 @@ export async function generateMedia(shortId: string): Promise<void> {
                     if (!scene.imagePrompt) return
 
                     try {
+                        const imageModel = await getDefaultModel('ai_image')
                         const result = await generateFluxImage({
                             prompt: scene.imagePrompt,
                             negative_prompt: scene.negativePrompt ?? undefined,
                             image_size: 'portrait_16_9',
                             num_images: 1,
+                            model: imageModel,
                         })
 
                         const image = result.images[0]
@@ -465,11 +468,13 @@ export async function regenerateSceneImage(
 
     if (!prompt) throw new Error('Cena não possui prompt de imagem')
 
+    const imageModel = await getDefaultModel('ai_image')
     const result = await generateFluxImage({
         prompt: prompt,
         negative_prompt: options?.newNegativePrompt || scene.negativePrompt || undefined,
         image_size: 'portrait_16_9',
         num_images: 1,
+        model: imageModel,
     })
 
     const image = result.images[0]

@@ -5,7 +5,8 @@ import { validateCreditsForFeature, deductCreditsForFeature, refundCreditsForFea
 import { InsufficientCreditsError } from '@/lib/credits/errors'
 import { type FeatureKey } from '@/lib/credits/feature-config'
 import { withApiLogging } from '@/lib/logging/api'
-import { getDefaultModel } from '@/lib/ai/model-resolver'
+import { getDefaultModel, getModelConfig } from '@/lib/ai/model-resolver'
+import { generateFluxImage } from '@/lib/fal/flux'
 
 type ImageUrl = {
   type?: string
@@ -75,25 +76,46 @@ async function handleImageGeneration(req: Request) {
       return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
     }
     let { model } = parsed.data
-    const { prompt, count, attachments } = parsed.data
+    const { prompt, count, attachments, size } = parsed.data
 
-    // Se o modelo não foi passado, usar o padrão configurado
-    if (!model) {
-      model = await getDefaultModel('ai_image')
-    }
+    // Obter configuração completa (provedor + id)
+    const config = model
+      ? { provider: model.startsWith('fal-ai/') ? 'fal' : 'openrouter', modelId: model }
+      : await getModelConfig('ai_image')
+
+    const { provider, modelId } = config
 
     // Charge credits before calling provider
     const feature: FeatureKey = 'ai_image_generation'
     const quantity = typeof count === 'number' ? count : 1
     try {
       await validateCreditsForFeature(userId!, feature, quantity)
-      await deductCreditsForFeature({ clerkUserId: userId!, feature, quantity, details: { model } })
+      await deductCreditsForFeature({ clerkUserId: userId!, feature, quantity, details: { model: modelId, provider } })
     } catch (e: unknown) {
       if (e instanceof InsufficientCreditsError) {
         return NextResponse.json({ error: 'insufficient_credits', required: e.required, available: e.available }, { status: 402 })
       }
       throw e
     }
+
+    // --- DISPATCHER ---
+    if (provider === 'fal') {
+      try {
+        const result = await generateFluxImage({
+          prompt,
+          num_images: quantity,
+          model: modelId,
+          image_size: size === '1024x1024' ? 'square_hd' : size === '512x512' ? 'square_hd' : 'square_hd' as any
+        })
+        return NextResponse.json({ images: result.images.map(img => img.url) })
+      } catch (error) {
+        await refundCreditsForFeature({ clerkUserId: userId!, feature, quantity, reason: 'fal_failed', details: { model: modelId } })
+        return NextResponse.json({ error: 'Fal.ai generation failed' }, { status: 500 })
+      }
+    }
+
+    // Mantemos OpenRouter como fallback ou se provider === 'openrouter'
+    model = modelId;
 
     // Map common vendorless ids when possible
     if (model === 'gpt-image-1') model = 'openai/gpt-image-1'
