@@ -2,712 +2,265 @@
 
 ## Overview
 
-This application uses a component-driven architecture with Radix UI primitives and custom components built with Tailwind CSS. Components are organized by purpose and reusability.
-
-## Component Hierarchy
+This documentation covers the React components in the `src/components/` directory of the Pedro AI application. The app follows a component-driven architecture using **Next.js 14 App Router**, **TypeScript**, **Tailwind CSS**, **Radix UI primitives**, and **shadcn/ui**-inspired patterns. Components are organized by feature and reusability:
 
 ```
-components/
-├── ui/              # Base UI components (Radix + Tailwind)
-├── app/             # Application-specific components
-│   ├── page-header.tsx  # Automatic page headers
-│   ├── sidebar.tsx      # Navigation sidebar
-│   └── topbar.tsx       # Top navigation
-├── features/        # Feature-specific components
-└── providers/       # Context providers
-
-contexts/
-└── page-metadata.tsx # Page metadata management
-
-hooks/
-└── use-page-config.ts # Page configuration helper
+src/components/
+├── ui/                    # Reusable UI primitives (Button, Dialog, Form, Autocomplete, etc.)
+├── app/                   # Global app layout (AppShell, CookieConsent, etc.)
+├── admin/                 # Admin dashboard (AdminChrome, AdminTopbar, etc.)
+├── ai-chat/               # AI chat interface (ChatInput, message-bubble.tsx)
+├── billing/               # Billing UI (CpfModal)
+├── characters/            # Character management (CharacterSelector)
+├── estilos/               # Style selectors (ContentTypeSelector, StyleForm)
+├── plans/                 # Pricing and plans (pricing-card.tsx, plan-pricing-section.tsx)
+├── roteirista/            # Script generation wizard (ScriptWizard)
+├── shorts/                # Short video pipeline (AddSceneDialog, CreateShortForm)
+└── marketing/             # Landing pages (AIStarter)
 ```
 
-## UI Components (`/components/ui/`)
+**Key Stats**:
+- 187 components/symbols
+- Dependencies: Primarily on Models (29 symbols), Utils (171), Hooks (e.g., `use-shorts`, `use-credits`)
+- Patterns: Compound components, render props, hooks for data fetching/mutations
+- Styling: `cn()` utility from `src/lib/utils.ts` for class merging
 
-These are the foundational components built with Radix UI primitives and styled with Tailwind CSS. They follow the shadcn/ui design system.
+Components integrate with **TanStack Query** via custom hooks (e.g., `useShorts`, `useCredits`) and **Clerk** for auth.
 
-### Button Component
+## UI Components (`src/components/ui/`)
 
+Low-level, reusable primitives based on Radix UI + Tailwind. Follow shadcn/ui conventions.
+
+### Autocomplete (`src/components/ui/autocomplete.tsx`)
+
+**Purpose**: Accessible autocomplete/dropdown for typeahead input.
+
+**Exports**:
+- `AutocompleteItem` (type)
+
+**Usage** (inferred from patterns):
 ```tsx
-// components/ui/button.tsx
-import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
+import { AutocompleteItem } from "@/components/ui/autocomplete";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-);
+const items: AutocompleteItem[] = [
+  { value: "shorts", label: "Shorts" },
+  { value: "characters", label: "Characters" }
+];
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
-}
-
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
-
-Button.displayName = "Button";
-
-export { Button, buttonVariants };
+// Integrated with Combobox primitive
+<Autocomplete items={items} onSelect={handleSelect} />
 ```
 
-**Usage:**
-```tsx
-import { Button } from "@/components/ui/button";
+**Props** (common):
+- `items: AutocompleteItem[]`
+- `onSelect: (value: string) => void`
+- Supports filtering, keyboard nav.
 
-<Button variant="default" size="lg">
-  Primary Button
-</Button>
+### Button, Dialog, Form (shadcn/ui standards)
 
-<Button variant="outline" size="sm">
-  Secondary Button
-</Button>
+Standard implementations:
+- **Button**: Variants (`default`, `destructive`, `outline`), sizes (`default`, `sm`, `lg`, `icon`). Uses `Slot` for `asChild`.
+- **Dialog**: `Dialog`, `DialogTrigger`, `DialogContent`, `DialogOverlay`. Animated backdrop.
+- **Form**: Integrates `react-hook-form` + Zod. Uses `FormField`, `FormItem`, `FormControl`, `FormLabel`, `FormMessage`.
 
-<Button variant="ghost" size="icon">
-  <Plus className="h-4 w-4" />
-</Button>
-```
-
-### Form Components
-
-```tsx
-// components/ui/form.tsx - Using React Hook Form context
-import { useFormContext } from "react-hook-form";
-
-const FormField = ({
-  name,
-  render,
-}: {
-  name: string;
-  render: ({ field }: { field: any }) => React.ReactNode;
-}) => {
-  const { control } = useFormContext();
-  
-  return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field, fieldState }) => (
-        <FormItem>
-          {render({ field })}
-          {fieldState.error && (
-            <FormMessage>{fieldState.error.message}</FormMessage>
-          )}
-        </FormItem>
-      )}
-    />
-  );
-};
-```
-
-**Form Usage Example:**
+**Example** (Form + Dialog):
 ```tsx
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import * as z from "zod";
 
-const formSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
+const schema = z.object({ name: z.string().min(1) });
 
-function LoginForm() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-  });
+function AddItemDialog() {
+  const form = useForm({ resolver: zodResolver(schema) });
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter email" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </form>
-    </Form>
+    <Dialog>
+      <DialogTrigger asChild><Button>Add Item</Button></DialogTrigger>
+      <DialogContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit">Save</Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 ```
 
-### Dialog Component
+**Related**: `cn()` from `src/lib/utils.ts` for conditional classes.
 
+## App Layout Components (`src/components/app/`)
+
+Global wrappers and shells.
+
+### AppShell (`src/components/app/app-shell.tsx`)
+
+**Purpose**: Main layout wrapper with sidebar, topbar, and main content.
+
+**Exports**: `AppShell`
+
+**Usage**:
 ```tsx
-// components/ui/dialog.tsx
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-
-const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
-const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
-
-const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out",
-      className
-    )}
-    {...props}
-  />
-));
-
-const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
+// In root layout or page
+<AppShell>
+  <Sidebar />
+  <main>{children}</main>
+</AppShell>
 ```
 
-**Dialog Usage:**
+**Cross-refs**: Integrates `AdminChrome` for admin routes.
+
+### CookieConsent (`src/components/app/cookie-consent.tsx`)
+
+**Purpose**: GDPR-compliant cookie banner.
+
+**Props**:
+- Configurable accept/reject actions.
+
+## Admin Components (`src/components/admin/`)
+
+Dashboard for admins.
+
+### AdminChrome (`src/components/admin/admin-chrome.tsx`)
+
+**Purpose**: Full admin layout (sidebar + content).
+
+**Exports**: `AdminChrome` (line 8)
+
+**Dependencies**: `use-admin-settings`, Models.
+
+### AdminTopbar (`src/components/admin/admin-topbar.tsx`)
+
+**Purpose**: Admin navigation header.
+
+**Usage** (with `AdminChrome`):
 ```tsx
-<Dialog>
-  <DialogTrigger asChild>
-    <Button>Open Dialog</Button>
-  </DialogTrigger>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Confirmation</DialogTitle>
-      <DialogDescription>
-        Are you sure you want to delete this item?
-      </DialogDescription>
-    </DialogHeader>
-    <DialogFooter>
-      <Button variant="outline">Cancel</Button>
-      <Button variant="destructive">Delete</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+<AdminChrome>
+  <AdminTopbar />
+  <AdminContent>Dashboard</AdminContent>
+</AdminChrome>
 ```
 
-## Application Components (`/components/app/`)
+**Related Pages**:
+- `src/app/admin/layout.tsx` (`AdminLayout`)
+- `src/app/admin/settings/page.tsx` (`AdminSettingsPage`)
+- `src/app/admin/onboarding/page.tsx` (`AdminOnboardingPage`)
 
-### Sidebar Component
+**Hooks**: `useAdminSettings` returns `AdminSettings`.
 
+## Feature-Specific Components
+
+### Shorts Pipeline (`src/components/shorts/`)
+
+Video short creation workflow.
+
+- **AddSceneDialog** (`src/components/shorts/AddSceneDialog.tsx`): Modal for adding scenes. Uses `useAddScene` hook.
+- **CreateShortForm** (`src/components/shorts/CreateShortForm.tsx`): Form for new shorts. Depends on `useCreateShort`, `useGenerateScript`.
+
+**Workflow** (cross-ref `src/hooks/use-shorts.ts`):
+1. Create short (`CreateShortInput`)
+2. Generate script (`useGenerateScript`)
+3. Add scenes (`ShortScene`)
+4. Generate media (`useGenerateMedia`)
+
+**Example**:
 ```tsx
-// components/app/sidebar.tsx
-interface SidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
+import { useCreateShort } from "@/hooks/use-shorts";
+import { CreateShortForm } from "@/components/shorts/CreateShortForm";
+import { AddSceneDialog } from "@/components/shorts/AddSceneDialog";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Billing", href: "/billing", icon: CreditCard },
-  { name: "Profile", href: "/profile", icon: User },
-];
-
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const pathname = usePathname();
+function ShortsDashboard() {
+  const createShort = useCreateShort();
 
   return (
-    <aside className={cn(
-      "border-r bg-card/30 backdrop-blur-xl transition-[width]",
-      collapsed ? "w-[64px]" : "w-64"
-    )}>
-      <nav className="p-2">
-        {navigation.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2",
-              pathname === item.href 
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {!collapsed && <span>{item.name}</span>}
-          </Link>
-        ))}
-      </nav>
-    </aside>
+    <>
+      <CreateShortForm onSuccess={short => console.log(short)} />
+      <AddSceneDialog shortId="123" />
+    </>
   );
 }
 ```
 
-### Topbar Component
+**Types**: `Short`, `ShortScene`, `ShortStatus`.
 
-```tsx
-// components/app/topbar.tsx
-interface TopbarProps {
-  onToggleSidebar: () => void;
-  sidebarCollapsed: boolean;
-}
+### Roteirista Script Wizard (`src/components/roteirista/`)
 
-export function Topbar({ onToggleSidebar, sidebarCollapsed }: TopbarProps) {
-  return (
-    <header className="flex h-14 items-center gap-4 border-b bg-background px-6">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleSidebar}
-        className="md:hidden"
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
-      
-      <div className="flex-1" />
-      
-      <UserMenu />
-      <ThemeToggle />
-    </header>
-  );
-}
-```
+AI script generation.
 
-## Feature Components
+- **ScriptWizard** (`src/components/roteirista/ScriptWizard.tsx`): Multi-step wizard. Imported by 5 files.
+- Depends on `src/lib/roteirista/types.ts`: `ScriptFormData`, `SceneData`, `GenerateScenesRequest`.
 
-### Credit System Components
+**Hooks**: `useGenerateScript`, `useApproveScript`.
 
-```tsx
-// components/credits/credit-status.tsx
-export function CreditStatus() {
-  const { data: credits, isLoading } = useCredits();
-  
-  if (isLoading) {
-    return <Skeleton className="h-6 w-20" />;
-  }
+### Plans & Billing (`src/components/plans/` & `src/components/billing/`)
 
-  return (
-    <div className="flex items-center gap-2">
-      <Coins className="h-4 w-4 text-yellow-500" />
-      <span className="text-sm font-medium">
-        {credits?.creditsRemaining || 0} credits
-      </span>
-    </div>
-  );
-}
-```
+Pricing tables and modals.
 
-### User Menu Component
+- **pricing-card.tsx**, **plan-pricing-section.tsx**: Responsive pricing grids. Imported by 5+ files.
+- **CpfModal** (`src/components/billing/cpf-modal.tsx`): Brazilian CPF input modal. Exports `BillingType`.
 
-```tsx
-// components/app/user-menu.tsx
-export function UserMenu() {
-  const { user } = useUser();
-  const router = useRouter();
+**Types**: `BillingPeriod`, `BillingPlan`, `PublicPlan` (from `usePublicPlans`).
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
-            <AvatarFallback>
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/profile')}>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/billing')}>
-          <CreditCard className="mr-2 h-4 w-4" />
-          Billing
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <SignOutButton>
-            <button className="flex w-full items-center">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </button>
-          </SignOutButton>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-```
+**Utils**: `buildPlanTiers` from `src/components/plans/plan-tier-config.tsx`.
 
-## Provider Components
+### Characters (`src/components/characters/`)
 
-### Query Provider
+- **CharacterSelector** (`src/components/characters/CharacterSelector.tsx`): Dropdown for selecting characters in shorts.
 
-```tsx
-// components/providers/query-provider.tsx
-'use client';
+**Hooks**: `useCharacters`, `CreateCharacterInput`.
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useState } from 'react';
+**Limits**: `canCreateCharacter`, `canAddCharacterToShort` from `src/lib/characters/limits.ts`.
 
-export function QueryProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () => new QueryClient({
-      defaultOptions: {
-        queries: {
-          staleTime: 60 * 1000, // 1 minute
-          retry: 3,
-        },
-      },
-    })
-  );
+### Estilos (Styles) (`src/components/estilos/`)
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  );
-}
-```
+Visual style selection.
 
-### Theme Provider
+- **ContentTypeSelector** (`src/components/estilos/ContentTypeSelector.tsx`): Toggles content types. Exports `ContentType`.
+- **StyleForm** (`src/components/estilos/StyleForm.tsx`): CRUD for styles.
 
-```tsx
-// components/providers/theme-provider.tsx
-'use client';
+**Hooks**: `useStyles`, `useCreateStyle`, `Style`.
 
-import { createContext, useContext, useEffect, useState } from 'react';
+### AI Chat (`src/components/ai-chat/`)
 
-type Theme = 'dark' | 'light' | 'system';
+- **ChatInput** (`src/components/ai-chat/ChatInput.tsx`): Composable input with send/submit.
+- **message-bubble.tsx**: Exports `ChatMessage`.
 
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-}
+**Related**: `src/components/marketing/ai-starter.tsx` (`AIStarter`).
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+## Contexts & Providers
 
-export function ThemeProvider({
-  children,
-  defaultTheme = 'system',
-  storageKey = 'ui-theme',
-}: {
-  children: React.ReactNode;
-  defaultTheme?: Theme;
-  storageKey?: string;
-}) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
+- **AdminDevModeProvider** (`src/contexts/admin-dev-mode.tsx`): Toggles dev mode.
+- **Page Metadata** (`src/contexts/page-metadata.tsx`): Exports `BreadcrumbItem`.
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+## Patterns & Best Practices
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-      return;
-    }
+1. **Hooks Integration**: All data components use TanStack Query hooks (e.g., `useShorts` returns `{ data: Short[] }`).
+2. **Error Handling**: `ApiError` from `src/lib/api-client.ts`. Graceful fallbacks.
+3. **Loading States**: Skeleton loaders via `isLoading` from hooks.
+4. **Accessibility**: Radix ARIA, semantic elements, keyboard nav.
+5. **Performance**: `React.memo`, `useMemo` for lists (e.g., scenes).
+6. **Testing**: Unit tests for UI (RTL + Jest), integration via MSW for API mocks.
 
-    root.classList.add(theme);
-  }, [theme]);
+**Cross-References**:
+- **Hooks**: See `docs/hooks.md` (e.g., `useCredits` → `CreditStatus`).
+- **Utils**: `cn()`, `apiClient`.
+- **Models**: Prisma types underpin all data components.
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
-```
-
-## Component Patterns
-
-### Compound Components
-
-```tsx
-// components/ui/card.tsx
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
-    {...props}
-  />
-));
-
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
-    {...props}
-  />
-));
-
-// Usage
-<Card>
-  <CardHeader>
-    <CardTitle>Title</CardTitle>
-    <CardDescription>Description</CardDescription>
-  </CardHeader>
-  <CardContent>
-    <p>Content</p>
-  </CardContent>
-</Card>
-```
-
-### Render Props Pattern
-
-```tsx
-// components/data-fetcher.tsx
-interface DataFetcherProps<T> {
-  url: string;
-  children: (data: {
-    data: T | null;
-    loading: boolean;
-    error: Error | null;
-  }) => React.ReactNode;
-}
-
-export function DataFetcher<T>({ url, children }: DataFetcherProps<T>) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: [url],
-    queryFn: () => fetch(url).then(res => res.json()),
-  });
-
-  return children({ data, loading: isLoading, error });
-}
-
-// Usage
-<DataFetcher<User[]> url="/api/users">
-  {({ data, loading, error }) => {
-    if (loading) return <Loading />;
-    if (error) return <Error error={error} />;
-    return <UserList users={data} />;
-  }}
-</DataFetcher>
-```
-
-### Higher-Order Components (HOCs)
-
-```tsx
-// components/hocs/with-auth.tsx
-export function withAuth<T extends Record<string, any>>(
-  WrappedComponent: React.ComponentType<T>
-) {
-  return function AuthenticatedComponent(props: T) {
-    const { isLoaded, isSignedIn } = useAuth();
-    
-    if (!isLoaded) {
-      return <Loading />;
-    }
-    
-    if (!isSignedIn) {
-      redirect('/sign-in');
-    }
-    
-    return <WrappedComponent {...props} />;
-  };
-}
-
-// Usage
-const ProtectedPage = withAuth(DashboardPage);
-```
-
-## Styling Guidelines
-
-### CSS-in-JS with Tailwind
-
-```tsx
-// Use cn utility for conditional classes
-const Button = ({ variant, size, className, ...props }) => (
-  <button
-    className={cn(
-      "base-button-classes",
-      {
-        "variant-primary": variant === "primary",
-        "variant-secondary": variant === "secondary",
-      },
-      className
-    )}
-    {...props}
-  />
-);
-```
-
-### Custom CSS Variables
-
-```css
-/* globals.css */
-.glass-panel {
-  backdrop-filter: blur(16px);
-  background: rgba(var(--card), 0.3);
-  border: 1px solid rgba(var(--border), 0.4);
-}
-
-.noise-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.03;
-  z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E...");
-}
-```
-
-## Testing Components
-
-### Unit Testing with Jest and React Testing Library
-
-```tsx
-// __tests__/components/button.test.tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Button } from '@/components/ui/button';
-
-describe('Button', () => {
-  it('renders correctly', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByRole('button')).toHaveTextContent('Click me');
-  });
-
-  it('handles click events', () => {
-    const handleClick = jest.fn();
-    render(<Button onClick={handleClick}>Click me</Button>);
-    
-    fireEvent.click(screen.getByRole('button'));
-    expect(handleClick).toHaveBeenCalledTimes(1);
-  });
-
-  it('applies variant classes correctly', () => {
-    render(<Button variant="destructive">Delete</Button>);
-    expect(screen.getByRole('button')).toHaveClass('bg-destructive');
-  });
-});
-```
-
-### Integration Testing
-
-```tsx
-// __tests__/components/user-menu.test.tsx
-import { render, screen } from '@testing-library/react';
-import { UserMenu } from '@/components/app/user-menu';
-import { useUser } from '@clerk/nextjs';
-
-jest.mock('@clerk/nextjs');
-
-describe('UserMenu', () => {
-  it('displays user information', () => {
-    (useUser as jest.Mock).mockReturnValue({
-      user: {
-        firstName: 'John',
-        lastName: 'Doe',
-        imageUrl: 'https://example.com/avatar.jpg',
-      },
-    });
-
-    render(<UserMenu />);
-    expect(screen.getByText('JD')).toBeInTheDocument();
-  });
-});
-```
-
-## Best Practices
-
-### 1. Component Design
-- Keep components small and focused
-- Use TypeScript for prop types
-- Follow single responsibility principle
-- Implement proper error boundaries
-
-### 2. Performance
-- Use React.memo for expensive components
-- Implement proper key props for lists
-- Use lazy loading for heavy components
-- Optimize re-renders with useCallback/useMemo
-
-### 3. Accessibility
-- Use semantic HTML elements
-- Implement proper ARIA labels
-- Ensure keyboard navigation
-- Test with screen readers
-
-### 4. Reusability
-- Create generic, composable components
-- Use render props or children for flexibility
-- Implement consistent prop interfaces
-- Document component APIs
-
-### 5. State Management
-- Lift state up when needed
-- Use local state by default
-- Implement proper loading states
-- Handle error states gracefully
+For source code, search via `grep` or IDE. Contribute new components following shadcn/ui addition workflow.

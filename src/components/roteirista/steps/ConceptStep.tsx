@@ -1,7 +1,5 @@
-"use client"
-
-import React from 'react'
-import { Wand2, Loader2 } from 'lucide-react'
+import React, { useState } from 'react'
+import { Wand2, Loader2, Sparkles, Settings, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -12,11 +10,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { AITextAssistant } from '../AITextAssistant'
-import { useAvailableStyles } from '@/hooks/use-agents'
+import { useStyles } from '@/hooks/use-styles'
+import { useAvailableModels } from '@/hooks/use-available-models'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
+import { useRouter } from 'next/navigation'
 import type { ScriptFormData } from '@/lib/roteirista/types'
+import { StylePreviewCard } from '../StylePreviewCard'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ConceptStepProps {
     data: Partial<ScriptFormData>
@@ -37,8 +46,15 @@ const TONE_OPTIONS = [
 ]
 
 export function ConceptStep({ data, onChange }: ConceptStepProps) {
-    const { data: stylesData, isLoading: loadingStyles } = useAvailableStyles()
+    const router = useRouter()
+    const { data: stylesData, isLoading: loadingStyles } = useStyles()
+    const { data: modelsData, isLoading: loadingModels } = useAvailableModels()
     const styles = stylesData?.styles || []
+    const models = modelsData?.models || []
+    const [suggestingTitles, setSuggestingTitles] = useState(false)
+    const [titles, setTitles] = useState<string[]>([])
+
+    const selectedStyle = styles.find(s => s.id === data.styleId)
 
     // Mutation para gerar sinopse a partir do tema
     const generateSynopsisMutation = useMutation({
@@ -58,21 +74,202 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
         },
     })
 
+    // Mutation para sugerir títulos
+    const suggestTitlesMutation = useMutation({
+        mutationFn: async () => {
+            setSuggestingTitles(true)
+            const response = await api.post<{ titles: string[] }>('/api/roteirista/ai/suggest-titles', {
+                theme: data.theme || '',
+                styleId: data.styleId,
+                tone: data.tone,
+            })
+            return response.titles
+        },
+        onSuccess: (suggestedTitles) => {
+            setTitles(suggestedTitles)
+            setSuggestingTitles(false)
+        },
+        onError: () => {
+            setSuggestingTitles(false)
+        }
+    })
+
     const handleChange = (field: keyof ScriptFormData, value: any) => {
         onChange({ ...data, [field]: value })
     }
 
     return (
         <div className="space-y-6">
-            {/* Título */}
+            {/* Bloco de Configurações */}
+            <div className="p-4 rounded-xl border bg-card/30 backdrop-blur-sm space-y-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Estilo Visual */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Estilo / Regras *</Label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5"
+                                            onClick={() => router.push('/estilos')}
+                                        >
+                                            <ExternalLink className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Gerenciar Estilos</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <Select
+                            value={data.styleId || ''}
+                            onValueChange={(value) => handleChange('styleId', value)}
+                        >
+                            <SelectTrigger className="bg-background/50 h-9">
+                                <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {loadingStyles ? (
+                                    <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
+                                ) : (
+                                    styles.map((style) => (
+                                        <SelectItem key={style.id} value={style.id}>
+                                            <div className="flex items-center justify-between w-full gap-4">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{style.icon}</span>
+                                                    <span>{style.name}</span>
+                                                </div>
+                                                {!style.userId || style.isDefault ? (
+                                                    <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-secondary/30 border-none uppercase opacity-60">Sistema</Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-[8px] h-3.5 px-1 text-blue-500 border-blue-500/20 uppercase">Pessoal</Badge>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Tom */}
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Tom / Clima *</Label>
+                        <Select
+                            value={data.tone || ''}
+                            onValueChange={(value) => handleChange('tone', value)}
+                        >
+                            <SelectTrigger className="bg-background/50 h-9">
+                                <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {TONE_OPTIONS.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Modelo de IA */}
+                    <div className="space-y-2">
+                        <Label htmlFor="model" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Modelo de IA *</Label>
+                        <Select
+                            value={data.modelId || ''}
+                            onValueChange={(value) => handleChange('modelId', value)}
+                        >
+                            <SelectTrigger className="bg-background/50 h-9">
+                                <SelectValue placeholder="Escolha..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {loadingModels ? (
+                                    <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
+                                ) : (
+                                    models.map((model) => (
+                                        <SelectItem key={model.id} value={model.id}>
+                                            <div className="flex items-center justify-between w-full gap-2">
+                                                <span>{model.name}</span>
+                                                {model.isFree ? (
+                                                    <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-500 border-none px-1">Free</Badge>
+                                                ) : (
+                                                    <span className="text-[9px] opacity-70 whitespace-nowrap">{model.credits}cr/m</span>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {selectedStyle && (
+                    <div className="pt-2 border-t border-border/50">
+                        <StylePreviewCard style={selectedStyle} />
+                    </div>
+                )}
+            </div>
+
+            {/* Título (Linha Inteira) */}
             <div className="space-y-2">
-                <Label htmlFor="title">Título *</Label>
+                <Label htmlFor="title" className="flex items-center justify-between">
+                    <span>Título *</span>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-3 text-[11px] text-primary hover:text-primary-foreground gap-1.5 bg-primary/5 hover:bg-primary"
+                                onClick={() => !titles.length && suggestTitlesMutation.mutate()}
+                                disabled={!data.theme || suggestingTitles}
+                            >
+                                {suggestingTitles ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                )}
+                                Sugestões IA
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-72 glass-panel p-2">
+                            <div className="text-[10px] uppercase font-bold text-muted-foreground px-2 py-1 mb-1">Ideias Criativas</div>
+                            {titles.length > 0 ? (
+                                titles.map((title, i) => (
+                                    <DropdownMenuItem
+                                        key={i}
+                                        onClick={() => handleChange('title', title)}
+                                        className="text-sm py-2.5 cursor-pointer"
+                                    >
+                                        {title}
+                                    </DropdownMenuItem>
+                                ))
+                            ) : (
+                                <div className="text-xs text-center p-4 text-muted-foreground">
+                                    Descreva seu tema para ver sugestões.
+                                </div>
+                            )}
+                            <div className="border-t border-border/50 mt-1 pt-1">
+                                <DropdownMenuItem
+                                    onClick={() => suggestTitlesMutation.mutate()}
+                                    className="text-xs justify-center text-primary font-medium hover:bg-primary/5"
+                                >
+                                    <Wand2 className="h-3 w-3 mr-2" />
+                                    Gerar Novas Ideias
+                                </DropdownMenuItem>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </Label>
                 <Input
                     id="title"
                     value={data.title || ''}
                     onChange={(e) => handleChange('title', e.target.value)}
-                    placeholder="Ex: A Jornada do Herói"
+                    placeholder="Ex: Segredos da Inteligência Artificial"
                     maxLength={100}
+                    className="bg-card/50 text-lg py-6"
                 />
             </div>
 
@@ -123,53 +320,6 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                 )}
             </div>
 
-            {/* Grid: Estilo e Tom */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Estilo Visual */}
-                <div className="space-y-2">
-                    <Label>Estilo Visual</Label>
-                    <Select
-                        value={data.styleId || ''}
-                        onValueChange={(value) => handleChange('styleId', value)}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecione um estilo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {loadingStyles ? (
-                                <div className="p-2 text-sm text-muted-foreground">Carregando...</div>
-                            ) : (
-                                styles.map((style) => (
-                                    <SelectItem key={style.key} value={style.key}>
-                                        {style.icon} {style.name}
-                                    </SelectItem>
-                                ))
-                            )}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {/* Tom */}
-                <div className="space-y-2">
-                    <Label>Tom / Clima *</Label>
-                    <Select
-                        value={data.tone || ''}
-                        onValueChange={(value) => handleChange('tone', value)}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecione o tom..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {TONE_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
             {/* Número de Cenas */}
             <div className="space-y-2">
                 <Label>Número de Cenas</Label>
@@ -177,7 +327,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                     value={String(data.sceneCount || 7)}
                     onValueChange={(value) => handleChange('sceneCount', parseInt(value))}
                 >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-32 bg-card/50">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

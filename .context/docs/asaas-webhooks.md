@@ -1,124 +1,180 @@
-# Local Asaas Webhooks for Payment Testing
+# Asaas Webhooks Integration
 
-Use a public tunnel to deliver Asaas webhooks to your local Next.js dev server to test payment confirmation events.
+## Overview
 
-## Understanding Webhooks vs Callbacks
+This guide explains how to configure and test Asaas webhooks for handling payment events in the application. Webhooks enable automatic processing of payment confirmations, such as updating user credits upon successful payments.
 
-Before setting up, it's crucial to understand the difference:
+**Key Concepts**:
+- **Webhook Endpoint**: `POST /api/webhooks/asaas` (Next.js App Router route at `src/app/api/webhooks/asaas/route.ts`)
+- **Purpose**: Receives real-time events from Asaas (e.g., `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`) and updates the database (e.g., user credits).
+- **Verification**: Uses HMAC SHA256 signature with `ASAAS_WEBHOOK_SECRET`.
+- **Environment**: Supports **Sandbox** (testing) and **Production** modes.
+- **Related Components**:
+  - [AsaasClient](../src/lib/asaas/client.ts): Client for Asaas API interactions.
+  - [Credits System](../src/lib/credits/): Handles credit updates triggered by webhooks.
+  - [Subscription Hooks](../src/hooks/use-subscription.ts): Queries subscription status post-webhook.
 
-### Webhook (What this guide covers)
-- **Purpose**: Backend receives payment EVENTS from Asaas
-- **URL**: `https://yourdomain.com/api/webhooks/asaas`
-- **Configured**: Globally in Asaas Dashboard
-- **Processes**: Payment confirmations, updates credits automatically
+**Webhook vs. Callback**:
+| Aspect       | Webhook                          | Callback                          |
+|--------------|----------------------------------|-----------------------------------|
+| **Trigger**  | Payment event from Asaas backend | User redirected after payment     |
+| **URL**      | `/api/webhooks/asaas`            | `/dashboard?payment=success`      |
+| **Scope**    | Server-side (credits update)     | Client-side (UI feedback)         |
+| **Config**   | Asaas Dashboard > Webhooks       | `NEXT_PUBLIC_APP_URL`             |
 
-### Callback
-- **Purpose**: Redirects USER after payment
-- **URL**: `https://yourdomain.com/dashboard?payment=success`
-- **Configured**: Automatically via `NEXT_PUBLIC_APP_URL`
-- **Processes**: User experience only
-
-**⚠️ IMPORTANT**: Both must use the same base domain for proper functionality.
+**⚠️ Critical**: Both webhook and callback URLs must share the **same base domain** (e.g., tunnel URL during dev).
 
 ## Prerequisites
-- A tool to create a public tunnel to your local server, like Cloudflare Tunnel or ngrok.
-- Running dev server: `npm run dev`
-- Asaas API configured in `.env`:
-  - For testing: Use **SANDBOX** environment (default)
-  - For production: Configure production API key and URL (see [README.md](../README.md#configurar-asaas))
-- `NEXT_PUBLIC_APP_URL` set to your tunnel URL (critical for both webhook and callback)
 
-## 1. Start a Public Tunnel
-First, expose your local server (running on port 3000) to the internet.
+- Next.js dev server running: `npm run dev` (listens on `http://localhost:3000`).
+- Asaas account with API keys in `.env`:
+  ```env
+  ASAAS_API_KEY=your_sandbox_or_prod_key  # Sandbox: acc_*, Prod: key_*
+  ASAAS_API_URL=https://sandbox.asaas.com/api/v3  # Or https://www.asaas.com/api/v3 for prod
+  ```
+- Public tunnel tool: Cloudflare Tunnel (`npm run tunnel:cf`) or ngrok (`npm run tunnel:ngrok`).
+- `NEXT_PUBLIC_APP_URL` set to tunnel URL.
 
-### Option A: Cloudflare Tunnel
-1. Install: `brew install cloudflared` (or download from their website).
-2. Start tunnel: `npm run tunnel:cf`
-   - This will provide a public URL like `https://<hash>.cfargotunnel.com`.
+## Setup Steps
 
-### Option B: ngrok
-1. Install ngrok.
-2. Start tunnel: `npm run tunnel:ngrok`
-   - This will provide a public URL like `https://<subdomain>.ngrok.io`.
+### 1. Expose Local Server via Tunnel
 
-Copy the public URL provided by your tunnel tool.
+```bash
+# Cloudflare (recommended, via package.json scripts)
+npm run tunnel:cf
+# Output: https://<hash>.cfargotunnel.com
 
-## 2. Configure Your Environment
-**Before** configuring Asaas, set your tunnel URL in `.env`:
-```env
-NEXT_PUBLIC_APP_URL=https://<your-tunnel-url>
+# ngrok
+npm run tunnel:ngrok
+# Output: https://<subdomain>.ngrok.io
 ```
 
-This ensures both webhook and callback use the same base URL.
+Copy the **HTTPS** public URL.
 
-## 3. Configure Asaas Webhook
-1. In your Asaas Dashboard, navigate to **Integrações > Webhooks**.
-   - **SANDBOX**: https://sandbox.asaas.com/ (for testing)
-   - **PRODUÇÃO**: https://www.asaas.com/ (for real payments)
+### 2. Update Environment
 
-2. Click **Adicionar Webhook**.
-3. **URL**: Paste the public URL from your tunnel and append the API route: `https://<your-tunnel-url>/api/webhooks/asaas`.
-   - ⚠️ This MUST match the base URL in `NEXT_PUBLIC_APP_URL`
-4. **Token de Verificação**: Asaas provides a secret token. Copy this token.
-5. **Set the secret locally**: Add the copied token to your `.env` or `.env.local` file:
-   ```env
-   ASAAS_WEBHOOK_SECRET=your_asaas_token_here
+```env
+NEXT_PUBLIC_APP_URL=https://<your-tunnel-url>.cfargotunnel.com
+ASAAS_WEBHOOK_SECRET=whsec_your_asaas_webhook_secret  # From Asaas dashboard
+```
+
+**Restart dev server** after changes: `npm run dev`.
+
+### 3. Configure Webhook in Asaas Dashboard
+
+1. Login: [Sandbox](https://sandbox.asaas.com/) or [Production](https://www.asaas.com/).
+2. Navigate: **Integrações > Webhooks > Adicionar Webhook**.
+3. **URL**: `https://<your-tunnel-url>/api/webhooks/asaas`.
+4. **Token de Verificação**: Copy and set as `ASAAS_WEBHOOK_SECRET`.
+5. **Eventos** (recommended):
+   - `PAYMENT_RECEIVED` (Cobrança Recebida)
+   - `PAYMENT_CONFIRMED` (Cobrança Confirmada)
+   - `PAYMENT_OVERDUE` (Cobrança Vencida, optional for reminders)
+6. Save.
+
+## Implementation Details
+
+### Webhook Handler (`src/app/api/webhooks/asaas/route.ts`)
+
+Handles incoming POST requests with signature verification and event processing.
+
+**Key Logic**:
+1. **Verification**: Computes HMAC SHA256 of raw body using `ASAAS_WEBHOOK_SECRET` and compares to `X-Hub-Signature-256` header.
+2. **Event Dispatch**:
+   - `PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`: Fetch payment via [AsaasClient](../src/lib/asaas/client.ts), update user credits via `addUserCredits`.
+3. **Logging**: Uses app logger for debugging (e.g., `[Webhook] Credits updated: user@example.com -> 1000 credits`).
+4. **Error Handling**: Returns 400/401 on invalid signature; 200 on success.
+
+**Example Payload** (Asaas `PAYMENT_RECEIVED`):
+```json
+{
+  "event": "PAYMENT_RECEIVED",
+  "payment": {
+    "id": "pay_abc123",
+    "customer": "cus_123",
+    "value": 99.90,
+    "status": "CONFIRMED",
+    "billingType": "PIX",
+    "dueDate": "2024-10-01"
+  }
+}
+```
+
+**Signature Verification Code Snippet**:
+```ts
+// Simplified from route.ts
+import { createHmac } from 'crypto';
+
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const signature = req.headers.get('x-asaas-signature') || '';
+  const expectedSignature = `sha256=${createHmac('sha256', process.env.ASAAS_WEBHOOK_SECRET!).update(body).digest('hex')}`;
+  
+  if (signature !== expectedSignature) {
+    return new Response('Invalid signature', { status: 401 });
+  }
+  
+  const event = JSON.parse(body);
+  // Handle event...
+}
+```
+
+### AsaasClient Usage (`src/lib/asaas/client.ts`)
+
+```ts
+export class AsaasClient {
+  constructor(private apiKey: string, private apiUrl: string = 'https://sandbox.asaas.com/api/v3') {}
+
+  async getPayment(id: string) {
+    return this.fetch(`/payments/${id}`);
+  }
+
+  private async fetch(endpoint: string) {
+    // Authenticated fetch with apiKey
+  }
+}
+```
+
+**Cross-References**:
+- [Credits Validation](../src/lib/credits/validate-credits.ts): `addUserCredits`.
+- [Subscription Status](../src/hooks/use-subscription.ts): Reflects webhook updates.
+
+## Testing the Flow
+
+1. Create a test subscription via app UI (e.g., upgrade plan).
+2. Complete PIX payment in Asaas Sandbox (instant confirmation).
+3. Monitor logs:
    ```
-6. **Eventos**: Select the events you want to listen to. For this template, the most important ones are:
-   - ✅ **"Cobrança Recebida" (`PAYMENT_RECEIVED`)**
-   - ✅ **"Cobrança Confirmada" (`PAYMENT_CONFIRMED`)**
+   [Asaas] Environment: SANDBOX
+   [Webhook] Received event: PAYMENT_RECEIVED for pay_abc123
+   [Credits] Added 1000 credits to user_123
+   ```
+4. Verify in app: User dashboard shows updated credits/subscription.
 
-7. Save the webhook.
-
-## 4. Verify Setup
-- Perform a test payment in the Asaas environment:
-  - **SANDBOX**: Test payments without real charges
-  - **PRODUÇÃO**: Real payments (be careful!)
-- When the payment is confirmed, Asaas will send an event to your local server.
-- The handler for this is located at `src/app/api/webhooks/asaas/route.ts`. You can add `console.log` statements there to see the incoming payload and debug the process.
-- Check your server logs for:
-  ```
-  [Asaas] Environment: SANDBOX (or PRODUCTION)
-  [Asaas] API URL: https://sandbox.asaas.com/api/v3
-  [Webhook] Received event: PAYMENT_RECEIVED
-  [Webhook] Credits updated: user@example.com -> 1000 credits
-  ```
-
-## Expected Flow
-
-1. **User initiates checkout** → Creates subscription with callback URL
-2. **User completes payment** → Asaas processes payment
-3. **Asaas sends webhook** → Your backend at `/api/webhooks/asaas` receives event
-4. **Backend updates credits** → User credits updated in database
-5. **User redirected** → Via callback URL to `/dashboard?payment=success`
+**Sandbox Test Payments**:
+- PIX: Use any CPF/CNPJ, email; confirms instantly.
+- Boleto: Use `34191.09008 00019.5512 07206.3 747 00000001037`.
 
 ## Troubleshooting
 
-### Webhook not receiving events
-1. Verify tunnel is running: `npm run tunnel:cf` or `npm run tunnel:ngrok`
-2. Check webhook URL in Asaas dashboard matches tunnel URL + `/api/webhooks/asaas`
-3. Verify `ASAAS_WEBHOOK_SECRET` is correctly set in `.env`
-4. Check Asaas dashboard → Webhooks → Histórico for delivery logs
+| Issue                          | Cause/Solution |
+|--------------------------------|----------------|
+| **No webhook events**          | - Tunnel down? Run `npm run tunnel:cf`.<br>- URL mismatch? Check Asaas > Webhooks > Histórico.<br>- Secret invalid? Verify `ASAAS_WEBHOOK_SECRET`. |
+| **Signature 401**              | Raw body tampering or wrong secret. Use `req.text()` before JSON.parse. |
+| **No credit update**           | Check payment `customer` matches Clerk user ID. Logs in `/api/webhooks/asaas`. |
+| **Callback redirect fails**    | `NEXT_PUBLIC_APP_URL` mismatch. Restart server. |
+| **Prod vs Sandbox mixup**      | Toggle `ASAAS_API_URL` and use correct dashboard. |
 
-### User not redirected after payment
-1. Verify `NEXT_PUBLIC_APP_URL` matches your tunnel URL
-2. Restart dev server after changing `NEXT_PUBLIC_APP_URL`
-3. Check if payment was completed successfully in Asaas dashboard
+**Debug Tips**:
+- Add `console.log(event)` in handler (dev only).
+- Asaas Logs: Dashboard > Webhooks > Histórico (delivery status, retries).
+- Extend Events: Add cases in `route.ts` switch (e.g., `PAYMENT_CANCELED`).
 
-### Webhook vs Callback Confusion
-**ERROR**: "Webhook URL doesn't match callback URL"
-- **Cause**: `NEXT_PUBLIC_APP_URL` doesn't match webhook base URL in Asaas dashboard
-- **Solution**: Ensure both use the same base domain
+## Production Deployment
 
-**Example Correct Setup**:
-```env
-NEXT_PUBLIC_APP_URL=https://abc123.ngrok.io
-```
-- Asaas Webhook: `https://abc123.ngrok.io/api/webhooks/asaas` ✅
-- Callback: `https://abc123.ngrok.io/dashboard?payment=success` ✅
+- Use Vercel/Netlify domain for `NEXT_PUBLIC_APP_URL`.
+- Update Asaas webhook to prod URL.
+- Monitor with Vercel Logs or Sentry.
+- Rotate `ASAAS_WEBHOOK_SECRET` periodically.
 
-## Tips
-- Ensure your tunnel is running and that the URL in the Asaas dashboard is correct.
-- If the webhook fails, Asaas provides a log of recent deliveries in its dashboard, which can help diagnose issues like incorrect URLs or server errors (5xx).
-- The `ASAAS_WEBHOOK_SECRET` is crucial for verifying that the request genuinely came from Asaas. Keep it safe.
-- Always restart your dev server after changing `NEXT_PUBLIC_APP_URL`.
+For extending webhook logic, see [API Auth Utils](../src/lib/api-auth.ts) and [Logger](../src/lib/logger.ts).

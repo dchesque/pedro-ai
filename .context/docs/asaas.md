@@ -1,282 +1,180 @@
 # Asaas Integration Guide
 
-This guide covers the Asaas payment integration, including environment configuration, API usage, and webhooks.
+This guide covers the Asaas payment integration for handling subscriptions, customers, and payments in the Pedro AI platform. Asaas is a Brazilian payment gateway with APIs for billing management.
 
 ## Overview
 
-Asaas is a Brazilian payment gateway that provides APIs for managing customers, subscriptions, and payments. This project integrates with Asaas to handle subscription billing.
+- **Purpose**: Manages recurring subscriptions (monthly/yearly plans) and one-time payments.
+- **Key Components**:
+  | Component | Path | Description |
+  |-----------|------|-------------|
+  | `AsaasClient` | `src/lib/asaas/client.ts` | Main API client for customers, subscriptions, and payments. |
+  | Configuration | `src/lib/asaas/config.ts` | Loads env vars and determines sandbox/production mode. |
+  | Checkout API | `src/app/api/checkout/route.ts` | Creates subscriptions/payments. |
+  | Webhook Handler | `src/app/api/webhooks/asaas/route.ts` | Processes payment events (confirmation, overdue, etc.). |
+- **Dependencies**: Uses `apiClient` from `src/lib/api-client.ts` for HTTP requests.
+- **Usage**: Integrated with Clerk for user management and credits system (`src/lib/credits/`).
 
-## Environments
+## Environment Configuration
 
-Asaas provides two environments:
+Asaas has **Sandbox** (testing) and **Production** (live) environments.
 
-### 1. SANDBOX (Development/Testing)
-- **Purpose**: Testing without real charges
-- **API URL**: `https://sandbox.asaas.com/api/v3`
-- **Dashboard**: https://sandbox.asaas.com/
-- **API Keys**: Usually start with letters/numbers (not `$`)
-- **Use for**: Local development, testing, staging
-
-**Configuration**:
-```env
-# .env
-ASAAS_API_KEY=your_sandbox_key_here
-# ASAAS_API_URL is optional - defaults to sandbox
+### Sandbox (Recommended for Development)
 ```
+ASAAS_API_KEY=acc_123...  # No leading $
+# ASAAS_API_URL defaults to https://sandbox.asaas.com/api/v3
+```
+- Dashboard: [sandbox.asaas.com](https://sandbox.asaas.com/)
+- No real charges.
 
-### 2. PRODUCTION
-- **Purpose**: Real payments and charges
-- **API URL**: `https://api.asaas.com/v3`
-- **Dashboard**: https://www.asaas.com/
-- **API Keys**: Start with `$` (e.g., `$aas_...`)
-- **Use for**: Production deployments
-
-**Configuration**:
-```env
-# .env
-ASAAS_API_KEY="$aas_your_production_key_here"
+### Production
+```
+ASAAS_API_KEY="$aas_prod_123..."  # Starts with $
 ASAAS_API_URL=https://api.asaas.com/v3
+ASAAS_WEBHOOK_SECRET=whsec_123...  # From dashboard
 ```
+- Dashboard: [asaas.com](https://www.asaas.com/)
+- **Escape `$` in `.env`**: Use quotes `"$aas_..."` or `\$aas_...`.
 
-**Important**: Production keys that start with `$` need proper escaping in `.env` files:
-- **Recommended**: Use double quotes: `ASAAS_API_KEY="$aas_..."`
-- **Alternative**: Escape the `$`: `ASAAS_API_KEY=\$aas_...`
-
-## Environment Detection
-
-When your server starts, you'll see logs indicating which environment is active:
-
+### Detection & Logging
+On server startup:
 ```
-[Asaas] Environment: SANDBOX
-[Asaas] API URL: https://sandbox.asaas.com/api/v3
-[Asaas] API Key: abc12...
+[Asaas] Environment: [SANDBOX|PRODUCTION]
+[Asaas] API URL: https://...
+[Asaas] API Key: [masked]
 ```
-
-Or for production:
-
-```
-[Asaas] Environment: PRODUCTION
-[Asaas] API URL: https://api.asaas.com/v3
-[Asaas] API Key: $aas_...
-```
-
-## Getting API Keys
-
-### Sandbox Keys
-1. Create an account at https://sandbox.asaas.com/
-2. Navigate to **Integrações > API**
-3. Copy your API key
-4. Add to `.env`: `ASAAS_API_KEY=your_key_here`
-
-### Production Keys
-1. Create an account at https://www.asaas.com/
-2. Navigate to **Integrações > API**
-3. Copy your API key (starts with `$aas_`)
-4. Add to `.env` with proper escaping: `ASAAS_API_KEY="$aas_your_key_here"`
-5. Set the production URL: `ASAAS_API_URL=https://api.asaas.com/v3`
-
-## API Client
-
-The Asaas client is located at `src/lib/asaas/client.ts` and provides methods for:
-
-- **Customers**: Create, update, and search customers
-- **Subscriptions**: Create and manage subscriptions
-- **Payments**: Query subscription payments
-
-**Example usage**:
-```typescript
-import { asaasClient } from '@/lib/asaas/client';
-
-// Get or create customer
-const customer = await asaasClient.getCustomerByEmail(email)
-  || await asaasClient.createCustomer({ email, name });
-
-// Create subscription
-const subscription = await asaasClient.createSubscription({
-  customer: customer.id,
-  value: 99.90,
-  cycle: 'MONTHLY',
-  billingType: 'CREDIT_CARD',
-});
-```
-
-## Configuration
-
-The configuration is in `src/lib/asaas/config.ts`:
-
+Config exported from `src/lib/asaas/config.ts`:
 ```typescript
 export const ASAAS_CONFIG = {
-  apiKey: string;           // From ASAAS_API_KEY env var
-  apiUrl: string;           // From ASAAS_API_URL or defaults to sandbox
-  isSandbox: boolean;       // True if using sandbox environment
-  environment: string;      // "sandbox" or "production"
+  apiKey: process.env.ASAAS_API_KEY!,
+  apiUrl: process.env.ASAAS_API_URL ?? 'https://sandbox.asaas.com/api/v3',
+  isSandbox: !process.env.ASAAS_API_URL?.includes('api.asaas.com'),
+  environment: process.env.ASAAS_API_URL?.includes('api.asaas.com') ? 'production' : 'sandbox'
 };
 ```
 
-## Webhooks and Callbacks
+**Env Check Script**: `node scripts/check-env.js` validates keys and escaping.
 
-It's important to understand the difference between **Webhooks** and **Callbacks** in Asaas integration:
+## AsaasClient API
 
-### Webhook (Global Configuration)
-**Purpose**: Receives payment EVENTS from Asaas to your backend.
+**Import**: `import { AsaasClient } from '@/lib/asaas/client.ts';`
 
-- **What it is**: A URL configured globally in your Asaas Dashboard
-- **Where to configure**: Asaas Dashboard → Integrações → Webhooks
-- **URL format**: `https://yourdomain.com/api/webhooks/asaas`
-- **Events received**: `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`, etc.
-- **When it's called**: Whenever ANY payment event occurs in your Asaas account
-- **Purpose**: Backend processes payment confirmations and updates user credits
-- **Handler**: `src/app/api/webhooks/asaas/route.ts`
-
-**Setup**:
-1. Configure webhook URL in Asaas dashboard: `https://yourdomain.com/api/webhooks/asaas`
-2. Copy the verification token
-3. Add to `.env`: `ASAAS_WEBHOOK_SECRET=your_token_here`
-
-### Callback (Per-Subscription Configuration)
-**Purpose**: Redirects the USER after completing payment.
-
-- **What it is**: A URL sent when creating each subscription via API
-- **Where to configure**: Set via `NEXT_PUBLIC_APP_URL` in `.env`
-- **URL format**: `https://yourdomain.com/dashboard?payment=success&plan=xyz`
-- **When it's called**: After the user completes payment on Asaas invoice page
-- **Purpose**: Improved user experience - redirects user back to your app
-- **Code**: `src/app/api/checkout/route.ts:220-223`
-
-### Important: URL Consistency
-
-**⚠️ CRITICAL**: Both webhook and callback URLs must use the same base domain (NEXT_PUBLIC_APP_URL).
-
-**Correct Configuration** ✅:
-```env
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-```
-- Webhook in dashboard: `https://yourdomain.com/api/webhooks/asaas`
-- Callback automatically: `https://yourdomain.com/dashboard?payment=success`
-
-**Incorrect Configuration** ❌:
-```env
-NEXT_PUBLIC_APP_URL=https://different-domain.com
-```
-- Webhook in dashboard: `https://yourdomain.com/api/webhooks/asaas`
-- Callback: `https://different-domain.com/dashboard?payment=success` ⚠️ MISMATCH!
-
-### Behavior Scenarios
-
-#### Scenario 1: Webhook Configured (Recommended)
-- ✅ Payment events are automatically processed
-- ✅ User credits updated immediately when payment confirmed
-- ✅ User redirected to dashboard after payment
-- **Requirements**: Webhook URL in dashboard + `NEXT_PUBLIC_APP_URL` + `ASAAS_WEBHOOK_SECRET`
-
-#### Scenario 2: No Webhook Configured
-- ❌ Payment events NOT automatically processed
-- ⚠️ Credits won't be updated automatically
-- ✅ User still redirected to dashboard after payment
-- ⚠️ Manual intervention needed to confirm payments
-
-### Troubleshooting
-
-**Error: Webhook not receiving events**
-1. Check webhook URL matches `NEXT_PUBLIC_APP_URL` + `/api/webhooks/asaas`
-2. Verify `ASAAS_WEBHOOK_SECRET` is correctly set
-3. Check server logs for incoming requests
-4. Test webhook delivery in Asaas dashboard
-
-**Error: User not redirected after payment**
-1. Verify `NEXT_PUBLIC_APP_URL` is set correctly
-2. Check callback URL in subscription creation logs
-3. Ensure URL is accessible (not localhost if testing in production)
-
-See [asaas-webhooks.md](./asaas-webhooks.md) for detailed webhook setup instructions.
-
-## Important Limitations
-
-### Minimum Charge Value
-
-**Asaas requires a minimum charge value of R$ 5.00** for all subscriptions and payments.
-
-This means:
-- All subscription plans must have a value of at least R$ 5.00
-- One-time payments must also be at least R$ 5.00
-- The system validates this before creating charges in Asaas
-
-**Example validation in checkout** (`src/app/api/checkout/route.ts:72-77`):
+**Instantiation**:
 ```typescript
-// Validate minimum value required by Asaas (R$ 5.00)
-if (price < ASAAS_MIN_VALUE) {
-    return NextResponse.json({
-        error: `O valor mínimo para assinaturas é R$ ${ASAAS_MIN_VALUE.toFixed(2)}`
-    }, { status: 400 });
+const asaasClient = new AsaasClient();  // Auto-configures from env
+```
+
+### Key Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `getCustomerByEmail(email: string)` | Fetch customer by email or `null`. | `email` | `Promise<Customer \| null>` |
+| `createCustomer(data: CreateCustomerInput)` | Create new customer. | `{ name, email, cpf?, phone? }` | `Promise<Customer>` |
+| `getOrCreateCustomer(data: { name: string, email: string })` | Idempotent: get or create. | `{ name, email }` | `Promise<Customer>` |
+| `createSubscription(input: CreateSubscriptionInput)` | Create subscription. | `{ customer: string, value: number, cycle: 'MONTHLY' \| 'YEARLY', billingType: 'CREDIT_CARD' \| 'PIX', ... }` | `Promise<Subscription>` |
+| `getSubscriptionPayments(subId: string)` | List payments for subscription. | `subscriptionId` | `Promise<Payment[]>` |
+
+**Types** (from `src/lib/asaas/types.ts`):
+```typescript
+interface Customer { id: string; email: string; name: string; /* ... */ }
+interface Subscription { id: string; customer: string; value: number; status: 'CONFIRMED' \| ... }
+```
+
+**Example: Full Subscription Flow**
+```typescript
+import { asaasClient } from '@/lib/asaas/client';
+
+async function createUserSubscription(userEmail: string, userName: string, planPrice: number) {
+  // 1. Get/Create Customer
+  const customer = await asaasClient.getOrCreateCustomer({ email: userEmail, name: userName });
+
+  // 2. Create Subscription
+  const subscription = await asaasClient.createSubscription({
+    customer: customer.id,
+    billingType: 'CREDIT_CARD',  // or 'PIX'
+    value: planPrice,            // e.g., 990 for R$9.90 (min R$5.00)
+    cycle: 'MONTHLY',
+    description: 'Pedro AI Pro Plan',
+    callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?payment=success&sub=${subscription.id}`,
+    // webhookUrl: auto-configured globally
+  });
+
+  return subscription;
 }
 ```
+**Cross-references**:
+- Used in `src/app/api/checkout/route.ts` for plan upgrades.
+- Integrated with `use-admin-plans.ts` for billing plans.
 
-**Recommendation**: Design your pricing tiers to respect this minimum:
-- ✅ Free Plan: R$ 0.00 (handled separately, no Asaas subscription created)
-- ✅ Starter Plan: R$ 9.00 (above minimum)
-- ✅ Pro Plan: R$ 29.00 (above minimum)
-- ❌ Micro Plan: R$ 2.99 (below minimum - not allowed)
+## Webhooks
 
-## Common Issues
+**Endpoint**: `POST /api/webhooks/asaas`
+- **Verification**: HMAC with `ASAAS_WEBHOOK_SECRET`.
+- **Events Handled**:
+  | Event | Action |
+  |-------|--------|
+  | `PAYMENT_CONFIRMED` | Add credits via `addUserCredits`. |
+  | `PAYMENT_OVERDUE` | Notify user, suspend access. |
+  | `PAYMENT_CANCELED` | Deduct/revoke credits. |
 
-### Error: "O valor da cobrança (R$ X) não pode ser menor que R$ 5,00"
+**Handler Logic** (`src/app/api/webhooks/asaas/route.ts`):
+1. Verify signature.
+2. Parse event.
+3. Update user subscription status in DB.
+4. Sync credits.
 
-**Cause**: Attempting to create a subscription or charge with value below R$ 5.00.
+**Setup**:
+1. Asaas Dashboard → Integrações → Webhooks → Add `https://${NEXT_PUBLIC_APP_URL}/api/webhooks/asaas`.
+2. Copy token to `ASAAS_WEBHOOK_SECRET`.
+3. Test with ngrok for local dev.
 
-**Solution**:
-1. Check your plan prices in the database or static config
-2. Ensure all paid plans have `priceMonthlyCents >= 500` (R$ 5.00)
-3. For plans below this value, consider making them free or bundling features
+**Callbacks (User Redirects)**:
+- Set per-subscription: `${NEXT_PUBLIC_APP_URL}/dashboard?payment=success&subscriptionId=...`
+- Ensures same domain as webhook.
 
-### Error: "A chave de API informada não pertence a este ambiente"
+## Minimum Value Enforcement
 
-**Cause**: API key doesn't match the environment URL.
-
-**Solutions**:
-1. **Using production key with sandbox URL**: Set `ASAAS_API_URL=https://api.asaas.com/v3`
-2. **Using sandbox key with production URL**: Remove `ASAAS_API_URL` to use sandbox (default)
-3. **API key not loading**: Check if `$` is properly escaped in `.env`
-
-### API key not detected
-
-Run the environment check script:
-```bash
-node scripts/check-env.js
+**Rule**: Asaas requires ≥ R$5.00 (500 cents).
+- **Validation**: In `src/app/api/checkout/route.ts`:
+```typescript
+const ASAAS_MIN_VALUE = 5.00;
+if (price < ASAAS_MIN_VALUE) {
+  throw new Error(`Minimum R$ ${ASAAS_MIN_VALUE}`);
+}
 ```
+- **Plans**: Free = no Asaas; Paid ≥ R$5.00.
+- Related: `BillingPlan` in `src/components/admin/plans/types.ts`.
 
-This will verify:
-- `.env` file exists
-- `ASAAS_API_KEY` is present
-- Key is properly loaded into `process.env`
-- Any escaping issues with `$` character
+## Troubleshooting
 
-### Switching between environments
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| "Chave não pertence ao ambiente" | Key/URL mismatch. | Match sandbox/prod key+URL. |
+| "Valor < R$5.00" | Plan too cheap. | Update `priceMonthlyCents >= 500`. |
+| No webhook events | Wrong URL/secret. | Verify `${NEXT_PUBLIC_APP_URL}` consistency; check logs. |
+| Key not loaded | `$` escaping. | Use `"$key"` in `.env`; run `check-env.js`. |
+| Credits not added | Webhook fail. | Check `/api/webhooks/asaas` logs; test delivery in Asaas. |
 
-To switch from sandbox to production:
-1. Update `ASAAS_API_KEY` with production key (with proper escaping)
-2. Add `ASAAS_API_URL=https://api.asaas.com/v3`
-3. Update `ASAAS_WEBHOOK_SECRET` with production webhook token
-4. Restart your server
-5. Verify logs show: `[Asaas] Environment: PRODUCTION`
+**Logs**: Enable `LOG_LEVEL=debug` for Asaas traces.
 
-To switch from production to sandbox:
-1. Update `ASAAS_API_KEY` with sandbox key
-2. Remove or comment out `ASAAS_API_URL`
-3. Update `ASAAS_WEBHOOK_SECRET` with sandbox webhook token
-4. Restart your server
-5. Verify logs show: `[Asaas] Environment: SANDBOX`
+## Testing
+
+1. **Sandbox**: Create test customer/sub via API.
+2. **Webhook Test**: Use Asaas dashboard simulator or Stripe-like CLI.
+3. **E2E**: `npm run dev` → Checkout flow → Inspect DB/credits.
 
 ## Best Practices
 
-1. **Always use SANDBOX for development**: Never test with production keys locally
-2. **Verify environment on startup**: Check server logs to confirm correct environment
-3. **Keep secrets secure**: Never commit `.env` files to version control
-4. **Use environment variables**: Never hardcode API keys in code
-5. **Test webhooks locally**: Use tunneling tools (ngrok, Cloudflare Tunnel) for local webhook testing
+- **Domains**: `NEXT_PUBLIC_APP_URL` must match webhook domain.
+- **Security**: Never log full API keys; use masked prefixes.
+- **Idempotency**: Use `getOrCreateCustomer` to avoid duplicates.
+- **Plans Sync**: Use `src/components/admin/plans/` for DB config.
+- **Related Docs**:
+  - [Credits System](./credits.md)
+  - [Admin Plans](./admin-plans.md)
+  - [Asaas Types](src/lib/asaas/types.ts)
 
-## Additional Resources
+## Resources
 
-- [Asaas API Documentation](https://docs.asaas.com/)
-- [Asaas Webhooks Guide](./asaas-webhooks.md)
-- [Backend Development Guide](./backend.md)
-- [API Routes Documentation](./api.md)
+- [Asaas Docs](https://docs.asaas.com/)
+- Source: `src/lib/asaas/` (172 LOC total)

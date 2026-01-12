@@ -1,232 +1,212 @@
-# Troubleshooting: Créditos não atualizados após pagamento
+# Troubleshooting Webhooks Asaas
 
-Este guia ajuda a diagnosticar por que os créditos e plano do usuário não foram atualizados após um pagamento bem-sucedido no Asaas.
+Este guia abrangente ajuda a diagnosticar e resolver problemas comuns relacionados a webhooks do Asaas, especialmente quando créditos e planos de usuários não são atualizados após pagamentos confirmados. Focado em desenvolvedores, inclui verificações de logs, endpoints de debug, causas raiz baseadas no código fonte e soluções práticas com exemplos.
+
+## Sumário
+
+- [Diagnóstico Rápido](#diagnóstico-rápido)
+- [Problemas Comuns](#problemas-comuns)
+- [Fluxo Completo do Webhook](#fluxo-completo-do-webhook)
+- [Código Fonte Relacionado](#código-fonte-relacionado)
+- [Testes e Ferramentas](#testes-e-ferramentas)
+- [Checklist Completo](#checklist-completo)
+- [Logs Esperados](#logs-esperados)
 
 ## Diagnóstico Rápido
 
-### 1. Verifique se o webhook foi recebido
+### 1. Verifique Logs do Servidor
 
-**Onde verificar**: Logs do servidor
-
-Quando o webhook é recebido, você verá logs assim:
+Procure por logs específicos do webhook no console do servidor (Vercel, local ou Replit):
 
 ```
 [Webhook] Received event: PAYMENT_RECEIVED
-[Webhook] Processing for user: user@example.com
-[Webhook] Processing PAYMENT_RECEIVED for payment pay_xxx
-[Webhook] Credits updated: user@example.com -> 1000 credits from Pro Plan
+[Webhook] Processing for user: user@example.com (clerkId: user_xxx)
+[Webhook] Found Asaas customer: cus_xxx -> User ID: user_123
+[Webhook] Payment pay_xxx confirmed. Plan: pro_monthly (1000 credits)
+[Webhook] Credits updated: user@example.com -> 1100 credits (added 1000)
 ```
 
-**Se NÃO vir esses logs**, o webhook não está sendo recebido pelo servidor.
+**Se ausentes**: Webhook não recebido ou filtrado.
 
-### 2. Use o endpoint de debug
+**Cross-reference**: Logs gerados por `src/lib/logger.ts` (`createLogger`). Ative logging completo com `LOG_LEVEL=debug` no `.env`.
 
-Acesse (logado na aplicação):
-```
-GET http://localhost:3000/api/webhooks/asaas/debug
-```
+### 2. Endpoint de Debug (Recomendado)
 
-Ou em produção:
-```
-GET https://seudominio.com/api/webhooks/asaas/debug
-```
+Acesse logado como o usuário afetado:
 
-Isso retorna:
-- Informações do usuário
-- Créditos atuais
-- Plano atual
-- **Eventos recebidos** (CRÍTICO: se estiver vazio, nenhum webhook chegou)
-- Diagnósticos automáticos
+- **Local**: `GET http://localhost:3000/api/webhooks/asaas/debug`
+- **Produção**: `GET https://seudominio.com/api/webhooks/asaas/debug`
 
-**Exemplo de resposta**:
+**Resposta exemplo**:
 ```json
 {
   "user": {
+    "id": "user_123",
     "email": "user@example.com",
     "asaasCustomerId": "cus_xxx",
     "asaasSubscriptionId": "sub_xxx",
-    "currentPlanId": "plan_xxx"
+    "currentPlanId": "plan_pro_monthly"
   },
-  "creditBalance": {
-    "creditsRemaining": 100
+  "credits": {
+    "balance": 100,
+    "lastUpdated": "2024-12-09T10:00:00Z"
+  },
+  "subscription": {
+    "status": "CONFIRMED",
+    "nextBilling": "2025-01-09"
   },
   "recentEvents": [
     {
-      "eventType": "PAYMENT_CREATED",
-      "status": "PENDING",
-      "createdAt": "2025-12-09T..."
+      "event": "PAYMENT_RECEIVED",
+      "paymentId": "pay_xxx",
+      "status": "CONFIRMED",
+      "processed": true,
+      "timestamp": "2024-12-09T10:05:00Z"
     }
   ],
   "diagnostics": {
-    "hasAsaasCustomer": true,
-    "hasSubscription": true,
-    "hasPlan": false,  // ❌ Problema!
-    "hasCredits": false,  // ❌ Problema!
-    "totalEventsReceived": 1,
-    "paymentEventsReceived": 0  // ❌ Nenhum evento de pagamento!
+    "webhookEventsReceived": 5,
+    "paymentEventsProcessed": 1,
+    "asaasCustomerLinked": true,
+    "planExists": true,
+    "creditsUpdated": true,
+    "issues": []
   }
 }
 ```
 
-## Problemas Comuns
+**Interpretação**:
+- `webhookEventsReceived: 0` → Problema de recebimento.
+- `paymentEventsProcessed: 0` → Evento recebido mas não processado.
 
-### Problema 1: Webhook não está sendo recebido
+## Problemas Comuns e Soluções
 
-**Sintomas**:
-- `totalEventsReceived: 0` no debug endpoint
-- Nenhum log `[Webhook] Received event:` no servidor
+### Problema 1: Webhook Não Recebido
 
-**Causas possíveis**:
+**Sintomas**: `webhookEventsReceived: 0`, sem logs `[Webhook] Received`.
 
-#### A. Webhook não configurado no Asaas
-1. Acesse o dashboard Asaas (Sandbox ou Produção)
-2. Vá em **Integrações → Webhooks**
-3. Verifique se há um webhook configurado
-4. URL deve ser: `https://seudominio.com/api/webhooks/asaas`
+**Causas e Soluções**:
 
-**Para testes locais com ngrok**:
-- URL: `https://xxx.ngrok.io/api/webhooks/asaas`
-- Certifique-se que o túnel está **rodando**
-- O `NEXT_PUBLIC_APP_URL` deve estar configurado com a URL do túnel
+| Causa | Verificação | Solução |
+|-------|-------------|---------|
+| Não configurado no Asaas | Dashboard Asaas > Integrações > Webhooks | Crie webhook com URL: `https://seudominio.com/api/webhooks/asaas`. Marque `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`. |
+| URL incorreta | URL termina em `/api/webhooks/asaas`? | Atualize para `NEXT_PUBLIC_APP_URL + /api/webhooks/asaas`. Local: use ngrok (`npm run tunnel:ngrok`). |
+| Rede bloqueada | Teste `curl -X POST https://seudominio.com/api/webhooks/asaas` | Verifique firewall/Vercel logs. Asaas IP list: [docs.asaas.com](https://docs.asaas.com). |
+| Ambiente mismatch | Sandbox vs Produção | Verifique `ASAAS_API_KEY` e `ASAAS_SANDBOX` no `.env`. |
 
-#### B. URL do webhook incorreta
-- Verifique se a URL no dashboard termina com `/api/webhooks/asaas`
-- Certifique-se que a URL está **acessível** (não localhost se em produção)
+**Exemplo ngrok**:
+```bash
+npm run tunnel:ngrok
+# Copie URL: https://abc123.ngrok.io
+# Atualize Asaas webhook e NEXT_PUBLIC_APP_URL=https://abc123.ngrok.io
+```
 
-#### C. Firewall ou bloqueio de rede
-- O Asaas precisa conseguir fazer requisições POST para sua URL
-- Verifique se não há firewall bloqueando
+### Problema 2: Evento Recebido mas Não Processado
+
+**Sintomas**: Eventos totais >0, mas `paymentEventsProcessed: 0`. Logs param em `[Webhook] Received event: PAYMENT_CREATED`.
+
+**Causa**: Evento pendente (e.g., `PAYMENT_CREATED`). Aguarde confirmação.
 
 **Solução**:
-1. Configure o webhook corretamente no dashboard Asaas
-2. Para testes locais: `npm run tunnel:cf` ou `npm run tunnel:ngrok`
-3. Atualize `NEXT_PUBLIC_APP_URL` no `.env`
-4. Reinicie o servidor
+- Monitore dashboard Asaas > Pagamentos > Status "Recebido/Confirmado".
+- Código filtra eventos: Veja `src/app/api/webhooks/asaas/route.ts` (processa apenas `PAYMENT_RECEIVED`/`CONFIRMED`).
 
-### Problema 2: Webhook recebido, mas evento errado
+### Problema 3: Usuário ou Plano Não Encontrado
 
-**Sintomas**:
-- `totalEventsReceived > 0` mas `paymentEventsReceived: 0`
-- Logs mostram `[Webhook] Received event: PAYMENT_CREATED` mas não mostram "Credits updated"
+**Sintomas**: Logs: `[Webhook] User not found for cus_xxx` ou `[Plan] not found: plan_xxx`.
 
-**Causa**: O Asaas enviou evento `PAYMENT_CREATED` mas não `PAYMENT_RECEIVED` ou `PAYMENT_CONFIRMED`
+**Verificações SQL** (via Prisma Studio ou DB):
+```sql
+-- Usuário
+SELECT id, email, "asaasCustomerId", "asaasCustomerIdSandbox" FROM "User" WHERE "clerkId" = 'user_xxx';
 
-**Por que isso acontece**:
-- `PAYMENT_CREATED`: Pagamento foi criado (ainda pendente)
-- `PAYMENT_RECEIVED`: Pagamento foi recebido (PIX, boleto pago)
-- `PAYMENT_CONFIRMED`: Pagamento foi confirmado (cartão de crédito)
+-- Plano
+SELECT id, name, credits_granted FROM "Plan" WHERE id = 'plan_pro_monthly';
+```
 
 **Solução**:
-1. **Aguarde**: Se o pagamento foi feito, o Asaas enviará `PAYMENT_RECEIVED` ou `PAYMENT_CONFIRMED` quando o pagamento for processado
-2. **Verifique no Asaas**: Vá no dashboard e veja se o pagamento está com status "Recebido" ou "Confirmado"
-3. **Eventos configurados**: Certifique-se que os eventos `PAYMENT_RECEIVED` e `PAYMENT_CONFIRMED` estão marcados nas configurações do webhook
+- Checkout deve setar `asaasCustomerId`: Veja `src/app/api/checkout/route.ts` (~linha 207): `externalReference: planId`.
+- Crie plano se ausente: Use `use-admin-plans.ts` ou SQL.
 
-### Problema 3: Webhook recebido, mas planId não encontrado
+### Problema 4: Créditos Não Atualizados
 
-**Sintomas**:
-- Logs mostram: `[Webhook] No planId found - subscription: null, externalReference: null`
-- `paymentEventsReceived > 0` mas créditos não atualizados
+**Sintomas**: Plano atualizado, mas `credits.balance` baixo.
 
-**Causa**: O pagamento não tem informação sobre qual plano foi comprado
+**Causa**: Falha em `addUserCredits` (`src/lib/credits/validate-credits.ts`).
 
 **Solução**:
-1. Verifique se o checkout está enviando `externalReference` ao criar a assinatura
-2. O código em `src/app/api/checkout/route.ts:207` deve estar passando `externalReference: planId`
+- Verifique `use-credits.ts` para `CreditsResponse`.
+- Teste manual: `POST /api/credits/add?userId=xxx&credits=1000`.
 
-### Problema 4: planId encontrado, mas plano não existe no banco
+## Fluxo Completo do Webhook
 
-**Sintomas**:
-- Logs mostram: `[Webhook] Plan not found in database: xxx`
-
-**Causa**: O planId enviado não corresponde a nenhum plano no banco de dados
-
-**Solução**:
-1. Verifique se o plano existe:
-   ```sql
-   SELECT id, name, credits FROM "Plan" WHERE id = 'xxx';
+1. **Checkout**: `src/app/api/checkout/route.ts` → Cria customer/subscription via `AsaasClient` (`src/lib/asaas/client.ts`).
+2. **Pagamento**: Usuário paga → Asaas webhook POST `/api/webhooks/asaas`.
+3. **Handler**:
+   ```typescript
+   // src/app/api/webhooks/asaas/route.ts (pseudocódigo)
+   import { AsaasClient } from '@/lib/asaas/client';
+   import { addUserCredits } from '@/lib/credits/validate-credits';
+   
+   export async function POST(req) {
+     const event = await verifyWebhook(req); // Verifica assinatura
+     if (event.type === 'PAYMENT_RECEIVED') {
+       const user = await findUserByAsaasCustomer(event.data.customer);
+       const planId = event.data.externalReference;
+       const plan = await db.plan.findUnique({ id: planId });
+       await addUserCredits(user.id, plan.credits_granted);
+       log(`Credits updated: ${user.email}`);
+     }
+   }
    ```
-2. Se não existir, crie o plano ou use um plano existente no checkout
+4. **Atualização**: `useSubscription`/`useCredits` refetch em frontend.
 
-### Problema 5: Usuário não encontrado
+## Código Fonte Relacionado
 
-**Sintomas**:
-- Logs mostram: `[Webhook] User not found for Asaas customer: cus_xxx`
+| Componente | Arquivo | Descrição |
+|------------|---------|-----------|
+| Cliente Asaas | [src/lib/asaas/client.ts](src/lib/asaas/client.ts) | `AsaasClient` para API/webhooks. |
+| Atualização Créditos | [src/lib/credits/validate-credits.ts](src/lib/credits/validate-credits.ts) | `addUserCredits(userId, amount)`. |
+| Checkout | [src/app/api/checkout/route.ts](src/app/api/checkout/route.ts) | Cria subscription com `externalReference: planId`. |
+| Hooks Créditos | [src/hooks/use-credits.ts](src/hooks/use-credits.ts) | `CreditsResponse` para UI. |
+| Planos Admin | [src/hooks/use-admin-plans.ts](src/hooks/use-admin-plans.ts) | Gerencie `Plan`, `ClerkPlan`. |
+| Logs | [src/lib/logger.ts](src/lib/logger.ts) | `createLogger('webhook')`. |
 
-**Causa**: O customer ID do Asaas não está associado a nenhum usuário no banco
+## Testes e Ferramentas
 
-**Solução**:
-1. Verifique se o usuário foi criado corretamente no checkout
-2. Verifique os campos `asaasCustomerId`, `asaasCustomerIdSandbox`, `asaasCustomerIdProduction` no banco:
-   ```sql
-   SELECT id, email, "asaasCustomerId", "asaasCustomerIdSandbox"
-   FROM "User" WHERE "clerkId" = 'xxx';
-   ```
-3. Certifique-se que o ambiente (Sandbox/Produção) está correto
-
-## Fluxo Esperado (com logs)
-
-### 1. Checkout (criar assinatura)
-```
-[Asaas] Environment: SANDBOX
-[Asaas] API URL: https://sandbox.asaas.com/api/v3
+### Teste Manual Webhook
+```bash
+# Simule PAYMENT_RECEIVED (Sandbox)
+curl -X POST https://sandbox.asaas.com/api/v3/payments/pay_xxx/confirm \
+  -H "access_token: ${ASAAS_API_KEY_SANDBOX}"
 ```
 
-### 2. Usuário paga
+### Endpoint Interno
+- `GET /api/webhooks/asaas/test` (se implementado).
+- `POST /api/webhooks/asaas/simulate` com body exemplo.
 
-O usuário completa o pagamento no site do Asaas (PIX, boleto, ou cartão).
+### Monitoramento
+- Vercel Logs: Filtre "Webhook".
+- Asaas Dashboard > Webhooks > Histórico.
 
-### 3. Asaas envia webhook
-```
-[Webhook] Received event: PAYMENT_RECEIVED
-[Webhook] Processing for user: user@example.com
-```
+## Checklist Completo
 
-### 4. Backend processa e atualiza créditos
-```
-[Webhook] Processing PAYMENT_RECEIVED for payment pay_xxx
-[Webhook] Credits updated: user@example.com -> 1000 credits from Pro Plan
-```
+- [ ] Webhook configurado no Asaas com eventos corretos.
+- [ ] `NEXT_PUBLIC_APP_URL` e túnel ativos.
+- [ ] Logs mostram recebimento.
+- [ ] Debug endpoint: `paymentEventsProcessed > 0`.
+- [ ] Asaas pagamento "Confirmado".
+- [ ] `asaasCustomerId` linkado no User.
+- [ ] Plano existe e tem `credits_granted > 0`.
+- [ ] Nenhum erro em `addUserCredits`.
+- [ ] Frontend refetch: `useCredits` atualizado.
 
-## Teste Manual
+## Suporte Adicional
 
-Se quiser forçar o webhook manualmente para teste:
+Persiste? Forneça:
+1. Logs completos (checkout → webhook).
+2. Debug JSON.
+3. Asaas webhook history.
+4. SQL dump de User/Plan/Payment.
 
-1. Use o endpoint de teste do Asaas (somente Sandbox):
-   ```bash
-   curl -X POST https://sandbox.asaas.com/api/v3/subscriptions/{subscriptionId}/payments/{paymentId}/receiveInCash \
-     -H "access_token: YOUR_SANDBOX_API_KEY"
-   ```
-
-2. Ou use o script de teste interno:
-   ```
-   GET /api/webhooks/asaas/test
-   ```
-   (Se existir esse endpoint)
-
-## Checklist de Verificação
-
-Use este checklist para diagnosticar:
-
-- [ ] Webhook configurado no dashboard Asaas
-- [ ] URL do webhook está correta e aponta para a URL atual (`/api/webhooks/asaas`)
-- [ ] Se usando ngrok/tunnel: URL no Asaas corresponde à URL do túnel ativo
-- [ ] `NEXT_PUBLIC_APP_URL` configurado no `.env` com a mesma URL base
-- [ ] Eventos `PAYMENT_RECEIVED` e `PAYMENT_CONFIRMED` marcados no dashboard
-- [ ] Servidor está rodando e acessível
-- [ ] Túnel rodando (se em desenvolvimento local)
-- [ ] Logs do servidor mostram `[Webhook] Received event:`
-- [ ] Debug endpoint mostra `totalEventsReceived > 0`
-- [ ] Debug endpoint mostra `paymentEventsReceived > 0`
-- [ ] Pagamento está com status "Recebido" ou "Confirmado" no Asaas
-- [ ] Plano existe no banco de dados
-- [ ] Usuário tem `asaasCustomerId` correto
-- [ ] Se usando ngrok free: bypass do "You are about to visit" foi feito
-
-## Suporte
-
-Se após seguir este guia o problema persistir:
-
-1. Copie os logs completos do servidor (do checkout até o webhook)
-2. Copie a resposta do `/api/webhooks/asaas/debug`
-3. Verifique o histórico de webhooks no dashboard do Asaas
-4. Abra uma issue com essas informações
+Abra issue no repo com esses dados. Veja também [AdminSettings](../hooks/use-admin-settings.ts) para configs globais.

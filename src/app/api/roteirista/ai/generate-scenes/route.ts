@@ -7,23 +7,34 @@ import { createLogger } from '@/lib/logger'
 import { z } from 'zod'
 import { createId } from '@paralleldrive/cuid2'
 import type { GenerateScenesRequest, GenerateScenesResponse, SceneData } from '@/lib/roteirista/types'
+import { db } from '@/lib/db'
 
 const logger = createLogger('roteirista-generate-scenes')
 
 const requestSchema = z.object({
     title: z.string().min(1),
-    synopsis: z.string().min(1),
-    tone: z.string().min(1),
+    theme: z.string().min(1),
+    synopsis: z.string().optional(),
+    tone: z.string().optional(),
+    styleId: z.string().min(1),
     characterDescriptions: z.string().optional(),
-    sceneCount: z.number().min(3).max(15).default(7),
-    stylePrompt: z.string().optional(),
+    sceneCount: z.number().optional(),
+    modelId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
     try {
-        const { userId } = await auth()
-        if (!userId) {
+        const { userId: clerkUserId } = await auth()
+        if (!clerkUserId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const user = await db.user.findUnique({
+            where: { clerkId: clerkUserId }
+        })
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
         const body = await req.json()
@@ -36,32 +47,55 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { title, synopsis, tone, characterDescriptions, sceneCount, stylePrompt } = parsed.data
+        const { title, theme, synopsis, tone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId } = parsed.data
 
-        logger.info('Generate scenes request', { title, sceneCount, tone })
+        // Buscar estilo no banco
+        const style = await db.style.findUnique({
+            where: { id: styleId }
+        })
 
-        const modelId = await getDefaultModel('agent_scriptwriter')
+        if (!style) {
+            return NextResponse.json({ error: 'Style not found' }, { status: 404 })
+        }
+
+        logger.info('Generate scenes request', { title, styleId, tone })
+
+        // Resolver modelo
+        const modelId = reqModelId || await getDefaultModel('agent_scriptwriter')
 
         const openrouter = createOpenRouter({
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const systemPrompt = `Você é um roteirista profissional especializado em vídeos curtos (shorts/reels de 30-60 segundos).
+        const sceneCount = reqSceneCount || style.suggestedSceneCount
 
-Sua tarefa é criar um roteiro dividido em cenas para um vídeo curto. Cada cena deve ter:
-1. Uma narração curta e impactante (1-2 frases)
-2. Uma descrição visual detalhada em inglês para geração de imagem com IA
+        const systemPrompt = `Você é um roteirista profissional especializado em vídeos curtos (shorts/reels).
 
-REGRAS IMPORTANTES:
-- Cada cena deve ter no máximo 5-10 segundos de narração
-- A narração deve ser em português, envolvente e adequada para narração em voz
-- A descrição visual deve ser em INGLÊS, otimizada para modelos como Flux/Stable Diffusion
-- A descrição visual deve incluir: sujeito, ação, ambiente, iluminação, estilo artístico
-- Mantenha consistência visual entre as cenas (mesmo estilo, mesmos personagens)
+## TIPO DE CONTEÚDO
+${style.contentType}
+
+## INSTRUÇÕES DO ESTILO
+${style.scriptwriterPrompt || 'Crie um roteiro envolvente e bem estruturado.'}
+
+## PARÂMETROS
+- Duração alvo: ${style.targetDuration} segundos
+- Número de cenas: ${sceneCount}
+- Estilo de narrativa: ${style.narrativeStyle || 'Não especificado'}
+- Linguagem: ${style.languageStyle || 'Não especificada'}
+- Tom: ${tone || style.defaultTone || 'Envolvente'}
+
+## EXEMPLOS DE REFERÊNCIA
+${style.exampleHook ? `Exemplo de abertura: "${style.exampleHook}"` : ''}
+${style.exampleCta ? `Exemplo de fechamento: "${style.exampleCta}"` : ''}
+
+## ESTILO VISUAL BASE
+${style.visualPrompt || 'Estilo cinematográfico, cores vibrantes, alta qualidade.'}
+
+## REGRAS
+- Cada cena deve ter narração em português (1-2 frases)
+- Cada cena deve ter descrição visual em INGLÊS para geração de imagem
+- Mantenha consistência visual entre as cenas
 - A história deve ter início, meio e fim satisfatório
-
-${stylePrompt ? `ESTILO VISUAL: ${stylePrompt}` : ''}
-${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
 
 Responda APENAS em JSON válido no formato:
 {
@@ -77,10 +111,10 @@ Responda APENAS em JSON válido no formato:
         const userPrompt = `Crie um roteiro com ${sceneCount} cenas para o seguinte projeto:
 
 TÍTULO: ${title}
-
-SINOPSE: ${synopsis}
-
-TOM: ${tone}
+TEMA: ${theme}
+${synopsis ? `SINOPSE: ${synopsis}` : ''}
+TOM: ${tone || style.defaultTone || 'Envolvente'}
+${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
 
 Gere as ${sceneCount} cenas agora.`
 
@@ -89,7 +123,6 @@ Gere as ${sceneCount} cenas agora.`
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.8,
-            maxTokens: 4000,
         })
 
         // Parse JSON da resposta

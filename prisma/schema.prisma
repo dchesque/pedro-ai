@@ -44,6 +44,7 @@ model User {
   shorts            Short[]
   userAgents        UserAgent[]
   userStyles        UserStyle[]
+  styles            Style[]
   characters        Character[]
 }
 
@@ -144,6 +145,8 @@ model Short {
   theme           String       // Tema/nicho do short
   targetDuration  Int          @default(30)  // Duração alvo em segundos
   style           String       @default("engaging") // Estilo (engaging, educational, funny, etc)
+  styleId         String?      // Relacionamento com o novo sistema de estilos
+  styleRelation   Style?       @relation(fields: [styleId], references: [id])
   
   // Novo: Modelo de IA escolhido pelo usuário
   aiModel           String?     @default("deepseek/deepseek-v3.2")
@@ -497,4 +500,54 @@ model ShortCharacter {
   @@unique([shortId, characterId])  // Mesmo personagem não pode ser adicionado 2x
   @@index([shortId])
   @@index([characterId])
+}
+
+model Style {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Identificação
+  name        String
+  description String?  @db.Text
+  icon        String?  @default("🎬")  // Emoji ou ícone
+  
+  // === NOVOS CAMPOS PARA O ROTEIRISTA ===
+  
+  // Tipo de conteúdo
+  contentType String   @default("story")  // news, story, meme, educational, motivational, tutorial, custom
+  
+  // Instruções para o agente roteirista
+  scriptwriterPrompt  String?  @db.Text   // Prompt detalhado com instruções
+  
+  // Parâmetros de estrutura
+  targetDuration      Int      @default(45)   // Duração alvo em segundos
+  suggestedSceneCount Int      @default(7)    // Número sugerido de cenas
+  
+  // Estilo de narrativa
+  narrativeStyle  String?  // "direto", "storytelling", "primeira_pessoa", "narrador_onisciente"
+  languageStyle   String?  // "formal", "informal", "jovem", "técnico"
+  defaultTone     String?  // Tom padrão: "épico", "urgente", "inspirador", etc.
+  
+  // Exemplos (ajudam o agente a entender o estilo)
+  exampleHook     String?  @db.Text  // Exemplo de gancho/abertura
+  exampleCta      String?  @db.Text  // Exemplo de CTA/fechamento
+  
+  // === CAMPOS EXISTENTES (manter) ===
+  
+  // Estilo visual para geração de imagens
+  visualPrompt    String?  @db.Text  // Prompt base para imagens
+  
+  // Metadados
+  isDefault   Boolean  @default(false)
+  isPublic    Boolean  @default(false)  // Futuramente: compartilhar estilos
+  usageCount  Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relações
+  shorts      Short[]
+  
+  @@index([userId])
 }

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-01-12
+
+### Added
+- **Gestão Unificada de Estilos**: Novo modelo de dados global que permite criar, editar e compartilhar estilos entre usuários.
+- **Roteirista Multi-Step**: 
+    - Seletor de Modelo de IA com custos por crédito detalhados.
+    - Seletor de Estilo com Preview em tempo real e badges de identificação (Sistema vs Pessoal).
+    - Assistente de Títulos IA para sugestões criativas baseadas no tema.
+- **Badges e Categorização**: Página `/estilos` agora separa visualmente a "Biblioteca do Sistema" de "Seus Estilos".
+- **Migração de Dados**: Script para mover estilos legados (`UserStyle`/`GlobalStyle`) para a nova estrutura unificada.
+
+### Fixed
+- **API Robustness**: Implementado fallback de SQL bruto para lidar com locks de arquivo do Prisma Client no Windows.
+- **Build Errors**: Corrigido caminho de importação do `useToast` no `StyleCard.tsx`.
+
 ## [1.7.2] - 2026-01-12
 
 ### Changed

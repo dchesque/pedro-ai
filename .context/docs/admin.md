@@ -1,88 +1,164 @@
-# Painel de Administração
+# Admin Panel
 
-Visão geral das rotas e funcionalidades administrativas do aplicativo.
+Comprehensive guide to the administration interface and backend APIs for managing users, credits, plans, storage, and system settings in the Pedro AI application.
 
-## Acesso
-- **URL**: `/admin`
-- O acesso é protegido por um SSR guard no layout (`src/app/admin/layout.tsx`) e um `middleware`.
-- **Configuração no `.env`**:
-  - Pelo menos uma das seguintes variáveis deve ser configurada para permitir o acesso:
-  - `ADMIN_EMAILS=admin@seudominio.com,ops@seudominio.com`
-  - ou `ADMIN_USER_IDS=usr_123,usr_456` (IDs de usuário do Clerk)
+## Access Control
 
-## Pré-requisitos
-- **Clerk**:
-    - `CLERK_SECRET_KEY` deve ser configurada para acesso à API do Clerk.
-    - O sistema de convites (`Invitations`) e o envio de e-mails devem estar habilitados no painel do Clerk.
-    - O redirect para `${NEXT_PUBLIC_APP_URL}/sign-up` deve ser permitido.
-- **Asaas**:
-    - `ASAAS_API_KEY` deve ser configurada para processar pagamentos.
+### URL
+- **Base Path**: `/admin`
+- Protected by:
+  - **Server-Side Rendering (SSR) Guard**: `src/app/admin/layout.tsx` (`AdminLayout`)
+  - **Middleware**: Enforces admin privileges before rendering.
 
-## Funcionalidades Principais
+### Admin Authorization
+Admins are defined via environment variables in `.env`:
+```
+ADMIN_EMAILS=admin@domain.com,ops@domain.com
+# OR
+ADMIN_USER_IDS=usr_123,usr_456  # Clerk user IDs
+```
+- Validation uses `isAdmin()` from `src/lib/admin-utils.ts`.
+- Server-side enforcement via `requireAdmin()` from `src/lib/admin.ts`.
+- Client-side components like `AdminChrome` (`src/components/admin/admin-chrome.tsx`) and `AdminTopbar` (`src/components/admin/admin-topbar.tsx`) assume authenticated admin access.
 
-### Usuários
-- **Listagem e Gerenciamento**: Visualize todos os usuários, seus saldos de créditos e consumo.
-- **Ajuste de Créditos**: Modifique o saldo de créditos de um usuário manualmente.
-- **Exclusão**: Remova um usuário, o que também apaga seu histórico de uso e saldo.
+**Example Check in Code**:
+```tsx
+// src/lib/admin-utils.ts
+export function isAdmin(user: User): boolean {
+  return ADMIN_EMAILS.includes(user.emailAddresses[0].emailAddress) ||
+         ADMIN_USER_IDS.includes(user.id);
+}
+```
 
-### Configurações (`/admin/settings`)
-O painel de configurações é dividido em abas:
+## Prerequisites
 
-- **Custos por Funcionalidade**:
-  - Edite o custo em créditos para usar funcionalidades específicas, como `ai_text_chat` e `ai_image_generation`.
-- **Planos de Assinatura**:
-  - **Gerenciamento Manual**: Crie, edite e remova planos de assinatura diretamente no painel.
-  - **Campos**: Defina nome, créditos mensais, preços (mensal/anual), e se o plano está ativo.
-  - **Integração com Asaas**: Associe um plano a um link de checkout do Asaas para automatizar pagamentos.
+### Clerk Integration
+- `CLERK_SECRET_KEY`: Required for Clerk API calls (user sync, invites).
+- Enable **Invitations** and email delivery in Clerk dashboard.
+- Allow redirects to `${NEXT_PUBLIC_APP_URL}/sign-up`.
 
-### Storage
-- **Navegação**: Explore os arquivos enviados pelos usuários.
-- **Busca**: Pesquise arquivos por nome, tipo, URL ou usuário.
-- **Gerenciamento**: Abra ou exclua arquivos (a exclusão remove o registro no banco e tenta apagar o arquivo no provedor de storage).
+### Payment Provider (Asaas)
+- `ASAAS_API_KEY`: Enables plan checkout links.
+- Used in `AsaasClient` (`src/lib/asaas/client.ts`).
 
-### Convites
-- **Enviar Convite**: Convide novos usuários por e-mail.
-- **Visualização**: Monitore convites pendentes.
-- **Gerenciamento**: Reenvie ou revogue convites.
+### Other
+- Database with Prisma (`PrismaClient` stub in browser, full server-side).
+- Storage providers configured (Vercel Blob, Replit, etc., via `src/lib/storage/`).
 
-### Sincronização
-- **Sincronização de Usuários**:
-  - Ferramenta para sicronizar usuários do Clerk para o banco de dados local.
-  - Útil como backup caso os webhooks de criação de usuário falhem.
-  - Garante que cada usuário tenha um registro de `CreditBalance` (saldo de créditos) inicializado.
+## UI Structure
 
-## APIs de Administração
-A maioria das APIs de administração valida se o chamador é um administrador no servidor.
+### Layout and Components
+- **Root Layout**: `src/app/admin/layout.tsx` (`AdminLayout`) – SSR guard + chrome wrapper.
+- **Chrome**: `AdminChrome` (`src/components/admin/admin-chrome.tsx`) – Main sidebar/nav.
+- **Topbar**: `AdminTopbar` (`src/components/admin/admin-topbar.tsx`) – Search, notifications.
+- **Dev Mode**: `AdminDevModeProvider` (`src/contexts/admin-dev-mode.tsx`) – Toggle for debug features.
+- **Settings Hook**: `useAdminSettings()` (`src/hooks/use-admin-settings.ts`) – Loads `AdminSettings`.
 
-- `POST /api/admin/users/invite`
-  - Body: `{ email: string, name?: string }`
-  - Envia um convite via Clerk. Se o usuário já existir, apenas garante que ele está no banco de dados local.
-- `GET /api/admin/users/invitations`
-  - Lista os convites pendentes.
-- `POST /api/admin/users/invitations/:id/resend` e `POST /api/admin/users/invitations/:id/revoke`
-  - Reenvia e revoga convites.
-- `POST /api/admin/users/sync`
-  - Inicia a sincronização de usuários do Clerk.
-- `PUT /api/admin/users/:id/credits`
-  - Ajusta o saldo de créditos de um usuário específico.
-- `GET /api/admin/storage`
-  - Lista os arquivos enviados.
-- `DELETE /api/admin/storage/:id`
-  - Exclui um arquivo.
-- `GET /api/admin/settings`
-  - Retorna as configurações atuais, incluindo custos de features e planos.
-- `PUT /api/admin/settings`
-  - Atualiza as configurações de custos de features.
-- `GET /api/admin/plans`
-  - Lista todos os planos de assinatura.
-- `POST /api/admin/plans`
-  - Cria um novo plano de assinatura.
-- `PUT /api/admin/plans/:id`
-  - Atualiza um plano existente.
-- `DELETE /api/admin/plans/:id`
-  - Remove um plano.
+### Key Pages
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/admin` | (Dashboard, inferred via chrome) | Overview: Users, stats, quick actions. |
+| `/admin/onboarding` | `AdminOnboardingPage` (`src/app/admin/onboarding/page.tsx`) | Initial setup wizard. |
+| `/admin/settings` | `AdminSettingsPage` (`src/app/admin/settings/page.tsx`) | Tabs: Feature costs, subscription plans. |
+| `/admin/plans/*` | (Dynamic via `plan-edit-drawer.tsx`) | Plan CRUD (uses `useAdminPlans()`). |
 
-## Estrutura da Interface
-- **Páginas**: `src/app/admin/*`
-- **Notificações**: O sistema usa "toasts" para feedback de operações como convites, ajustes e sincronização.
-- **Proteção de Rota**: Um SSR guard em `src/app/admin/layout.tsx` impede que não-administradores vejam o conteúdo do painel.
+- **Navigation**: Sidebar tabs for **Users**, **Settings**, **Storage**, **Invites**, **Sync**.
+- **Feedback**: Toasts via `useToast()` for actions (e.g., credit adjustments).
+
+**Cross-References**:
+- Plans UI: `src/components/admin/plans/` (e.g., `plan-edit-drawer.tsx`, types in `types.ts` with `BillingPlan`).
+- Styles/Assets: Integrates `useStyles()` for admin previews.
+
+## Main Features
+
+### Users Management
+- **List & View**: Users, credit balances (`CreditBalance`), usage history (`useUsageHistory()`).
+- **Credit Adjustment**: `PUT /api/admin/users/:id/credits`.
+- **Delete User**: Removes user, credits, history.
+- **Sync**: `POST /api/admin/users/sync` – Fetches Clerk users, initializes local DB records.
+
+### Settings (`/admin/settings`)
+Managed via `AdminSettings` type and `AdminSettingsPayload` (`src/lib/credits/settings.ts`).
+
+#### Feature Costs
+- Edit costs for features (e.g., `ai_text_chat`, `ai_image_generation`).
+- Uses `FeatureKey` from `src/lib/credits/feature-config.ts`.
+- API: `PUT /api/admin/settings`.
+
+#### Subscription Plans
+- **Manual CRUD**: Create/edit/delete `BillingPlan` (`src/components/admin/plans/types.ts`).
+- Fields: Name, monthly credits, pricing (monthly/annual `BillingPeriod`), Asaas checkout link, active status.
+- Integrates Clerk plans via `useAdminPlans()` (`ClerkPlan`, `ClerkPlansResponse`).
+- API: `/api/admin/plans/*`.
+
+**Example Plan Type**:
+```ts
+// src/components/admin/plans/types.ts
+export interface BillingPlan {
+  id: string;
+  name: string;
+  monthlyCredits: number;
+  monthlyPrice: number;
+  annualPrice?: number;
+  asaasCheckoutUrl?: string;
+  isActive: boolean;
+}
+```
+
+### Storage Management
+- **Browse/Search**: Files by name, type, URL, owner (`useStorage()` hook).
+- **Actions**: View, delete (`DELETE /api/admin/storage/:id` – DB + provider cleanup).
+- Providers: `StorageProvider` (`src/lib/storage/types.ts`), e.g., `VercelBlobStorage`.
+
+### Invites
+- **Send**: `POST /api/admin/users/invite` – `{ email: string, name?: string }`.
+- **List**: `GET /api/admin/users/invitations`.
+- **Resend/Revoke**: `POST /api/admin/users/invitations/:id/resend|revoke`.
+
+## Admin APIs
+
+All endpoints under `/api/admin/*` require `requireAdmin()` middleware.
+
+| Method | Endpoint | Description | Body/Params |
+|--------|----------|-------------|-------------|
+| POST | `/api/admin/users/invite` | Send Clerk invite. | `{ email: string, name?: string }` |
+| GET | `/api/admin/users/invitations` | List pending invites. | - |
+| POST | `/api/admin/users/invitations/:id/resend` | Resend invite. | - |
+| POST | `/api/admin/users/invitations/:id/revoke` | Revoke invite. | - |
+| POST | `/api/admin/users/sync` | Sync Clerk users to DB. | - |
+| PUT | `/api/admin/users/:id/credits` | Adjust user credits. | `{ credits: number }` |
+| GET | `/api/admin/storage` | List storage items. | `?search=query&userId=...` |
+| DELETE | `/api/admin/storage/:id` | Delete file. | - |
+| GET | `/api/admin/settings` | Get feature costs/plans. | - |
+| PUT | `/api/admin/settings` | Update feature costs. | `AdminSettingsPayload` |
+| GET | `/api/admin/plans` | List plans. | - |
+| POST | `/api/admin/plans` | Create plan. | `Partial<BillingPlan>` |
+| PUT | `/api/admin/plans/:id` | Update plan. | `Partial<BillingPlan>` |
+| DELETE | `/api/admin/plans/:id` | Delete plan. | - |
+
+**Error Handling**: `ApiError`, `InsufficientCreditsError`. Success/Error responses standardized.
+
+## Development & Customization
+
+### Hooks for Admin Features
+- `useAdminSettings()`: Loads settings.
+- `useAdminPlans()`: Manages `Plan[]`, Clerk sync (`PlansResponse`).
+- Related: `useCredits()`, `useUsage()`, `useStorage()`.
+
+### Extending
+1. Add nav items to `AdminChrome`.
+2. New API: Prefix `/api/admin/`, wrap with `requireAdmin()`.
+3. New page: `src/app/admin/[subpath]/page.tsx`, use `AdminLayout`.
+4. Plans/Features: Update `src/lib/credits/settings.ts`, `feature-config.ts`.
+
+### Testing
+- Mock Clerk/Asaas with env overrides.
+- Usage examples in `src/components/admin/` (e.g., plan drawers).
+- Logs: `createLogger()` with admin context.
+
+**Related Files**:
+- Core: `src/app/admin/`, `src/components/admin/`.
+- Lib: `src/lib/admin*.ts`, `src/lib/credits/`.
+- Hooks: `src/hooks/use-admin*.ts`.
+
+For codebase-wide search: Use `searchCode` for "admin" patterns.

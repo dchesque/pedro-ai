@@ -2,724 +2,230 @@
 
 ## Overview
 
-The frontend is built with Next.js 15 App Router, React 19, and TypeScript, providing a modern, performant, and type-safe development experience.
+The frontend is a modern Next.js 15 application using the App Router, React 19, TypeScript, and Tailwind CSS. It powers an AI-driven platform for short video creation ("shorts"), character management, billing, and admin tools. Key features include:
+
+- **Protected Dashboard**: Shorts creation, character library, credits/usage tracking.
+- **Admin Panel**: User management, plans, settings, and analytics.
+- **Marketing Pages**: Public pricing, AI starter demos.
+- **AI Integrations**: Script generation (`useGenerateScript`), image/video gen (`use-fal-generation`).
+
+**Stats**:
+- 353 files: 183 `.ts`, 148 `.tsx`.
+- 812 symbols across hooks (e.g., `useShorts`, `useCredits`), components (e.g., `AppShell`, `AddSceneDialog`), utils (e.g., `cn`, `apiClient`).
+
+Core principles:
+- Server Components for data fetching.
+- TanStack Query for client state.
+- No direct Prisma/DB on client—use API routes via `apiClient`.
+- Type-safe with Zod + TypeScript interfaces (e.g., `Short`, `CreditData`).
 
 ## Core Technologies
 
-- **Next.js 15.3.5**: Framework with App Router
-- **React 19**: UI library
-- **TypeScript**: Type safety
-- **Tailwind CSS v4**: Utility-first styling
-- **Radix UI**: Headless component primitives
-- **TanStack Query (React Query)**: Server state management
-- **React Hook Form**: Form handling
-- **Zod**: Schema validation
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Next.js | 15.3.5 | App Router, SSR/SSG |
+| React | 19 | Components, hooks |
+| TypeScript | Latest | Type safety |
+| Tailwind CSS | v4 | Styling |
+| Radix UI | Latest | Headless primitives (Button, Dialog, etc.) |
+| TanStack Query | Latest | Server state, caching |
+| React Hook Form + Zod | Latest | Forms + validation |
+| Clerk | Latest | Auth |
+| Vercel Blob | Latest | File storage (`useStorage`) |
+
+## Folder Structure
+
+```
+src/
+├── app/                  # Pages + layouts (App Router)
+│   ├── (public)/         # Marketing, auth pages
+│   ├── (protected)/      # Dashboard, billing, ai-studio
+│   ├── admin/            # Admin pages (AdminLayout)
+│   └── globals.css       # Tailwind + themes
+├── components/           # UI + feature components
+│   ├── ui/               # Reusable primitives (AutocompleteItem, cn utility)
+│   ├── app/              # Shell (AppShell), topbar, cookie-consent
+│   ├── shorts/           # AddSceneDialog, CreateShortForm
+│   ├── admin/            # AdminChrome, AdminTopbar
+│   ├── plans/            # Pricing cards, tiers
+│   └── characters/       # CharacterSelector
+├── hooks/                # Custom TanStack Query hooks
+│   ├── use-*.ts          # e.g., useShorts, useCredits, useAdminSettings
+│   └── admin/            # Admin-specific
+├── lib/                  # Utilities + API
+│   ├── api-client.ts     # apiClient, ApiError
+│   ├── utils.ts          # cn (classNames), generateApiKey
+│   ├── storage/          # useStorage, VercelBlobStorage
+│   ├── credits/          # validate-credits, deduct
+│   ├── shorts/           # pipeline (addScene, approveScript)
+│   └── ai/               # providers (OpenRouterAdapter, FalAdapter)
+├── contexts/             # React contexts (page-metadata, admin-dev-mode)
+└── prisma/               # Server-only DB (never import client-side)
+```
+
+Cross-references:
+- **Hooks**: See [Hooks Reference](#hooks-reference).
+- **Public Exports**: `AppShell`, `apiClient`, `useShorts`, etc. (323+ listed in codebase).
 
 ## Component Architecture
 
-### Component Types
+### Server vs Client Components
 
-#### Server Components (Default)
+- **Server (default)**: Fetch data directly (e.g., `app/(protected)/ai-studio/page.tsx` uses `AIStudioPage`).
+- **Client** (`"use client"`): Interactive, TanStack Query, forms.
+
 ```tsx
-// app/(protected)/dashboard/page.tsx
-export default async function DashboardPage() {
-  // Can directly fetch data
-  const data = await fetchDashboardData();
-  
-  return (
-    <div>
-      <DashboardContent data={data} />
-    </div>
-  );
+// Server Component example: src/app/admin/settings/page.tsx
+export default async function AdminSettingsPage() {
+  const settings = await api.get<AdminSettings>('/api/admin/settings');
+  return <AdminSettings data={settings} />;  // Pass to client
 }
 ```
 
-#### Client Components with Page Metadata
 ```tsx
+// Client Component: src/components/shorts/AddSceneDialog.tsx
 "use client";
+import { useAddScene } from '@/hooks/use-shorts';
 
-import { usePageConfig } from "@/hooks/use-page-config";
-
-// app/(protected)/dashboard/page.tsx
-export default function DashboardPage() {
-  const { user } = useUser();
-  
-  // Configure page metadata - handled automatically by layout
-  usePageConfig(
-    `Welcome, ${user?.firstName}!`,
-    "Here's your account overview"
-  );
-  
-  return <DashboardContent />;
+export function AddSceneDialog({ shortId }: { shortId: string }) {
+  const addScene = useAddScene();
+  // Dialog with form, calls mutation
 }
 ```
 
-#### Interactive Components
+### Key Components
+
+| Category | Examples | Usage |
+|----------|----------|-------|
+| Layouts | `AppShell`, `AdminLayout`, `AdminChrome` | Wrap pages with nav, metadata |
+| Shorts | `AddSceneDialog`, `CreateShortForm` | Script gen, scene mgmt |
+| Admin | `AdminTopbar`, `AdminDevModeProvider` | Admin dashboard |
+| UI | `AutocompleteItem`, `CpfModal`, `ChatMessage` | Forms, billing, chat |
+| Plans | Pricing cards (`buildPlanTiers`) | Public/admin billing |
+
+**Page Metadata**: Auto-breadcrumbs/title via `contexts/page-metadata.tsx` + `usePageConfig`.
+
 ```tsx
-"use client";
-
-// components/interactive-feature.tsx
-export function InteractiveFeature() {
-  const [state, setState] = useState();
-  
-  return (
-    <div onClick={() => setState(...)}>
-      {/* Interactive content */}
-    </div>
-  );
-}
+// In page.tsx
+usePageConfig({ title: 'Shorts', breadcrumbs: [{ label: 'Dashboard' }] });
 ```
 
-### Component Organization
+## Styling
 
-```
-components/
-├── ui/                 # Base UI components
-│   ├── button.tsx     # Radix + Tailwind
-│   ├── dialog.tsx
-│   ├── form.tsx
-│   └── input.tsx
-├── app/               # Application components
-│   ├── sidebar.tsx    # Navigation sidebar
-│   ├── topbar.tsx     # Top navigation
-│   ├── page-header.tsx # Automatic page headers
-│   └── user-menu.tsx  # User dropdown
-├── features/          # Feature-specific
-│   ├── credits/       # Credit system
-│   └── billing/       # Billing components
-└── providers/         # Context providers
-    └── query-provider.tsx
+Tailwind v4 + CSS vars for light/dark themes. `cn` utility merges classes.
 
-contexts/
-└── page-metadata.tsx  # Page metadata context
-
-hooks/
-├── admin/             # Admin-specific hooks
-│   ├── use-admin-credits.ts
-│   ├── use-admin-users.ts
-│   └── use-admin-invitations.ts
-├── use-page-config.ts # Page metadata helper
-├── use-credits.ts     # Credits hook
-├── use-subscription.ts # Subscription status
-├── use-dashboard.ts   # Dashboard data
-└── use-storage.ts     # Storage management
+```tsx
+// src/lib/utils.ts
+export const cn = ( ... ) => clsx(..., twMerge(...));
 ```
 
-## Styling System
-
-### Design Tokens
-
-The application uses CSS variables for theming:
-
+**Theme Vars** (`globals.css`):
 ```css
-/* globals.css */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --primary: 240 5.9% 10%;
-  --secondary: 240 4.8% 95.9%;
-  --accent: 240 4.8% 95.9%;
-  --destructive: 0 84.2% 60.2%;
-  --border: 240 5.9% 90%;
-  --ring: 240 10% 3.9%;
-}
-
-.dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  /* ... dark theme values */
-}
+:root { --primary: 240 5.9% 10%; }
+.dark { --primary: 120 100% 98%; }
 ```
 
-### Glass Morphism Effects
-
-```css
-.glass-panel {
-  backdrop-filter: blur(16px);
-  background: rgba(var(--card), 0.3);
-  border: 1px solid rgba(var(--border), 0.4);
-}
+Usage:
+```tsx
+<div className={cn("glass-panel p-6", isOpen && "border-primary")}>
 ```
 
-### Tailwind Configuration
+## State Management & Data Fetching
 
-```ts
-// tailwind.config.ts
-export default {
-  content: ["./src/**/*.{ts,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        // ... mapped CSS variables
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-};
-```
+### TanStack Query Hooks
 
-## State Management
-
-### Local State
+**Never** use `useQuery` directly—use custom hooks. All via `apiClient`.
 
 ```tsx
-// Component state
-const [isOpen, setIsOpen] = useState(false);
-
-// Complex local state with useReducer
-const [state, dispatch] = useReducer(reducer, initialState);
+// src/lib/api-client.ts
+export class ApiError extends Error { /* ... */ }
+export const apiClient = async <T>(url: string, options?: RequestInit): Promise<T> => { /* Centralized fetch + error handling */ };
 ```
 
-### Server State with TanStack Query
+**Examples**:
 
 ```tsx
-// lib/api-client.ts - Centralized HTTP client
-import { api } from '@/lib/api-client';
-
-export async function apiClient<T = any>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage: string;
-
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.message || errorJson.error || `HTTP ${response.status}`;
-    } catch {
-      errorMessage = errorText || `HTTP ${response.status}`;
-    }
-
-    throw new ApiError(errorMessage, response.status, response);
-  }
-
-  return response.json();
-}
-
-## Data Fetching
-
-- Prefer Server Components for initial data loading.
-- Use TanStack Query for client-side fetches and cache management.
-- All HTTP requests must go through `@/lib/api-client`.
-- Never import or use `@/lib/db` (Prisma) from Client Components or any client-side code. Query on the server (Server Components, API routes, or Server Actions) and pass data to clients via props or custom hooks that call APIs.
-
-// API convenience methods
-export const api = {
-  get: <T = any>(url: string, options?: RequestInit) =>
-    apiClient<T>(url, { ...options, method: 'GET' }),
-  post: <T = any>(url: string, data?: any, options?: RequestInit) =>
-    apiClient<T>(url, {
-      ...options,
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    }),
-  // ... put, patch, delete methods
-};
-```
-
-```tsx
-// hooks/use-credits.ts - Query hook with API client
-import { api } from '@/lib/api-client';
-
+// Credits: src/hooks/use-credits.ts
 export function useCredits() {
-  return useQuery({
+  return useQuery<CreditsResponse>({
     queryKey: ['credits'],
-    queryFn: () => api.get('/api/credits/me'),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    queryFn: () => apiClient('/api/credits/me'),
   });
 }
 
-// Usage in component
-function CreditDisplay() {
-  const { data, isLoading, error } = useCredits();
-
-  if (isLoading) return <Skeleton />;
-  if (error) return <Error message={error.message} />;
-
-  return <div>{data.creditsRemaining} credits</div>;
+// Shorts: src/hooks/use-shorts.ts
+export function useShorts() {
+  return useQuery<{ shorts: Short[] }>({ queryKey: ['shorts'], queryFn: () => apiClient('/api/shorts') });
 }
-```
 
-### Mutation Hooks
-
-```tsx
-// hooks/use-admin-users.ts - Mutation with optimistic updates
-export function useUpdateUserCredits() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
+export function useCreateShort() {
   return useMutation({
-    mutationFn: ({ userId, credits }: { userId: string; credits: number }) =>
-      api.put(`/api/admin/users/${userId}/credits`, { credits }),
-    onSuccess: (data, variables) => {
-      toast({
-        title: "Credits updated",
-        description: `New balance: ${variables.credits}`
-      });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating credits",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
+    mutationFn: (input: CreateShortInput) => apiClient('/api/shorts', { method: 'POST', body: input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shorts'] }),
   });
 }
 ```
 
-### Form State
+**Hooks Reference**:
+
+| Hook | Returns | Endpoint | staleTime |
+|------|---------|----------|-----------|
+| `useCredits` | `CreditsResponse` | `/api/credits/me` | 5min |
+| `useShorts` | `Short[]` | `/api/shorts` | 1min |
+| `useShortCharacters` | `ShortCharacterWithDetails[]` | `/api/shorts/{id}/characters` | 30s |
+| `useSubscription` | `SubscriptionStatus` | `/api/subscription` | 5min |
+| `useAdminSettings` | `AdminSettings` | `/api/admin/settings` | 10min |
+| `useStorage` | `StorageResponse` | `/api/storage` | Configurable |
+
+Mutations: `useAddScene`, `useGenerateScript`, `useApproveScript`, `useDeleteShort`.
+
+### Forms
+
+React Hook Form + Zod:
 
 ```tsx
-// Using React Hook Form with Zod
-const formSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(2),
-});
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
-function ProfileForm() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      name: '',
-    },
-  });
-  
-  const onSubmit = async (data: z.infer<typeof formSchema>) => {
-    // Handle submission
-  };
-  
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </form>
-    </Form>
-  );
-}
+const schema = z.object({ title: z.string().min(1) });
+const form = useForm({ resolver: zodResolver(schema) });
 ```
 
-## Routing
+## Routing & Navigation
 
-### File-based Routing
+App Router groups: `(public)`, `(protected)`, `admin`.
 
-```
-app/
-├── (public)/
-│   ├── page.tsx           # /
-│   ├── sign-in/
-│   │   └── [[...sign-in]]/
-│   │       └── page.tsx   # /sign-in
-│   └── layout.tsx         # Public layout
-├── (protected)/
-│   ├── dashboard/
-│   │   └── page.tsx       # /dashboard
-│   ├── billing/
-│   │   └── page.tsx       # /billing
-│   ├── profile/
-│   │   └── [[...rest]]/
-│   │       └── page.tsx   # /profile
-│   └── layout.tsx         # Protected layout (with PageMetadata)
-└── layout.tsx             # Root layout
-```
+- **Protected**: `/dashboard`, `/shorts`, `/billing`.
+- **Admin**: `/admin/settings`, `/admin/onboarding`.
+- **useRouter** for programmatic nav.
 
-### Page Metadata in Protected Routes
+Metadata auto-handled via contexts.
 
-All protected routes automatically get breadcrumbs and headers through the PageMetadata system:
+## Performance & Best Practices
 
-```tsx
-// app/(protected)/billing/page.tsx
-"use client";
+- **Server-first**: Fetch in Server Components.
+- **Query Keys**: `['shorts', shortId]`—structured arrays.
+- **Optimistic Updates**: In mutations (e.g., credits deduct).
+- **Dynamic Imports**: `dynamic(() => import('./HeavyChart'), { ssr: false })`.
+- **Images**: Next/Image with `priority` for LCP.
+- **No Client DB**: `@/lib/db` server-only.
 
-import { usePageConfig } from "@/hooks/use-page-config";
+**Cache**:
+- `SimpleCache` (`src/lib/cache.ts`).
+- Storage: `useStorage`, `VercelBlobStorage`.
 
-export default function BillingPage() {
-  usePageConfig({
-    title: "Billing & Subscription",
-    description: "Manage your credits and plan",
-    breadcrumbs: [
-      { label: "Home", href: "/dashboard" },
-      { label: "Billing" }
-    ]
-  });
-  
-  return <BillingContent />;
-}
-```
+## Accessibility & Testing
 
-The layout automatically renders:
-- Breadcrumb navigation
-- Page title (h1)
-- Page description
-- All managed centrally through context
+- Radix UI: Built-in a11y.
+- ARIA: Labels on icons, `aria-expanded`.
+- Tests: RTL for components (`__tests__/`), Playwright for E2E.
 
-### Navigation
+## Key Integrations
 
-```tsx
-// Programmatic navigation
-import { useRouter } from 'next/navigation';
+- **AI**: `FalAdapter` (Flux/Kling), `OpenRouterAdapter`. Hooks: `use-ai-image`, `use-fal-generation`.
+- **Billing**: Asaas (`AsaasClient`), Clerk plans (`use-admin-plans`).
+- **Shorts Pipeline**: `src/lib/shorts/pipeline.ts`—`addScene`, `approveScript`.
+- **Credits**: Limits (`canCreateCharacter`), deduct/track.
 
-function Component() {
-  const router = useRouter();
-  
-  const handleClick = () => {
-    router.push('/dashboard');
-  };
-  
-  return <button onClick={handleClick}>Go to Dashboard</button>;
-}
-
-// Link component
-import Link from 'next/link';
-
-<Link href="/dashboard">Dashboard</Link>
-```
-
-## Data Fetching
-
-### Server Components
-
-```tsx
-// Direct database access
-async function Page() {
-  const data = await db.user.findMany();
-  return <UserList users={data} />;
-}
-```
-
-### Client Components with TanStack Query
-
-```tsx
-// Use custom hooks - NEVER direct fetch in components
-import { useAdminUsers } from '@/hooks/admin/use-admin-users';
-
-function UsersList() {
-  const { data, isLoading, error } = useAdminUsers({
-    page: 1,
-    pageSize: 50,
-    includeUsageCount: true
-  });
-
-  if (isLoading) return <UserListSkeleton />;
-  if (error) return <ErrorAlert message={error.message} />;
-
-  return (
-    <div>
-      {data.users.map(user => (
-        <UserCard key={user.id} user={user} />
-      ))}
-    </div>
-  );
-}
-```
-
-### Data Mutations
-
-```tsx
-// Using custom mutation hooks
-import { useUpdateUserCredits } from '@/hooks/admin/use-admin-users';
-
-function UserCreditForm({ userId }: { userId: string }) {
-  const updateCredits = useUpdateUserCredits();
-
-  const handleSubmit = (credits: number) => {
-    updateCredits.mutate({ userId, credits });
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input type="number" name="credits" />
-      <button
-        type="submit"
-        disabled={updateCredits.isPending}
-      >
-        {updateCredits.isPending ? 'Updating...' : 'Update Credits'}
-      </button>
-    </form>
-  );
-}
-```
-
-### Query Key Patterns
-
-```tsx
-// Structured query keys for easy cache management
-const queryKeys = {
-  admin: ['admin'] as const,
-  users: () => [...queryKeys.admin, 'users'] as const,
-  usersList: (params: UsersParams) => [...queryKeys.users(), params] as const,
-  credits: () => [...queryKeys.admin, 'credits'] as const,
-  invitations: () => [...queryKeys.admin, 'invitations'] as const,
-};
-
-// Usage in hooks
-export function useAdminUsers(params: UsersParams) {
-  return useQuery({
-    queryKey: queryKeys.usersList(params),
-    queryFn: () => api.get(`/api/admin/users?${searchParams}`),
-    staleTime: 30_000,
-    gcTime: 5 * 60_000,
-  });
-}
-```
-
-## Performance Optimization
-
-### Code Splitting
-
-```tsx
-// Dynamic imports
-const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
-  loading: () => <Skeleton />,
-  ssr: false, // Client-side only
-});
-```
-
-### Image Optimization
-
-```tsx
-import Image from 'next/image';
-
-<Image
-  src="/hero.jpg"
-  alt="Hero"
-  width={1200}
-  height={600}
-  priority // Load eagerly for LCP
-/>
-```
-
-### Font Optimization
-
-```tsx
-// app/layout.tsx
-import { Geist, Geist_Mono } from 'next/font/google';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-```
-
-## Accessibility
-
-### Semantic HTML
-
-```tsx
-<nav aria-label="Main navigation">
-  <ul>
-    <li><a href="/dashboard">Dashboard</a></li>
-  </ul>
-</nav>
-```
-
-### ARIA Attributes
-
-```tsx
-<button
-  aria-label="Close dialog"
-  aria-expanded={isOpen}
-  aria-controls="dialog-content"
->
-  <X className="h-4 w-4" />
-</button>
-```
-
-### Keyboard Navigation
-
-```tsx
-// Radix UI components handle keyboard navigation
-<DropdownMenu>
-  <DropdownMenuTrigger>Open</DropdownMenuTrigger>
-  <DropdownMenuContent>
-    <DropdownMenuItem>Item 1</DropdownMenuItem>
-    <DropdownMenuItem>Item 2</DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
-```
-
-## Error Handling
-
-### Error Boundaries
-
-```tsx
-// app/error.tsx
-'use client';
-
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
-  return (
-    <div>
-      <h2>Something went wrong!</h2>
-      <button onClick={reset}>Try again</button>
-    </div>
-  );
-}
-```
-
-### Loading States
-
-```tsx
-// app/loading.tsx
-export default function Loading() {
-  return <Skeleton className="w-full h-96" />;
-}
-```
-
-## Testing Approach
-
-### Component Testing
-
-```tsx
-// __tests__/button.test.tsx
-import { render, screen } from '@testing-library/react';
-import { Button } from '@/components/ui/button';
-
-test('renders button with text', () => {
-  render(<Button>Click me</Button>);
-  expect(screen.getByText('Click me')).toBeInTheDocument();
-});
-```
-
-### Integration Testing
-
-```tsx
-// __tests__/dashboard.test.tsx
-test('displays user data after loading', async () => {
-  render(<Dashboard />);
-  
-  await waitFor(() => {
-    expect(screen.getByText('User Name')).toBeInTheDocument();
-  });
-});
-```
-
-## Best Practices
-
-### 1. Component Composition
-- Keep components small and focused
-- Use composition over inheritance
-- Extract reusable logic into hooks
-
-### 2. Performance
-- Use Server Components by default
-- Implement proper loading states
-- Optimize images and fonts
-- Use React.memo for expensive components
-
-### 3. Type Safety
-- Define proper TypeScript types
-- Use Zod for runtime validation
-- Avoid `any` types
-
-### 4. Accessibility
-- Use semantic HTML
-- Implement proper ARIA labels
-- Ensure keyboard navigation
-- Test with screen readers
-
-### 5. Code Organization
-- Group related components
-- Co-locate styles with components
-- Keep business logic in separate files
-- Use barrel exports for cleaner imports
-
-### 6. TanStack Query Best Practices
-
-#### Hook Creation
-- **Always use custom hooks** - Never call `useQuery` or `useMutation` directly in components
-- **Use the API client** - All HTTP requests must go through `@/lib/api-client`
-- **Proper error handling** - Let the API client handle HTTP errors automatically
-- **Type safety** - Define proper interfaces for request/response data
-
-#### Query Key Management
-```tsx
-// ✅ Good - Structured and consistent
-queryKey: ['admin', 'users', { page: 1, search: 'john' }]
-
-// ❌ Bad - Unstructured
-queryKey: ['admin-users-page-1-search-john']
-```
-
-#### Cache Configuration
-```tsx
-// Short-lived data (real-time updates)
-staleTime: 30_000,     // 30 seconds
-gcTime: 2 * 60_000,    // 2 minutes
-
-// Settings/configuration data
-staleTime: 5 * 60_000, // 5 minutes
-gcTime: 10 * 60_000,   // 10 minutes
-
-// Static/rarely changing data
-staleTime: 30 * 60_000, // 30 minutes
-gcTime: 60 * 60_000,    // 1 hour
-```
-
-#### Mutation Patterns
-- **Optimistic updates** for better UX on fast operations
-- **Proper invalidation** after successful mutations
-- **Error rollback** when optimistic updates fail
-- **Toast notifications** for user feedback
-
-#### Never Do This
-```tsx
-// ❌ NEVER use fetch directly in components
-const [data, setData] = useState();
-useEffect(() => {
-  fetch('/api/users').then(res => res.json()).then(setData);
-}, []);
-
-// ❌ NEVER call TanStack Query hooks directly
-const { data } = useQuery({
-  queryKey: ['users'],
-  queryFn: () => fetch('/api/users').then(res => res.json()),
-});
-```
-
-#### Always Do This
-```tsx
-// ✅ Use custom hooks with API client
-const { data, isLoading, error } = useAdminUsers({
-  page: 1,
-  pageSize: 50
-});
-
-// ✅ Proper mutation handling
-const updateUser = useUpdateUser();
-const handleUpdate = () => {
-  updateUser.mutate({ id: 1, name: 'New Name' });
-};
-```
+For API details, see `docs/backend.md`. For hooks source, search `src/hooks/`.

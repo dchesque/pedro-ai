@@ -22,6 +22,7 @@ export interface ScriptFormData {
     theme: string           // Tema/premissa curta
     synopsis: string        // Descrição expandida
     styleId?: string        // ID do estilo visual
+    modelId?: string        // ID do modelo de IA
     tone: string            // Tom: épico, dramático, aventura, etc.
 
     // Etapa 2: Personagens

@@ -1,738 +1,336 @@
 # Development Guidelines
 
+This document outlines the coding standards, patterns, and best practices for contributing to the Pedro AI codebase. The project is a Next.js 14+ app with App Router, TypeScript, Prisma, Clerk authentication, TanStack Query for data fetching, shadcn/ui components, and AI integrations (Fal.ai, OpenRouter, Kling/Flux models).
+
+Follow these guidelines to maintain consistency, security, and performance.
+
 ## Code Standards
 
 ### TypeScript Configuration
 
-#### Type Safety Rules
-- Use TypeScript for all new code
-- Avoid `any` type - prefer `unknown` or specific types
-- Use strict null checks
-- Define interfaces for all data structures
-- Use generics for reusable components
+`tsconfig.json` enforces strict mode. Key rules:
+
+- **Type Safety**: No `any`—use `unknown`, unions, or generics. Enable strict null checks (`strictNullChecks: true`).
+- **Interfaces for Data**: Define for all props, API responses, and models.
+- **Generics**: For reusable hooks/components (e.g., `useQuery<T>`).
 
 ```tsx
 // ✅ Good
-interface User {
+export interface Short {
   id: string;
-  email: string;
-  name?: string;
+  title: string;
+  scenes: ShortScene[];
+  status: ShortStatus;
 }
 
-function getUser(id: string): Promise<User | null> {
-  return fetchUser(id);
+async function fetchShort(id: string): Promise<Short | null> {
+  const { data } = await apiClient.get(`/shorts/${id}`);
+  return data;
 }
 
 // ❌ Bad
-function getUser(id: any): any {
-  return fetchUser(id);
-}
+function fetchShort(id: any): any { /* ... */ }
 ```
 
-#### Type Definitions
+#### Common Types (from codebase)
 
-```tsx
-// types/api.ts
-export interface ApiResponse<T> {
-  data: T;
-  success: boolean;
-  error?: string;
-}
+See key exports:
+- `Short`, `ShortScene` (`src/hooks/use-shorts.ts`)
+- `CreditData`, `CreditsResponse` (`src/hooks/use-credits.ts`)
+- `AdminSettings` (`src/hooks/use-admin-settings.ts`)
+- `CharacterPromptData` (`src/lib/characters/types.ts`)
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-  };
-}
-
-// Usage
-const response: ApiResponse<User> = await fetchUser(id);
-```
+Use `ApiError` for errors (`src/lib/api-client.ts`).
 
 ### File Naming Conventions
 
 ```
-// Components (PascalCase)
-Button.tsx
-UserProfile.tsx
-DashboardLayout.tsx
-
-// Pages (lowercase with hyphens)
-sign-in/page.tsx
-user-profile/page.tsx
-
-// Utilities (camelCase)
-authUtils.ts
-dateHelpers.ts
-apiClient.ts
-
-// Types (camelCase)
-apiTypes.ts
-userTypes.ts
-
-// Constants (UPPER_SNAKE_CASE)
-API_ROUTES.ts
-APP_CONFIG.ts
+Components: PascalCase.tsx (e.g., AddSceneDialog.tsx, AppShell.tsx)
+Pages: kebab-case/page.tsx (e.g., ai-studio/page.tsx)
+Hooks: camelCase.ts (e.g., use-shorts.ts, use-credits.ts)
+Utils: camelCase.ts (e.g., api-client.ts, utils.ts)
+Types: camelCase.ts (e.g., types.ts)
+Constants: UPPER_SNAKE_CASE.ts (e.g., feature-config.ts)
+API Routes: route.ts (e.g., /api/shorts/route.ts)
 ```
 
 ### Import Organization
 
 ```tsx
-// 1. Node modules
+// 1. React/Next.js
 import React from 'react';
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
-// 2. Internal packages/utilities
+// 2. Lib utils (alphabetical)
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/db';
+import { apiClient } from '@/lib/api-client';
+import db from '@/lib/db';
 
-// 3. Contexts and Hooks
-import { usePageConfig } from '@/hooks/use-page-config';
-import { usePageMetadata } from '@/contexts/page-metadata';
+// 3. Hooks (client-only)
+import { useShorts, useCreateShort } from '@/hooks/use-shorts';
 
-// 4. Components
+// 4. Components/UI
 import { Button } from '@/components/ui/button';
-import { UserMenu } from '@/components/app/user-menu';
+import { AddSceneDialog } from '@/components/shorts/AddSceneDialog';
 
 // 5. Types
-import type { User } from '@/types/user';
+import type { Short } from '@/hooks/use-shorts';
 
-// 6. Relative imports
-import './styles.css';
+// 6. Styles/CSS
+import './component.css';
 ```
+
+**Note**: Prefix internal imports with `@/` alias.
+
+## Architecture Overview
+
+- **Layers**:
+  | Layer | Path | Dependencies | Symbols |
+  |-------|------|--------------|---------|
+  | Utils | `src/lib/` | Controllers, Models | 171 |
+  | Controllers (API) | `src/app/api/` | Models | 159 |
+  | Components | `src/components/` | Models | 179 |
+  | Models | Prisma schema | - | 29 |
+  | Hooks (Client Data) | `src/hooks/` | apiClient | ~50 |
+
+- **Key Flows**:
+  - **Shorts Pipeline**: `src/lib/shorts/pipeline.ts` (addScene, approveScript, generateMedia).
+  - **Credits**: `src/lib/credits/` (deduct, validate, track-usage).
+  - **AI Providers**: `src/lib/ai/providers/` (OpenRouterAdapter, FalAdapter).
+  - **Storage**: `src/lib/storage/` (VercelBlobStorage, ReplitAppStorage).
+
+Cross-references:
+- Shorts: Uses `useShorts`, `useShortCharacters`.
+- Admin: `AdminChrome`, `useAdminSettings`, `useAdminPlans`.
 
 ## Component Guidelines
 
-### Page Components and Metadata
+### Page Metadata (Protected Routes)
 
-All protected pages should use the Page Metadata System for consistent headers and breadcrumbs:
+All `(protected)` pages use `PageMetadataContext` for titles/breadcrumbs:
 
 ```tsx
 "use client";
 
-import { usePageConfig } from "@/hooks/use-page-config";
+import { usePageMetadata } from '@/contexts/page-metadata';
 
-export default function MyPage() {
-  // Simple usage
-  usePageConfig("Page Title", "Page description");
-  
-  // With custom breadcrumbs
-  usePageConfig("Title", "Description", [
-    { label: "Home", href: "/dashboard" },
-    { label: "Current Page" }
-  ]);
-  
-  // Full control
-  usePageConfig({
-    title: "Dynamic Title",
-    description: "Dynamic description",
-    breadcrumbs: [...],
-    showBreadcrumbs: true
+export default function AIStudioPage() {
+  usePageMetadata({
+    title: 'AI Studio',
+    description: 'Generate shorts with AI',
+    breadcrumbs: [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'AI Studio' }
+    ]
   });
-  
-  return <YourContent />;
+
+  return <AppShell>{/* content */}</AppShell>;
 }
 ```
 
-**Important:** Never manually add breadcrumbs or page headers in protected pages. The layout handles this automatically through the PageMetadata context.
+Layouts (`src/app/(protected)/layout.tsx`) render headers automatically.
 
 ### Component Structure
 
 ```tsx
-// 1. Imports (organized as above)
-import React from 'react';
-import { cn } from '@/lib/utils';
-
-// 2. Types/Interfaces
-interface ComponentProps {
-  title: string;
-  children?: React.ReactNode;
-  className?: string;
+interface ShortCardProps {
+  short: Short;
+  onRegenerate?: () => void;
 }
 
-// 3. Component definition
-export function Component({ title, children, className }: ComponentProps) {
-  // 4. Hooks (top of component)
-  const [state, setState] = useState();
-  const { data } = useQuery();
-  
-  // 5. Computed values
-  const computedValue = useMemo(() => {}, []);
-  
-  // 6. Event handlers
-  const handleClick = useCallback(() => {}, []);
-  
-  // 7. Effects
-  useEffect(() => {}, []);
-  
-  // 8. Render
+export function ShortCard({ short, onRegenerate }: ShortCardProps) {
+  const { mutate: regenerate } = useRegenerateScript(short.id);
+
+  // Hooks first
+  const { data: scenes } = useQuery({ queryKey: ['scenes', short.id] });
+
+  // Computed/memos
+  const statusColor = useMemo(() => cn('badge', { 'bg-green': short.status === 'approved' }), [short.status]);
+
+  // Handlers
+  const handleRegenerate = useCallback(() => {
+    regenerate();
+    onRegenerate?.();
+  }, [regenerate, onRegenerate]);
+
   return (
-    <div className={cn('base-styles', className)}>
-      <h1>{title}</h1>
-      {children}
+    <div className={cn('card', statusColor)}>
+      <h3>{short.title}</h3>
+      <Button onClick={handleRegenerate}>Regenerate Script</Button>
     </div>
   );
 }
 ```
 
-### Prop Guidelines
+**Props**: Specific unions/enums (e.g., `variant: 'primary' | 'destructive'`). No index signatures.
+
+**Optimization**: `React.memo` for pure components; `useMemo`/`useCallback` for lists/handlers.
+
+## Data Access Patterns
+
+**Critical Rule**: No Prisma (`@/lib/db`) in client components—"hydration mismatch" risk.
+
+- **Client Components**: Use TanStack Query hooks (e.g., `useShorts`, `useCredits`) → `apiClient` → API routes/Server Actions.
+- **Server Components**: Import query functions from `src/lib/queries/` or domain libs (e.g., `src/lib/shorts/queries.ts`).
+- **API Routes/Actions**: Direct Prisma or lib functions.
 
 ```tsx
-// ✅ Good - Specific prop types
-interface ButtonProps {
-  variant: 'primary' | 'secondary' | 'destructive';
-  size: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
-  children: React.ReactNode;
-  onClick?: () => void;
-}
+// ✅ Client: Hook (wraps apiClient)
+const { data: shorts } = useShorts({ userId });
 
-// ❌ Bad - Too generic
-interface ButtonProps {
-  [key: string]: any;
-}
+// ✅ Server Component: Lib query
+import { getUserShorts } from '@/lib/shorts/queries';
+const shorts = await getUserShorts(userId);
+
+// ❌ Client: Never do this
+import db from '@/lib/db'; // Error!
 ```
 
-### State Management Patterns
+**Examples**:
+- Shorts: `useCreateShort`, `useGenerateScript`, `useAddScene`.
+- Credits: `useCredits`, `addUserCredits`.
+- Storage: `useStorage`, `useDeleteStorageItem`.
 
-## Data Access (Important)
+## API Development
 
-- Never import the Prisma client (`@/lib/db`) or query the database directly from Client Components or any client-side code.
-- Server Components must NOT query Prisma directly. Instead, call functions from the query layer under `src/lib/queries/*`.
-  - Keep DB access centralized for reuse and consistency. Add a new file under `src/lib/queries/` per domain (e.g., `plans.ts`).
-- API routes under `src/app/api/*` and Server Actions may use Prisma directly or reuse `src/lib/queries/*` functions.
-- Client components must receive data via props from a Server Component, or use custom hooks built on TanStack Query that call API routes through `@/lib/api-client`.
-
-```tsx
-// Local state
-const [isOpen, setIsOpen] = useState(false);
-
-// Complex local state
-const [state, setState] = useReducer(reducer, initialState);
-
-// Server state
-const { data, isLoading, error } = useQuery({
-  queryKey: ['users'],
-  queryFn: fetchUsers,
-});
-
-// Form state
-const form = useForm<FormData>({
-  resolver: zodResolver(schema),
-  defaultValues: {},
-});
-```
-
-## API Development Guidelines
-
-### Route Structure
+### Route Handlers
 
 ```ts
-// app/api/users/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/shorts/route.ts
+import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
+import { createShort } from '@/lib/shorts/pipeline';
 
-// 1. Schema definitions
-const createUserSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-});
+const schema = z.object({ title: z.string() });
 
-// 2. Route handlers
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // 3. Authentication
     const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' }, 
-        { status: 401 }
-      );
-    }
+    validateUserAuthentication(userId); // From auth-utils.ts
 
-    // 4. Input validation
-    const body = await request.json();
-    const validatedData = createUserSchema.parse(body);
+    const data = schema.parse(await req.json());
+    const short = await createShort({ ...data, userId: userId! });
 
-    // 5. Business logic
-    const result = await createUser(validatedData);
-
-    // 6. Response
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(short, { status: 201 });
   } catch (error) {
-    return handleApiError(error);
+    return createErrorResponse(error); // Centralized handler
   }
 }
 ```
 
-### Error Handling
+**Auth**: `auth()` + `getUserFromClerkId` or `validateApiKey`.
+**Validation**: Zod schemas everywhere.
+**Errors**: `ApiError`, `InsufficientCreditsError`.
+
+**Admin Routes**: `requireAdmin` middleware.
+
+## Database Guidelines (Prisma)
 
 ```ts
-// lib/api-errors.ts
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 500,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-export function handleApiError(error: unknown) {
-  if (error instanceof ApiError) {
-    return NextResponse.json(
-      { 
-        error: error.message, 
-        code: error.code,
-        success: false 
-      },
-      { status: error.statusCode }
-    );
-  }
-
-  if (error instanceof z.ZodError) {
-    return NextResponse.json(
-      {
-        error: 'Validation failed',
-        issues: error.issues,
-        success: false
-      },
-      { status: 400 }
-    );
-  }
-
-  console.error('Unexpected error:', error);
-  return NextResponse.json(
-    { error: 'Internal server error', success: false },
-    { status: 500 }
-  );
-}
-```
-
-## Database Guidelines
-
-### Query Patterns
-
-```ts
-// ✅ Good - Specific selects
-const users = await db.user.findMany({
+// ✅ Select only needed fields
+const shorts = await db.short.findMany({
+  where: { userId },
   select: {
     id: true,
-    name: true,
-    email: true,
+    title: true,
+    status: true,
+    scenes: {
+      select: { id: true, prompt: true }
+    }
   },
-  where: {
-    active: true,
-  },
-  orderBy: {
-    createdAt: 'desc',
-  },
+  orderBy: { createdAt: 'desc' },
+  take: 10
 });
 
-// ✅ Good - Include related data
-const user = await db.user.findUnique({
-  where: { id: userId },
-  include: {
-    // Removed projects in this edition
-    creditBalance: true,
-  },
+// ✅ Transactions
+await db.$transaction(async (tx) => {
+  await tx.shortCredit.create({ data: { shortId, creditsUsed: 10 } });
+  await deductCredits(tx, userId, 10);
 });
-
-// ❌ Bad - Select all fields unnecessarily
-const users = await db.user.findMany();
 ```
 
-### Transaction Guidelines
+**Relations**: Use `include` for 1:1/N:1 (e.g., `user: { select: { creditsRemaining: true } }`).
+**Pagination**: `take`/`skip` or cursor-based.
+
+## AI & Feature-Specific Guidelines
+
+### Shorts Pipeline
+
+- Use `addScene`, `approveScript`, `generateMedia` from `src/lib/shorts/pipeline.ts`.
+- Characters: `combineCharactersForScene`, limits via `canAddCharacterToShort`.
+- Hooks: `useShorts`, `useGenerateScript`, `useRegenerateSceneImage`.
 
 ```ts
-// Use transactions for related operations
-const result = await db.$transaction(async (tx) => {
-  const user = await tx.user.create({
-    data: { name: 'John', email: 'john@example.com' },
-  });
+const onGenerate = useGenerateScript(short.id);
+```
 
-  await tx.creditBalance.create({
-    data: {
-      userId: user.id,
-      creditsRemaining: 100,
-    },
-  });
+### Credits System
 
-  return user;
+- Track: `trackUsage(operation: OperationType)`.
+- Deduct: `deductCredits(userId, amount)`.
+- Hooks: `useCredits()` → `CreditsResponse`.
+
+### Admin Tools
+
+- `AdminChrome`, `AdminLayout`.
+- `useAdminSettings`, `useAdminPlans`.
+- Dev: `AdminDevModeProvider`.
+
+## Security
+
+- **Auth**: Clerk + `createAuthErrorResponse`.
+- **Validation**: Zod + `validateApiKey`.
+- **Rate Limits**: Credits system enforces.
+- **No Secrets**: Env vars only (e.g., `ASAAS_API_KEY`).
+
+## Testing
+
+Use Vitest/Jest + `@testing-library/react`, MSW for API mocks.
+
+```tsx
+// src/hooks/use-shorts.test.ts
+import { renderHook } from '@testing-library/react';
+import { useShorts } from './use-shorts';
+
+test('fetches shorts', async () => {
+  // MSW mock apiClient
+  const { result } = renderHook(() => useShorts({ userId: 'test' }));
+  await waitFor(() => expect(result.current.data).toHaveLength(2));
 });
 ```
 
-## Security Guidelines
+- **Unit**: Components, utils.
+- **Integration**: Hooks → API.
+- **E2E**: Playwright (TBD).
 
-### Input Validation
+## Performance
 
-```ts
-// Always validate input with Zod
-const schema = z.object({
-  email: z.string().email(),
-  age: z.number().int().min(18).max(120),
-  preferences: z.object({
-    theme: z.enum(['light', 'dark']),
-    notifications: z.boolean(),
-  }).optional(),
-});
-
-// Sanitize string inputs
-const sanitizedInput = input.trim().toLowerCase();
-```
-
-### Authentication Patterns
-
-```ts
-// API route authentication
-export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const user = await getUserFromClerkId(userId);
-  // ... rest of logic
-}
-
-// Resource ownership verification
-export async function PUT(request: Request) {
-  const { userId } = await auth();
-  if (!userId) return unauthorized();
-
-  // Verify resource ownership as needed
-  // ... update logic
-}
-```
-
-### Data Protection
-
-```ts
-// Never expose sensitive data
-const publicUserData = {
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  // Don't include: clerkId, internalId, etc.
-};
-
-// Use environment variables for secrets
-const apiKey = process.env.EXTERNAL_API_KEY;
-if (!apiKey) {
-  throw new Error('Missing required API key');
-}
-```
-
-## Testing Guidelines
-
-### Unit Testing
-
-```tsx
-// Component tests
-describe('Button', () => {
-  it('renders with correct text', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByText('Click me')).toBeInTheDocument();
-  });
-
-  it('calls onClick when clicked', () => {
-    const handleClick = jest.fn();
-    render(<Button onClick={handleClick}>Click me</Button>);
-    
-    fireEvent.click(screen.getByRole('button'));
-    expect(handleClick).toHaveBeenCalledTimes(1);
-  });
-});
-```
-
-### API Testing
-
-```ts
-// API route tests
-describe('/api/users', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('creates user successfully', async () => {
-    mockAuth({ userId: 'user_123' });
-    mockDb.user.create.mockResolvedValue(mockUser);
-
-    const response = await POST(mockRequest);
-    const data = await response.json();
-
-    expect(response.status).toBe(201);
-    expect(data.name).toBe('Test User');
-  });
-
-  it('returns 401 when unauthorized', async () => {
-    mockAuth({ userId: null });
-
-    const response = await POST(mockRequest);
-    
-    expect(response.status).toBe(401);
-  });
-});
-```
-
-### Integration Testing
-
-```tsx
-// E2E-style integration tests
-describe('User Dashboard', () => {
-  it('displays user data after loading', async () => {
-    mockApiResponse('/api/users/me', mockUserData);
-    mockApiResponse('/api/credits/me', mockCreditsData);
-
-    render(<Dashboard />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Welcome, John')).toBeInTheDocument();
-      expect(screen.getByText('100 credits')).toBeInTheDocument();
-    });
-  });
-});
-```
-
-## Performance Guidelines
-
-### React Optimization
-
-```tsx
-// Use React.memo for expensive components
-export const ExpensiveComponent = React.memo(({ data }) => {
-  const processedData = useMemo(() => 
-    expensiveCalculation(data), 
-    [data]
-  );
-
-  return <div>{processedData}</div>;
-});
-
-// Use useCallback for event handlers
-const Button = ({ onClick, children }) => {
-  const handleClick = useCallback((e) => {
-    e.preventDefault();
-    onClick?.(e);
-  }, [onClick]);
-
-  return <button onClick={handleClick}>{children}</button>;
-};
-```
-
-### Database Optimization
-
-```ts
-// Use pagination for large datasets
-const getUsers = async (page = 1, limit = 20) => {
-  return db.user.findMany({
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { createdAt: 'desc' },
-  });
-};
-
-// Use cursor-based pagination for better performance
-const getUsersWithCursor = async (cursor?: string, limit = 20) => {
-  return db.user.findMany({
-    take: limit,
-    ...(cursor && { cursor: { id: cursor } }),
-    orderBy: { id: 'asc' },
-  });
-};
-```
-
-### Bundle Optimization
-
-```tsx
-// Use dynamic imports for heavy components
-const HeavyChart = dynamic(() => import('./HeavyChart'), {
-  loading: () => <ChartSkeleton />,
-  ssr: false,
-});
-
-// Use React.lazy for code splitting
-const LazyComponent = React.lazy(() => import('./LazyComponent'));
-
-function App() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <LazyComponent />
-    </Suspense>
-  );
-}
-```
-
-## Error Handling
-
-### Error Boundaries
-
-```tsx
-// app/error.tsx
-'use client';
-
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  useEffect(() => {
-    console.error('Application error:', error);
-  }, [error]);
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <h2>Something went wrong!</h2>
-      <button onClick={reset}>Try again</button>
-    </div>
-  );
-}
-```
-
-### Loading States
-
-```tsx
-// app/loading.tsx
-export default function Loading() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary" />
-    </div>
-  );
-}
-```
-
-### Not Found Pages
-
-```tsx
-// app/not-found.tsx
-export default function NotFound() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <h2>Page Not Found</h2>
-      <p>Could not find the requested resource</p>
-      <Link href="/">Return Home</Link>
-    </div>
-  );
-}
-```
+- **Queries**: `queryKey: ['shorts', userId]`, staleTime: 5min.
+- **Bundles**: `dynamic` for heavy (e.g., AI chat).
+- **DB**: Indexes on `userId`, `status`; no N+1.
+- **Images**: Fal.ai/Flux optimized.
 
 ## Git Workflow
 
-### Commit Messages
+- **Commits**: Conventional (`feat:`, `fix:`, etc.).
+- **Branches**: `feature/shorts-pipeline`, `fix/credits-bug`.
+- **PRs**: Self-review, tests pass, no `console.log`.
 
-```
-feat: add user authentication
-fix: resolve database connection issue
-docs: update API documentation
-style: fix linting errors
-refactor: extract user service logic
-test: add unit tests for Button component
-chore: update dependencies
-```
-
-### Branch Naming
-
-```
-feature/user-authentication
-fix/database-connection
-hotfix/security-vulnerability
-release/v1.2.0
-```
-
-### Pull Request Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] No console.log statements
-```
-
-## Code Review Guidelines
-
-### What to Look For
-
-1. **Functionality**: Does the code work as intended?
-2. **Security**: Are there any security vulnerabilities?
-3. **Performance**: Are there any performance issues?
-4. **Readability**: Is the code easy to understand?
-5. **Testing**: Are there adequate tests?
-6. **Documentation**: Is the code properly documented?
-
-### Review Comments
-
-```
-// ✅ Good feedback
-"Consider using useMemo here to avoid recalculating on every render"
-"This could be extracted into a custom hook for better reusability"
-
-// ❌ Poor feedback
-"This is wrong"
-"Fix this"
-```
-
-## Environment Management
-
-### Environment Variables
+## Environment & Deployment
 
 ```env
-# Required for all environments
-DATABASE_URL=
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
-
-# Development only
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Production only
-NEXT_PUBLIC_APP_URL=https://your-domain.com
+DATABASE_URL="postgresql://..."
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_..."
+CLERK_SECRET_KEY="sk_..."
+ASAAS_API_KEY="..."
+FAL_KEY="..."
 ```
 
-### Configuration Management
+Validate in `src/lib/env.ts`.
 
-```ts
-// lib/config.ts
-const config = {
-  app: {
-    name: process.env.NEXT_PUBLIC_APP_NAME || 'SaaS Template',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  },
-  db: {
-    url: process.env.DATABASE_URL!,
-  },
-  clerk: {
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,
-    secretKey: process.env.CLERK_SECRET_KEY!,
-  },
-};
+**Deploy**: Vercel (blob storage auto), Replit fallback.
 
-// Validate required env vars
-if (!config.db.url) {
-  throw new Error('DATABASE_URL is required');
-}
+---
 
-export default config;
-```
+For questions: Check symbols in IDE or run `analyzeSymbols`. Contribute via PRs!

@@ -1,61 +1,136 @@
 # Admin QA Guide
 
-This document describes how to validate the admin surface end to end. It combines environment prerequisites, dataset expectations, automated coverage and manual checkpoints so the team can run consistent regression passes before every release.
+This document provides a comprehensive guide for validating the admin interface end-to-end (E2E). It covers prerequisites, test data expectations, automated Playwright coverage, manual checklists, and extension guidelines to ensure consistent regression testing before releases.
 
-## 1. Scope Overview
-Admin features covered by this guide:
-- **Dashboard** (`/admin`): high-level KPIs and charts for ARR/MRR/Churn.
-- **Users** (`/admin/users`): listing, search, invitations, activation/deactivation, balance adjustments and Clerk sync dialog.
-- **Credits** (`/admin/credits`): aggregated metrics and balance adjustments via modal.
-- **Usage** (`/admin/usage`): filters, pagination, CSV export and JSON detail dialog for operations.
-- **Storage** (`/admin/storage`): filtering, per-user view, external link open and delete workflow for blobs.
-- **Settings** (`/admin/settings/*`): feature credit pricing and subscription plan mapping.
+## Scope Overview
 
-Out of scope for this document: Clerk webhook flows (covered by backend integration tests), authentication itself (smoke test separately) and load/performance testing.
+The admin surface (`/admin/*`) provides tools for monitoring, managing users, credits, usage, storage, and settings. Key features and their primary components:
 
-## 2. Environment & Dependencies
-- Start the app with `npm run dev` or, for Playwright, `npm run dev:e2e` (enables `E2E_AUTH_BYPASS=1` and pins the server to `127.0.0.1:3100`).
-- Minimum `.env` variables: `DATABASE_URL`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, and `ADMIN_EMAILS` or `ADMIN_USER_IDS`. For e2e bypass only: set `E2E_AUTH_BYPASS=1` and `ADMIN_USER_IDS=e2e-admin`.
-- Database: SQLite is fine locally; prefer Postgres when running shared QA. Ensure `prisma migrate deploy` (or `db:migrate`) succeeded before tests.
-- Seed data: provide sample users with mixed credit balances, pending invitations, uploaded files and usage records. Automated specs stub most APIs but manual sweeps benefit from realistic seed data.
+| Feature | Route | Primary Components | Key Hooks/APIs |
+|---------|-------|--------------------|---------------|
+| **Dashboard** | `/admin` | `AdminLayout` ([src/app/admin/layout.tsx](src/app/admin/layout.tsx)), `AdminChrome` ([src/components/admin/admin-chrome.tsx](src/components/admin/admin-chrome.tsx)), `AdminTopbar` ([src/components/admin/admin-topbar.tsx](src/components/admin/admin-topbar.tsx)) | `useDashboard` → `/api/admin/dashboard` for KPIs (ARR/MRR/Churn charts) |
+| **Users** | `/admin/users` | User list, search, invite modal, Clerk sync | `useUsage` ([src/hooks/use-usage.ts](src/hooks/use-usage.ts)), Clerk integration via `getUserFromClerkId` ([src/lib/auth-utils.ts](src/lib/auth-utils.ts)) |
+| **Credits** | `/admin/credits` | Aggregated metrics, balance adjust modal | `useCredits` ([src/hooks/use-credits.ts](src/hooks/use-credits.ts)), `addUserCredits` ([src/lib/credits/validate-credits.ts](src/lib/credits/validate-credits.ts)) |
+| **Usage** | `/admin/usage` | Filters, pagination, CSV export, JSON details | `useUsageHistory` ([src/hooks/use-usage-history.ts](src/hooks/use-usage-history.ts)) → `/api/admin/usage` |
+| **Storage** | `/admin/storage` | Blob list, filters, delete workflow | `useStorage` ([src/hooks/use-storage.ts](src/hooks/use-storage.ts)) → Supports Vercel Blob (`VercelBlobStorage` [src/lib/storage/vercel-blob.ts](src/lib/storage/vercel-blob.ts)) |
+| **Settings** | `/admin/settings` | Feature pricing, plan mappings | `useAdminSettings` ([src/hooks/use-admin-settings.ts](src/hooks/use-admin-settings.ts)) → `AdminSettingsPayload` ([src/lib/credits/settings.ts](src/lib/credits/settings.ts)), `/api/admin/settings` |
 
-## 3. Automated Coverage (Playwright)
-| Area | Scenario | Entry Point | Notes |
-| --- | --- | --- | --- |
-| Dashboard | Metric cards + charts render and respect mocked data | `tests/e2e/admin-dashboard.spec.ts` | API responses stubbed (`/api/admin/dashboard`). |
-| Users | Search, credit prompt, invite flow, tabs | `tests/e2e/admin-users.spec.ts` | Handles `window.prompt` for credit update and invitation toasts. |
-| Credits | Aggregated cards, search, adjust via modal | `tests/e2e/admin-credits.spec.ts` | Verifies toast feedback and table update. |
-| Usage | Filters (type/search), JSON dialog | `tests/e2e/admin-usage.spec.ts` | CSV export kept manual; mocks keep fixtures small. |
-| Storage | Filter term + deletion confirmation | `tests/e2e/admin-storage.spec.ts` | Uses `confirm` dialog and ensures toast appears. |
-| Settings | Feature cost edit + save feedback | `tests/e2e/admin-settings.spec.ts` | Stubs GET/PUT to `/api/admin/settings`. |
+**Out of scope**: Clerk webhooks (backend tests), auth guards (separate smoke tests), performance/load testing.
 
-All specs run via `npm run test:e2e`. Configuration sits in `playwright.config.ts` with `trace` on first retry and Chromium as the default project.
+Related contexts: `AdminDevModeProvider` ([src/contexts/admin-dev-mode.tsx](src/contexts/admin-dev-mode.tsx)) for dev toggles; `requireAdmin` ([src/lib/admin.ts](src/lib/admin.ts)) for access control.
 
-## 4. Manual QA Checklist
-Run these when validating new admin functionality or before major releases:
-1. **Metrics sanity** – confirm dashboard numbers align with seeded DB data and chart fallbacks render when series are empty.
-  - **Bulk Clerk sync**: Exercise the sync modal to ensure new users from Clerk are correctly added to the local database.
-3. **Invite lifecycle** – verify resend/revoke on actual Clerk invitations (requires email delivery setup).
-4. **Exports** – download the Usage CSV and inspect content for correct delimiter/quoting.
-5. **Storage deletion** – confirm blobs disappear from the storage provider (Verel Blob/S3) and are soft-deleted in DB.
-6. **Settings persistence** – tweak feature costs and plan mappings, verify data in the database and via API responses.
-7. **Access control** – ensure non-admin accounts hit redirects from `/admin` routes when `E2E_AUTH_BYPASS` is disabled.
+## Environment & Dependencies
 
-## 5. Running the Playwright Suite
+### Setup
 ```bash
-npm run test:e2e                # full chromium pass
-npm run test:e2e -- --debug     # headed mode for debugging
-npx playwright show-trace trace.zip
+# Dev mode
+npm run dev
+
+# E2E mode (pins to 127.0.0.1:3100, enables auth bypass)
+npm run dev:e2e
 ```
-Outputs (screenshots/traces) appear in `playwright-report/` when failures occur. The suite automatically spins up the dev server with the bypassed auth guard.
 
-## 6. Extending Automation
-- Prefer REST mocks (via `page.route`) to keep tests deterministic; only hit live APIs when the response surface is stable.
-- Wrap toast assertions with `page.getByRole('status')` filters to avoid duplicate matches.
-- Store new admin-specific fixtures under `tests/e2e/fixtures` (create if needed) to keep specs lean.
-- When adding new pages, follow the existing pattern: stub API(s), assert headings/cards, exercise primary CTA(s) and confirm toasts/state updates.
+### Required `.env`
+```
+DATABASE_URL="file:./dev.db"  # SQLite local; use Postgres for shared QA
+CLERK_SECRET_KEY=...
+CLERK_PUBLISHABLE_KEY=...
+ADMIN_EMAILS="admin@example.com"  # OR ADMIN_USER_IDS="user_123"
+E2E_AUTH_BYPASS=1  # For tests only
+ADMIN_USER_IDS="e2e-admin"  # Test admin ID
+```
 
-## 7. Next Steps
-1. Introduce repeatable Prisma seeds focused on admin data to support both manual regression and automated mocks.
-2. Wire `npm run test:e2e` into CI, publishing Playwright HTML reports and traces on failure.
-3. Expand automated coverage to credit usage reports and plan management API endpoints once stabilized.
+### Database Prep
+```bash
+npx prisma migrate deploy  # Or npm run db:migrate
+npx prisma generate
+```
+
+### Seed Data
+Use Prisma seeds for realism (create `prisma/seed-admin.ts` if needed):
+```typescript
+// Example: prisma/seed-admin.ts
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+async function seed() {
+  // Users: mixed active/inactive, credits
+  await prisma.user.createMany({
+    data: [
+      { id: 'e2e-admin', email: 'admin@example.com', credits: 1000, active: true },
+      { id: 'user-1', email: 'user1@example.com', credits: 50, active: false },
+      // Invites, usage records, blobs...
+    ],
+  });
+  // Usage: trackUsage calls (OperationType: 'image_gen', etc.)
+  // Storage: blobs via useStorage
+  // Settings: default AdminSettingsPayload
+}
+
+seed();
+```
+Run: `npx prisma db seed --preview-feature`
+
+## Automated Coverage (Playwright)
+
+Run with `npx playwright test` (Chromium default, traces on retry).
+
+| Area | Scenarios Covered | Spec File | Mocked APIs | Assertions |
+|------|-------------------|-----------|-------------|------------|
+| Dashboard | Cards/charts render, empty states | `tests/e2e/admin-dashboard.spec.ts` | `/api/admin/dashboard` | Metrics match stubs, charts fallback |
+| Users | Search, credit modal (`window.prompt`), invite toast, tabs, Clerk sync | `tests/e2e/admin-users.spec.ts` | `/api/admin/users` | List updates, toasts via `getByRole('status')` |
+| Credits | Cards, search, modal adjust | `tests/e2e/admin-credits.spec.ts` | `/api/admin/credits` | Table refresh, toast feedback |
+| Usage | Filters (type/date/search), pagination, JSON dialog | `tests/e2e/admin-usage.spec.ts` | `/api/admin/usage` | Filter results, dialog content (CSV manual) |
+| Storage | Search, per-user view, delete confirm | `tests/e2e/admin-storage.spec.ts` | `/api/admin/storage` | Blob gone post-delete, provider sync |
+| Settings | Edit feature costs/plans, save | `tests/e2e/admin-settings.spec.ts` | GET/PUT `/api/admin/settings` | Form submit, DB/API persistence |
+
+**Config**: `playwright.config.ts` – headed debug: `npx playwright test --debug`; traces: `npx playwright show-trace`.
+
+**Example Mock** (in specs):
+```typescript
+await page.route('/api/admin/dashboard', async route => {
+  await route.fulfill({ json: { mrr: 5000, churn: 2.1 /* ... */ } });
+});
+```
+
+## Manual QA Checklist
+
+Validate post-automated run or new features:
+
+1. **Dashboard Metrics**: Align with DB (e.g., `SELECT SUM(credits) FROM User`); empty charts show fallbacks.
+2. **Clerk Sync**: Open modal → sync users → verify new entries in `/admin/users`.
+3. **User Invite**: Resend/revoke → check Clerk dashboard/emails.
+4. **Credits Adjust**: Modal → add/subtract → toast + table update.
+5. **Usage Export**: Filter → CSV download → verify delimiter (`,`), quoting, columns (userId, operation, cost).
+6. **Storage Delete**: Filter → delete → confirm provider (Vercel/S3) removal + DB soft-delete.
+7. **Settings**: Edit `FeatureKey` costs (e.g., `llm_short_script: 10`) → save → query DB `AdminSettings`.
+8. **Access Control**: Non-admin login → `/admin` redirects to `/` (disable `E2E_AUTH_BYPASS`).
+9. **Edge Cases**: Zero credits, max pagination, invalid filters, offline mode.
+
+## Running Tests
+
+```bash
+npm run test:e2e              # Full suite
+npm run test:e2e:ui           # UI mode
+npx playwright test admin-*.spec.ts --project=chromium  # Specific
+npx playwright show-report    # HTML report
+```
+
+Failures → `playwright-report/`.
+
+## Extending Automation
+
+- **New Page**: Stub APIs (`page.route`), assert `<h1>`, primary CTAs, toasts (`page.getByRole('status').filter({ hasText: /saved/i })`).
+- **Fixtures**: `tests/e2e/fixtures/admin.json` for mocks.
+- **Toasts**: `await expect(page.getByRole('status')).toHaveText('Success')`.
+- **Modals/Prompts**: `page.on('dialog', dialog => dialog.accept('value'))`.
+- **Seeds**: Integrate `npm run db:seed:admin` pre-test.
+
+## Next Steps & CI Integration
+
+1. **Seeds**: `prisma/seed-admin.ts` → `npm run db:seed:admin`.
+2. **CI**: GitHub Actions → `npm run test:e2e` → artifacts (report/trace).
+3. **Expand**: Plans (`useAdminPlans` [src/hooks/use-admin-plans.ts](src/hooks/use-admin-plans.ts)), models (`useAdminModels`).
+4. **Monitoring**: Integrate Sentry for admin errors.
+
+Cross-references: [Admin Plans](src/components/admin/plans/types.ts), [Credits Features](src/lib/credits/feature-config.ts). Update this guide with new routes/specs.

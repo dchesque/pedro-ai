@@ -1,25 +1,61 @@
 # Database Documentation
 
-Status: Parts of this document were outdated. The section below reflects the current Prisma schema at a glance; legacy content remains for reference and will be incrementally revised.
+## Overview
 
-## Current Models Snapshot
+This document covers the database schema, setup, operations, migrations, performance, and best practices for the Pedro AI application. The schema uses [Prisma](https://prisma.io) with PostgreSQL as the primary datasource. All database interactions occur via the singleton `db` instance exported from [`src/lib/db.ts`](../src/lib/db.ts).
 
-This mirrors `prisma/schema.prisma` in the repository.
+Key features:
+- **User-centric**: Tracks users, credits, usage, storage, and subscriptions.
+- **Credit system**: Balances and auditable usage history.
+- **Admin configuration**: Feature costs and plans.
+- **Soft deletes**: On storage objects via `deletedAt`.
+- **JSON flexibility**: For metadata like `details`, `featureCosts`, `features`.
+
+Total models: 7 (plus 1 enum). See [Current Schema Snapshot](#current-schema-snapshot) for the exact Prisma definition.
+
+### Relations Diagram (Text-based)
+
+```
+User (1) ── CreditBalance (1)
+                │
+User (1) ── UsageHistory (*)
+User (1) ── StorageObject (*)
+User (1) ── SubscriptionEvent (*)
+
+Feature (*) ── workspaceId (no FK model)
+AdminSettings (singleton)
+Plan (*)
+```
+
+Cross-references:
+- **Usage**: Hooks like [`useUsage`](../src/hooks/use-usage.ts), [`useCredits`](../src/hooks/use-credits.ts).
+- **Storage**: [`useStorage`](../src/hooks/use-storage.ts).
+- **Plans**: [`useAdminPlans`](../src/hooks/use-admin-plans.ts).
+- **Prisma Client**: Stubbed in browser builds; server-only via `src/lib/db.ts`.
+
+## Current Schema Snapshot
+
+Mirrors [`prisma/schema.prisma`](../prisma/schema.prisma). Run `npx prisma db pull` or `npm run db:generate` to regenerate types.
 
 ```prisma
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String?  @unique
-  name      String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String            @id @default(cuid())
+  clerkId         String            @unique
+  email           String?           @unique
+  name            String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  creditBalance      CreditBalance?
-  usageHistory       UsageHistory[]
-  storageObjects     StorageObject[]
+  creditBalance   CreditBalance?
+  usageHistory    UsageHistory[]
+  storageObjects  StorageObject[]
   subscriptionEvents SubscriptionEvent[]
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([isActive])
+  @@index([createdAt])
 }
 
 model Feature {
@@ -30,19 +66,25 @@ model Feature {
   tags        String[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([name])
 }
 
 model CreditBalance {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  clerkUserId      String   @unique
-  creditsRemaining Int      @default(100)
-  lastSyncedAt     DateTime @default(now())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  clerkUserId      String       @unique
+  creditsRemaining Int          @default(100)
+  lastSyncedAt     DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
   usageHistory UsageHistory[]
+
+  @@index([userId])
+  @@index([clerkUserId])
 }
 
 model UsageHistory {
@@ -50,48 +92,58 @@ model UsageHistory {
   userId          String
   creditBalanceId String
   operationType   OperationType
-  creditsUsed     Int
+  creditsUsed     Int           // Positive for usage, negative for refunds
   details         Json?
   timestamp       DateTime      @default(now())
 
   user          User          @relation(fields: [userId], references: [id])
   creditBalance CreditBalance @relation(fields: [creditBalanceId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([operationType])
 }
 
 enum OperationType {
   AI_TEXT_CHAT
   AI_IMAGE_GENERATION
+  // Add more as features evolve (e.g., VIDEO_GENERATION)
 }
 
 model AdminSettings {
   id           String   @id @default("singleton")
-  featureCosts Json?
+  featureCosts Json?    // { "AI_TEXT_CHAT": 5, ... } – defaults in src/lib/credits/feature-config.ts
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model Plan {
-  id        String   @id @default(cuid())
-  asaasId   String?  @unique // Asaas plan ID for payment processing
-  clerkId   String?  @unique // Legacy Clerk plan ID (deprecated)
-  clerkName String?  // Legacy field
-  name      String
-  credits   Int
-  active    Boolean  @default(true)
-  sortOrder Int      @default(0)
+  id                 String   @id @default(cuid())
+  asaasId            String?  @unique  // For billing integration
+  clerkId            String?  @unique  // Deprecated
+  clerkName          String?
+  name               String
+  credits            Int
+  active             Boolean  @default(true)
+  sortOrder          Int      @default(0)
   currency           String?
   priceMonthlyCents  Int?
   priceYearlyCents   Int?
   description        String?  @db.Text
-  features           Json?
+  features           Json?    // Plan-specific overrides
   badge              String?
   highlight          Boolean  @default(false)
   ctaType            String?  @default("checkout")
   ctaLabel           String?
   ctaUrl             String?
   billingSource      String   @default("manual")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([active])
+  @@index([sortOrder])
+  @@index([asaasId])
+  @@index([clerkId])
 }
 
 model StorageObject {
@@ -108,472 +160,226 @@ model StorageObject {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([provider])
+  @@index([deletedAt])
+  @@index([createdAt])
 }
 
 model SubscriptionEvent {
-  id           String   @id @default(cuid())
-  userId       String?
-  clerkUserId  String
-  planKey      String?
-  status       String
-  eventType    String
-  occurredAt   DateTime @default(now())
-  metadata     Json?
-  createdAt    DateTime @default(now())
-
-  user         User?    @relation(fields: [userId], references: [id])
-}
-```
-
-Notes:
-- Feature costs are sourced from `AdminSettings.featureCosts` with defaults in `src/lib/credits/feature-config.ts`.
-- Usage history stores a negative `creditsUsed` entry on refunds.
-
----
-
-## Database Setup
-
-### Local Development
-
-1. Install PostgreSQL:
-```bash
-# macOS
-brew install postgresql
-brew services start postgresql
-
-# Ubuntu
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-```
-
-2. Create database:
-```sql
-CREATE DATABASE saas_template;
-CREATE USER saas_user WITH ENCRYPTED PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE saas_template TO saas_user;
-```
-
-3. Configure environment:
-```env
-DATABASE_URL="postgresql://saas_user:your_password@localhost:5432/saas_template"
-```
-
-4. Run migrations:
-```bash
-npm run db:push
-# or
-npm run db:migrate
-```
-
-## Schema Overview
-
-### Core Models
-
-#### User Model
-Central user entity linked to Clerk authentication.
-
-```prisma
-model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String?  @unique
-  name      String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relationships
-  creditBalance       CreditBalance?
-  usageHistory        UsageHistory[]
-  storageObjects      StorageObject[]
-  subscriptionEvents  SubscriptionEvent[]
-}
-```
-
-#### Project/Task/Team/Agent Models
-Not included in this template.
-
-### Team and AI Agent Models
-
-#### Feature Model
-Holds feature metadata used by the app.
-
-```prisma
-model Feature {
   id          String   @id @default(cuid())
-  workspaceId String
-  name        String
-  description String?
-  tags        String[]
+  userId      String?
+  clerkUserId String
+  planKey     String?
+  status      String
+  eventType   String
+  occurredAt  DateTime @default(now())
+  metadata    Json?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([clerkUserId])
+  @@index([occurredAt])
 }
 ```
 
-#### Team Models
-Removed in this edition.
+## Setup & Local Development
 
-### Credit System Models
+1. **Install PostgreSQL**:
+   ```bash
+   # macOS
+   brew install postgresql@16
+   brew services start postgresql@16
 
-#### Credit Balance and Usage
-```prisma
-model CreditBalance {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  clerkUserId       String   @unique
-  creditsRemaining  Int      @default(100)
-  lastSyncedAt      DateTime @default(now())
-  
-  user              User     @relation(fields: [userId], references: [id])
-  usageHistory      UsageHistory[]
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
+   # Ubuntu/Debian
+   sudo apt update && sudo apt install postgresql-16
+   sudo systemctl start postgresql
 
-model UsageHistory {
-  id              String        @id @default(cuid())
-  userId          String
-  creditBalanceId String
-  operationType   OperationType
-  creditsUsed     Int
-  details         Json?
-  timestamp       DateTime      @default(now())
-  
-  user            User          @relation(fields: [userId], references: [id])
-  creditBalance   CreditBalance @relation(fields: [creditBalanceId], references: [id])
-}
+   # Windows: Download from postgresql.org
+   ```
 
-enum OperationType {
-  AI_TEXT_CHAT
-  AI_IMAGE_GENERATION
-}
-```
+2. **Create Database**:
+   ```sql
+   CREATE DATABASE pedro_ai;
+   CREATE USER pedro_user WITH ENCRYPTED PASSWORD 'strong_password';
+   GRANT ALL PRIVILEGES ON DATABASE pedro_ai TO pedro_user;
+   ```
 
-## Database Operations
+3. **Environment** (`.env.local`):
+   ```
+   DATABASE_URL="postgresql://pedro_user:strong_password@localhost:5432/pedro_ai"
+   ```
 
-### Connection Management
+4. **Generate & Migrate**:
+   ```bash
+   npm install  # Install Prisma
+   npx prisma generate
+   npx prisma db push  # Or `npm run db:push` for dev
+   npx prisma studio   # Browse data at http://localhost:5555
+   ```
 
+Production: Use `npx prisma migrate deploy`.
+
+## Common Operations
+
+Import `db` from [`src/lib/db.ts`](../src/lib/db.ts). Always use transactions for related updates.
+
+### User Management
 ```typescript
-// lib/db.ts
-import { PrismaClient } from '../../prisma/generated/client';
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const db = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
+// Create user (e.g., Clerk webhook)
+const user = await db.user.upsert({
+  where: { clerkId: 'user_123' },
+  update: {},
+  create: {
+    clerkId: 'user_123',
+    email: 'user@example.com',
+    name: 'John Doe',
+    creditBalance: {
+      create: { clerkUserId: 'user_123', creditsRemaining: 100 }
+    }
+  },
+  include: { creditBalance: true }
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db;
-}
+// Fetch with relations (used in use-credits.ts, use-usage.ts)
+const userWithData = await db.user.findUnique({
+  where: { clerkId },
+  include: {
+    creditBalance: true,
+    usageHistory: { take: 20, orderBy: { timestamp: 'desc' } },
+    storageObjects: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' } }
+  }
+});
 ```
 
-### Common Query Patterns
-
-#### User Operations
+### Credit Operations (see src/lib/credits/deduct.ts)
 ```typescript
-// Create user (typically via webhook)
-async function createUser(clerkId: string, email: string, name?: string) {
-  return db.user.create({
+import { OperationType } from '@prisma/client';
+
+await db.$transaction(async (tx) => {
+  const balance = await tx.creditBalance.findUnique({ where: { userId } });
+  if (!balance || balance.creditsRemaining < 10) throw new InsufficientCreditsError();
+
+  await tx.creditBalance.update({
+    where: { userId },
+    data: { creditsRemaining: { decrement: 10 }, lastSyncedAt: new Date() }
+  });
+
+  await tx.usageHistory.create({
     data: {
-      clerkId,
-      email,
-      name,
-      creditBalance: {
-        create: {
-          clerkUserId: clerkId,
-          creditsRemaining: 100,
-        }
-      }
-    },
-    include: {
-      creditBalance: true,
-    }
-  });
-}
-
-// Get user with related data
-async function getUserWithData(clerkId: string) {
-  return db.user.findUnique({
-    where: { clerkId },
-    include: {
-      creditBalance: true,
-      usageHistory: {
-        take: 10,
-        orderBy: { timestamp: 'desc' },
-      },
-    },
-  });
-}
-```
-
-// (Projects/Phases/Tasks are not part of this template)
-
-// (Task assignment is not part of this template)
-
-### Credit System Operations
-
-```typescript
-// Deduct credits for operation
-async function deductCredits(
-  userId: string,
-  creditsUsed: number,
-  operationType: OperationType,
-  details?: any
-) {
-  return db.$transaction(async (tx) => {
-    // Get current balance
-    const balance = await tx.creditBalance.findUnique({
-      where: { userId },
-    });
-
-    if (!balance || balance.creditsRemaining < creditsUsed) {
-      throw new Error('Insufficient credits');
-    }
-
-    // Update balance
-    const updatedBalance = await tx.creditBalance.update({
-      where: { userId },
-      data: {
-        creditsRemaining: balance.creditsRemaining - creditsUsed,
-        lastSyncedAt: new Date(),
-      },
-    });
-
-    // Record usage
-    await tx.usageHistory.create({
-      data: {
-        userId,
-        creditBalanceId: balance.id,
-        creditsUsed,
-        operationType,
-        details,
-      },
-    });
-
-    return updatedBalance;
-  });
-}
-
-// Get usage analytics
-async function getUserUsageAnalytics(userId: string, days = 30) {
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-
-  return db.usageHistory.groupBy({
-    by: ['operationType'],
-    where: {
       userId,
-      timestamp: { gte: since },
-    },
-    _sum: {
-      creditsUsed: true,
-    },
-    _count: {
-      id: true,
-    },
+      creditBalanceId: balance.id,
+      operationType: OperationType.AI_IMAGE_GENERATION,
+      creditsUsed: 10,
+      details: { model: 'flux' }
+    }
   });
-}
+});
 ```
 
-## Migration Patterns
+### Storage Operations (see use-storage.ts)
+```typescript
+// List user files
+const files = await db.storageObject.findMany({
+  where: { userId, deletedAt: null },
+  orderBy: { createdAt: 'desc' },
+  take: 50
+});
 
-### Schema Changes
+// Soft delete
+await db.storageObject.update({
+  where: { id: 'obj_123' },
+  data: { deletedAt: new Date() }
+});
+```
+
+### Admin & Plans
+```typescript
+// Update feature costs (singleton)
+await db.adminSettings.upsert({
+  where: { id: 'singleton' },
+  update: { featureCosts: { AI_IMAGE_GENERATION: 5 } },
+  create: { id: 'singleton', featureCosts: {} }
+});
+
+// List active plans
+const plans = await db.plan.findMany({
+  where: { active: true },
+  orderBy: { sortOrder: 'asc' }
+});
+```
+
+## Migrations
 
 ```bash
-# Generate migration after schema changes
-npx prisma migrate dev --name add_feature_workspace_id
+# Dev: Generate & apply
+npx prisma migrate dev --name describe_change
 
-# Apply migrations in production
+# Prod: Deploy only
 npx prisma migrate deploy
 
-# Reset database (development only)
-npx prisma migrate reset
+# Generate types
+npx prisma generate
+
+# Studio for inspection
+npx prisma studio
 ```
 
-### Data Migrations
+Seed data: `npx prisma db seed`.
 
-```typescript
-// migrations/001_backfill_credit_balances.ts
-import { PrismaClient } from '../../prisma/generated/client';
+## Performance & Indexing
 
-const prisma = new PrismaClient();
-
-async function main() {
-  const users = await prisma.user.findMany({
-    where: {
-      creditBalance: null,
-    },
-  });
-
-  for (const user of users) {
-    await prisma.creditBalance.create({
-      data: {
-        userId: user.id,
-        clerkUserId: user.clerkId,
-        creditsRemaining: 0,
-      },
-    });
-  }
-
-  console.log(`Created credit balances for ${users.length} users`);
-}
-
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
-```
-
-## Performance Optimization
-
-### Indexing Strategy
-
-```prisma
-// Add indexes in schema
-model User {
-  // ... fields
-  
-  @@index([clerkId])
-  @@index([email])
-  @@index([createdAt])
-}
-
-model StorageObject {
-  // ... fields
-  
-  @@index([userId])
-  @@index([createdAt])
-  @@index([clerkUserId])
-  @@index([contentType])
-  @@index([deletedAt])
-  @@index([name])
-}
-
-model Plan {
-  // ... fields
-  
-  @@index([active])
-  @@index([sortOrder])
-  @@index([asaasId])
-}
-```
-
-### Query Optimization
-
-```typescript
-// Use select to limit fields
-const users = await db.user.findMany({
-  select: { id: true, name: true, email: true, createdAt: true },
-});
-
-// Paginate through storage objects
-async function getPaginatedStorage(userId: string, cursor?: string, take = 20) {
-  return db.storageObject.findMany({
+- **Built-in indexes**: Cover common queries (e.g., `clerkId`, `userId`, `timestamp`).
+- **Pagination example**:
+  ```typescript
+  const storage = await db.storageObject.findMany({
     where: { userId, deletedAt: null },
-    take,
-    ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, url: true, contentType: true, size: true, createdAt: true },
+    take: 20,
+    cursor: cursor ? { id: cursor } : undefined,
+    skip: cursor ? 1 : undefined,
+    orderBy: { createdAt: 'desc' }
   });
-}
-```
+  ```
+- **Query logging** (dev): Enabled in `db.ts`.
+- **Connection pooling**: Handled by Prisma (default pool size: 10).
 
-### Connection Pooling
+## Monitoring & Health
 
+### Slow Query Logging (`src/lib/db.ts`)
 ```typescript
-// lib/db.ts with connection pooling
-export const db = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-  // Connection pool settings
-  log: ['warn', 'error'],
-});
-
-// Graceful shutdown
-process.on('beforeExit', () => {
-  db.$disconnect();
-});
-```
-
-## Backup and Recovery
-
-### Automated Backups
-
-```bash
-# Create backup script
-#!/bin/bash
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="backup_${DATE}.sql"
-
-pg_dump $DATABASE_URL > $BACKUP_FILE
-aws s3 cp $BACKUP_FILE s3://your-backup-bucket/
-
-# Cleanup old backups (keep last 7 days)
-find . -name "backup_*.sql" -mtime +7 -delete
-```
-
-### Point-in-time Recovery
-
-```bash
-# Restore from backup
-psql $DATABASE_URL < backup_20240315_120000.sql
-
-# Reset migrations (if needed)
-npx prisma migrate reset --force
-npx prisma db push
-```
-
-## Monitoring
-
-### Query Performance
-
-```typescript
-// Enable query logging
-const db = new PrismaClient({
-  log: [
-    {
-      emit: 'event',
-      level: 'query',
-    },
-  ],
-});
-
 db.$on('query', (e) => {
-  if (e.duration > 1000) { // Log slow queries (>1s)
-    console.log('Slow query detected:', {
-      query: e.query,
-      params: e.params,
-      duration: e.duration,
-    });
-  }
+  if (e.duration > 500) console.warn('Slow query:', e.duration, e.query);
 });
 ```
 
-### Health Checks
-
+### Health Check
 ```typescript
-// Database health check
-export async function checkDatabaseHealth() {
-  try {
-    await db.$queryRaw`SELECT 1`;
-    return { status: 'healthy', timestamp: new Date() };
-  } catch (error) {
-    return { 
-      status: 'unhealthy', 
-      error: error.message, 
-      timestamp: new Date() 
-    };
-  }
+// api/health/route.ts
+export async function GET() {
+  await db.$queryRaw`SELECT 1`;
+  return Response.json({ status: 'healthy' });
 }
 ```
 
-## Security Considerations
+## Backups & Recovery
 
-Ensure inputs are validated with Zod where applicable and sensitive data is never exposed in responses. Apply owner checks on user-scoped entities.
+- **pg_dump**:
+  ```bash
+  pg_dump $DATABASE_URL > backup.sql
+  psql $DATABASE_URL < backup.sql  # Restore
+  ```
+- **Prisma reset** (dev only): `npx prisma migrate reset`.
+
+## Security
+
+- **Owner checks**: Always filter by `userId`/`clerkUserId` (enforced in hooks).
+- **No direct client access**: PrismaClient stubbed in browser.
+- **Validation**: Use Zod in API routes; JSON fields sanitized.
+- **Secrets**: `DATABASE_URL` in env; no logs of queries with params.
+- **Row-level security**: Implement via policies if needed for multi-tenant.
+
+For schema changes, update `schema.prisma`, migrate, and regenerate (`npm run db:generate`). Reference hooks for real-world usage patterns.

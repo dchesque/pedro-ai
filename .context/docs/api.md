@@ -2,161 +2,337 @@
 
 ## Visão Geral
 
-A API é construída com as API Routes do Next.js App Router, fornecendo endpoints RESTful para a aplicação SaaS. Todos os endpoints (exceto os públicos) são protegidos com autenticação do Clerk e seguem padrões consistentes para tratamento de erros, validação e respostas.
+A API é construída com [API Routes do Next.js App Router](https://nextjs.org/docs/app/building-your-application/routing/route-handlers), fornecendo endpoints RESTful para a aplicação SaaS de geração de vídeos curtos com IA (shorts, roteiros, personagens, estilos visuais). Todos os endpoints protegidos usam autenticação JWT do [Clerk](https://clerk.com), com validação centralizada via `validateUserAuthentication` (`src/lib/auth-utils.ts`). Erros são padronizados com `ApiError` (`src/lib/api-client.ts`).
 
-## URL Base
+- **Autenticação**: Obrigatória para endpoints não-públicos via `Authorization: Bearer <clerk_jwt_token>`.
+- **Validação**: Usa Zod para bodies e queries.
+- **Rate Limiting & Créditos**: Operações custam créditos (ex: `ai_text_chat: 1 crédito`). Veja `src/lib/credits/` para lógica de débito (`deduct.ts`).
+- **Logging**: Todos os requests são logados via `createLogger` (`src/lib/logger.ts`).
+- **Admin**: Endpoints `/api/admin/*` requerem `requireAdmin` (`src/lib/admin.ts`).
+- **Cliente Frontend**: Use `apiClient` (`src/lib/api-client.ts`) ou hooks como `useShorts` (`src/hooks/use-shorts.ts`).
 
-- **Desenvolvimento Local**: `http://localhost:3000/api`
-- **Produção**: `https://seudominio.com/api`
+**URL Base**:
+- Dev: `http://localhost:3000/api`
+- Prod: `https://seudominio.com/api`
+
+**Headers Comuns**:
+```
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+## Formato de Respostas
+
+### Sucesso
+```json
+{
+  "success": true,
+  "data": { /* dados */ }
+}
+```
+
+### Erro
+```json
+{
+  "success": false,
+  "error": "Mensagem detalhada",
+  "code": "INSUFFICIENT_CREDITS" // Opcional
+}
+```
+Erros comuns: `ApiError`, `InsufficientCreditsError` (`src/lib/credits/errors.ts`).
 
 ## Webhooks
 
 ### POST /api/webhooks/clerk
-Processa eventos de webhook do Clerk (verificados via Svix) para o ciclo de vida do usuário.
+Processa eventos do Clerk (verificados via Svix).
 
-- **Eventos Tratados**:
-  - `user.created` / `user.updated`: Sincroniza os dados do usuário (e-mail, nome) e garante que um registro de saldo de créditos (`CreditBalance`) seja criado.
-  - `user.deleted`: Remove o usuário e seus dados associados no banco de dados local.
+**Eventos**:
+- `user.created`/`user.updated`: Cria/atualiza `User` e `CreditBalance` (0 créditos iniciais).
+- `user.deleted`: Deleta usuário e dados associados.
 
-- **Segurança**:
-  - Garanta que a variável de ambiente `CLERK_WEBHOOK_SECRET` esteja configurada para verificar as assinaturas das requisições.
+**Segurança**: `CLERK_WEBHOOK_SECRET`.
+
+**Exemplo Payload** (evento `user.created`):
+```json
+{
+  "type": "user.created",
+  "data": { "id": "user_123", "email_addresses": [{ "email_address": "user@example.com" }] }
+}
+```
 
 ### POST /api/webhooks/asaas
-Processa webhooks do Asaas para eventos de pagamento.
+Processa pagamentos Asaas.
 
-- **Eventos Tratados**:
-  - `PAYMENT_CONFIRMED` / `PAYMENT_RECEIVED`: Confirma o pagamento de uma assinatura, atualiza o status da assinatura do usuário e libera os créditos correspondentes ao plano adquirido.
-  - Outros eventos de faturamento (estorno, etc.) podem ser adicionados para maior robustez.
+**Eventos**:
+- `PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED`: Ativa assinatura, adiciona créditos via `addUserCredits` (`src/lib/credits/validate-credits.ts`).
 
-- **Segurança**:
-  - O endpoint verifica a autenticidade da requisição usando um token secreto (`ASAAS_WEBHOOK_SECRET`).
+**Segurança**: `ASAAS_WEBHOOK_SECRET`.
 
-## Autenticação
-
-Todos os endpoints da API (exceto os públicos) exigem autenticação via tokens JWT do Clerk.
-
-### Cabeçalho de Autorização
-```bash
-Authorization: Bearer <clerk_jwt_token>
-```
-
-## Formato Padrão de Resposta
-
-### Resposta de Sucesso
+**Exemplo**:
 ```json
 {
-  "data": { /* dados da resposta */ },
-  "success": true
+  "event": "PAYMENT_RECEIVED",
+  "payment": { "id": "pay_123", "value": 99.90, "customer": "cus_456" }
 }
 ```
 
-### Resposta de Erro
+## Endpoints Públicos (Sem Auth)
+
+### GET /api/health
+Status da API e Prisma.
+
+**Resposta**:
 ```json
 {
-  "error": "Mensagem de erro",
-  "success": false,
-  "code": "CODIGO_DE_ERRO_OPCIONAL"
+  "success": true,
+  "data": { "status": "ok", "db": "connected" }
 }
 ```
 
-## Endpoints da API
+### GET /api/credits/settings
+Custos de features para UI de pricing.
 
-### Health Check
-
-#### GET /api/health
-Verifica o status da API e a conexão com o banco de dados.
-- **Autenticação**: Não requerida.
-
-### Gerenciamento de Usuário
-
-#### GET /api/users/me
-Obtém as informações do usuário logado.
-- **Autenticação**: Requerida.
-
-#### PUT /api/users/me
-Atualiza as informações do usuário logado.
-- **Autenticação**: Requerida.
-
-### Sistema de Créditos
-
-#### GET /api/credits/me
-Obtém o saldo de créditos do usuário atual.
-- **Autenticação**: Requerida.
-
-#### GET /api/credits/settings
-Endpoint público que retorna os custos efetivos das funcionalidades para a UI.
-- **Autenticação**: Não requerida.
-- **Resposta**:
-  ```json
-  {
-    "featureCosts": { "ai_text_chat": 1, "ai_image_generation": 5 }
+**Resposta**:
+```json
+{
+  "success": true,
+  "data": {
+    "featureCosts": { "ai_text_chat": 1, "ai_image_generation": 5, "short_script": 10 }
   }
-  ```
+}
+```
 
-### Sincronização de Administrador
+## Usuários
 
-#### POST /api/admin/users/sync
-Sincroniza usuários do Clerk para o banco de dados local. Útil para popular o banco ou como backup para falhas de webhook.
-- **Autenticação**: Administrador.
-- **Corpo da Requisição**:
-  ```json
-  {
-    "syncUsers": true,
-    "pageSize": 100,
-    "maxPages": 50
-  }
-  ```
-- **Comportamento**:
-  - Cria ou atualiza registros de `User` e garante que um `CreditBalance` com 0 créditos exista para cada um.
+### GET /api/users/me
+Dados do usuário logado (sync com Clerk).
 
-### Configurações de Administrador
+### PUT /api/users/me
+Atualiza perfil.
 
-#### GET /api/admin/settings
-Retorna as configurações de custos de créditos.
-- **Autenticação**: Administrador.
-- **Resposta**:
-  ```json
-  {
-    "featureCosts": { "ai_text_chat": 1, "ai_image_generation": 5 }
-  }
-  ```
+**Body**:
+```json
+{ "name": "Novo Nome" }
+```
 
-#### PUT /api/admin/settings
-Atualiza os custos em créditos das funcionalidades.
-- **Autenticação**: Administrador.
-- **Corpo da Requisição**:
-  ```json
-  {
-    "featureCosts": { "ai_text_chat": 2 }
-  }
-  ```
+## Créditos & Uso
 
-### Gerenciamento de Planos (Admin)
+### GET /api/credits/me
+Saldo atual (`CreditData`).
 
-#### GET /api/admin/plans
-Lista todos os planos de assinatura criados.
-- **Autenticação**: Administrador.
+**Resposta**:
+```json
+{
+  "success": true,
+  "data": { "balance": 100, "features": { "ai_text_chat": { "used": 5, "limit": null } } }
+}
+```
 
-#### POST /api/admin/plans
-Cria um novo plano de assinatura.
-- **Autenticação**: Administrador.
+### GET /api/usage
+Histórico de uso (`UsageData`, `useUsage`).
 
-#### PUT /api/admin/plans/:id
-Atualiza um plano de assinatura existente.
-- **Autenticação**: Administrador.
+**Query**: `?page=1&limit=20`
 
-#### DELETE /api/admin/plans/:id
-Remove um plano de assinatura.
-- **Autenticação**: Administrador.
+### GET /api/usage/history
+Uso detalhado (`UsageHistoryResponse`, `useUsageHistory`).
 
-### IA (Inteligência Artificial)
+## Assinaturas
 
-#### POST /api/ai/chat
-Envia mensagens para LLMs via Vercel AI SDK, com respostas em streaming.
-- **Autenticação**: Requerida.
-- **Créditos**: O custo da operação (`ai_text_chat`) é debitado do saldo do usuário.
+### GET /api/subscription
+Status da sub (`SubscriptionStatus`, `useSubscription`).
 
-#### POST /api/ai/image
-Gera imagens usando provedores como o OpenRouter.
-- **Autenticação**: Requerida.
-- **Créditos**: O custo (`ai_image_generation`) é debitado por imagem solicitada.
+## Dashboard
+
+### GET /api/dashboard
+Estatísticas (`DashboardStats`, `useDashboard`).
+
+## Personagens (`src/hooks/use-characters.ts`)
+
+### GET /api/characters
+Lista personagens (`CharacterPromptData[]`).
+
+### POST /api/characters
+Cria personagem (`CreateCharacterInput`).
+
+**Body**:
+```json
+{
+  "name": "João",
+  "traits": ["alto", "cabelo preto"],
+  "description": "Personagem principal"
+}
+```
+
+### PATCH /api/characters/:id
+Atualiza (`UpdateCharacterInput`).
+
+**Limites**: `canCreateCharacter` (`src/lib/characters/limits.ts`).
+
+## Estilos Visuais (`src/hooks/use-styles.ts`)
+
+### GET /api/styles
+Lista estilos (`Style[]`, `ContentType`).
+
+### POST /api/styles
+Cria (`useCreateStyle`).
+
+### PATCH /api/styles/:id
+Atualiza (`useUpdateStyle`).
+
+### DELETE /api/styles/:id
+Remove (`useDeleteStyle`).
+
+### POST /api/styles/:id/duplicate
+Duplica (`useDuplicateStyle`).
+
+## Shorts (Vídeos Curtos) (`src/hooks/use-shorts.ts`, `src/lib/shorts/pipeline.ts`)
+
+Gerencia criação de shorts: roteiro (`approveScript`), cenas (`addScene`), mídia (`generateMedia`).
+
+### GET /api/shorts
+Lista (`Short[]`, `ShortScene`).
+
+### GET /api/shorts/:id
+Detalhes (`Short`).
+
+### POST /api/shorts
+Cria (`CreateShortInput`).
+
+**Body**:
+```json
+{
+  "title": "Meu Short",
+  "characters": [{ "id": "char_123" }],
+  "styleId": "style_456"
+}
+```
+
+### PATCH /api/shorts/:id
+Atualiza título/status.
+
+### POST /api/shorts/:id/script
+Gera/regenera roteiro (`useGenerateScript`/`useRegenerateScript`).
+
+### POST /api/shorts/:id/approve-script
+Aprova (`useApproveScript`, `approveScript`).
+
+### POST /api/shorts/:id/media
+Gera imagens/vídeos cenas (`useGenerateMedia`).
+
+### POST /api/shorts/:id/scenes
+Adiciona cena (`useAddScene`, `addScene`).
+
+### PATCH /api/shorts/:id/scenes/:sceneId
+Atualiza cena (`useUpdateScene`).
+
+### DELETE /api/shorts/:id/scenes/:sceneId
+Remove (`useRemoveScene`).
+
+### PATCH /api/shorts/:id/scenes/reorder
+Reordena (`useReorderScenes`).
+
+### POST /api/shorts/:id/scenes/:sceneId/regenerate
+Regenera cena (`useRegenerateScene`).
+
+### POST /api/shorts/:id/scenes/:sceneId/image/regenerate
+Regenera imagem (`useRegenerateSceneImage`).
+
+**Personagens em Short**: POST/PUT/DELETE `/api/shorts/:id/characters` (`AddCharacterInput`, `canAddCharacterToShort`).
+
+**Roteirista Integrado**: Usa `AIAssistantRequest`/`GenerateScenesResponse` (`src/lib/roteirista/types.ts`).
+
+## Armazenamento (`src/hooks/use-storage.ts`, `src/lib/storage/`)
+
+### GET /api/storage
+Lista arquivos (`StorageItem[]`, provedores: VercelBlob, Replit).
+
+### DELETE /api/storage/:id
+Remove (`useDeleteStorageItem`).
+
+**Upload**: Via `StorageProvider` (`upload` method).
+
+## IA & Modelos (`src/hooks/use-ai-*.ts`, `src/lib/ai/`)
+
+### POST /api/ai/chat
+Chat streaming (Vercel AI SDK, `ai_text_chat` custo).
+
+**Body**:
+```json
+{
+  "messages": [{ "role": "user", "content": "Olá!" }],
+  "model": "gpt-4o-mini"
+}
+```
+
+### POST /api/ai/image
+Gera imagem (`GenerateImageParams` -> `GenerateImageResponse`).
+
+### POST /api/ai/video
+Gera vídeo (Flux/Kling via Fal/OpenRouter, `use-fal-generation`).
+
+**Body** (`GenerateVideoInput`):
+```json
+{
+  "prompt": "Cena de ação",
+  "provider": "fal",
+  "model": "kling"
+}
+```
+
+### GET /api/ai/models
+Modelos disponíveis (`AIModel[]`, `use-available-models`).
+
+### GET /api/ai/providers/openrouter/models
+Modelos OpenRouter (`OpenRouterModelsResponse`).
+
+## Admin
+
+### POST /api/admin/users/sync
+Sync Clerk users (`getUserFromClerkId`).
+
+**Body**:
+```json
+{ "syncUsers": true, "pageSize": 100 }
+```
+
+### GET /api/admin/settings
+Config de créditos (`AdminSettings`, `AdminSettingsPayload`).
+
+### PUT /api/admin/settings
+Atualiza custos.
+
+### GET /api/admin/plans
+Planos (`PlansResponse`, `ClerkPlanNormalized`).
+
+### POST /api/admin/plans
+Cria (`BillingPlan`).
+
+### PATCH /api/admin/plans/:id
+Atualiza.
+
+### DELETE /api/admin/plans/:id
+Remove.
+
+### GET /api/admin/models
+Modelos custom (`use-admin-models`).
+
+## Desenvolvimento & Debugging
+
+- **Logs**: Ative `isApiLoggingEnabled` para traces.
+- **Cache**: `SimpleCache` (`src/lib/cache.ts`).
+- **Testes**: Veja usage em `src/components/shorts/CreateShortForm.tsx`.
+- **Erros Comuns**:
+  | Code | Descrição |
+  |------|-----------|
+  | INSUFFICIENT_CREDITS | Saldo insuficiente |
+  | INVALID_API_KEY | Token inválido |
+  | NOT_ADMIN | Acesso negado |
+
+**Exemplo com apiClient**:
+```ts
+import { apiClient } from '@/lib/api-client';
+
+const shorts = await apiClient.get('/shorts');
+```
+
+Para mais detalhes, consulte hooks (ex: `useShorts`) e tipos (ex: `Short`). Contribua via PRs em rotas `app/api/`.

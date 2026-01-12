@@ -1,111 +1,192 @@
-# Architecture & Planning – Prompt
+# Feature Developer Agent Playbook
 
-Objective
-- Define a minimal, pragmatic plan before implementation: scope, flows, data, APIs, and risks.
+## Codebase Overview
 
-Context
-- Next.js App Router (`src/app`), UI components in `src/components/*`, Page Metadata System in `src/contexts/page-metadata.tsx`, server logic in API routes, Prisma models in `prisma/schema.prisma`. Domain includes Users, Features, Credits, and AI integrations.
+This is a Next.js 14+ App Router application built with TypeScript, Tailwind CSS, shadcn/ui components, TanStack Query (React Query), Prisma ORM, Clerk for authentication, and Stripe/Asaas for billing. Core domain revolves around AI-powered content creation (shorts, roteirista/scripts, estilos/styles, characters), credit-based usage metering, admin dashboards, and AI provider integrations (OpenRouter, Fal.ai, etc.).
 
-Deliverables (paste in PR description or `docs/architecture.md`)
-- Problem & Goals: 2–3 bullets with outcomes and non-goals.
-- User Flows: Primary flow(s) with URL map (e.g., `/dashboard/...`). Sketch components reused/added. For protected routes, specify page metadata (title, description, breadcrumbs).
-- Data Model Impact: New/changed Prisma models/fields, relations, indexes, and cascade rules.
-- API Surface: New/changed endpoints with method, path, request/response examples, errors. For credit-gated features, specify the feature key (e.g., `ai_text_chat` or `ai_image_generation`) and expected cost.
-  - For AI usage, define keys and costs explicitly and ensure `OperationType` enums exist and are mapped.
-- External AI: If integrating LLMs, list supported providers/models, env keys required, and fallback/allowlist behavior for invalid inputs.
-- Security & Tenancy: Auth requirements, ownership checks, rate/credit usage, webhook needs.
-- Performance: Expected query patterns and indexes; SSR vs Client components. For client-side data fetching, specify TanStack Query strategy (query vs mutation, caching behavior, invalidation patterns).
-- Frontend Data Flow: Define custom hooks needed for TanStack Query integration, query keys structure, and cache management strategy.
-- Rollout: Migration plan, flags/toggles, metrics to watch.
+- **Total Files**: 367 (.ts/.tsx dominant)
+- **Key Layers**:
+  | Layer | Directories | Purpose |
+  |-------|-------------|---------|
+  | **Components/UI** | `src/components/*`, `src/app/(protected)/*`, `src/app/(public)/*`, `src/app/admin/*` | Reusable UI (shadcn primitives in `src/components/ui`), feature-specific views (e.g., `shorts`, `roteirista`, `estilos`), pages with metadata/breadcrumbs. |
+  | **Controllers/API** | `src/app/api/*`, `src/lib/api-*`, `src/hooks/use-*.ts` | Route handlers with auth/credit gating, logging (`src/lib/logging`), AI proxies. |
+  | **Models/Data** | `prisma/schema.prisma`, `src/lib/ai/models.ts`, `src/components/*/types.ts` | Prisma schemas (User, Short, Style, CreditUsage, etc.), Zod-validated types, AI model configs. |
+  | **Hooks/Utils** | `src/hooks/*`, `src/lib/*` | TanStack Query wrappers, AI model selectors, auth helpers, page config (`usePageConfig`). |
+  | **Config** | `next.config.js`, `.env*`, `src/lib/clerk/*`, `prisma/migrations/` | Env vars for AI keys, Clerk webhooks, credit packs. |
 
-Process Steps
-1) Clarify: Restate the requirement; confirm constraints and acceptance criteria.
-2) Inventory: Identify affected routes, components, models, and scripts.
-3) Draft: Produce the Deliverables above with concise snippets.
-4) Review: Sanity-check with `npm run typecheck`, `npm run build` assumptions and Prisma design.
-5) Plan Tasks: Break into small, independently shippable PRs.
+- **Routing Patterns**:
+  - Public: `src/app/(public)/sign-in|sign-up|subscribe`
+  - Protected: `src/app/(protected)/dashboard|shorts|roteirista|estilos|ai-chat|ai-studio`
+  - Admin: `src/app/admin/*`
+  - Dynamic: `[id]/edit`, `[id]/scenes/[sceneId]`
 
-Tips
-- Reuse existing patterns (credits, auth helpers, UI primitives) before adding new abstractions.
-- Prefer explicit data ownership via `userId`/`workspaceId`. Index what you filter by.
-- For AI: proxy calls via server routes only; never expose API keys in the client. Consider rate-limits and credit gating.
-  - Credit gating: require credits before invoking providers; deduct on request. Decide if images charge per-request or per-image (`quantity`).
-- Frontend Integration: All client-side API calls must use TanStack Query through custom hooks. Never use `fetch()` directly in components. Plan hook architecture and error handling patterns early.
+- **Data Flow**: Server Components for SSR, Client Components (`"use client"`) for interactivity. All client fetches via TanStack Query hooks. Credits gate AI ops (`OperationType` enum in Prisma).
 
-## TanStack Query Architecture Planning
+## Key Files and Purposes
 
-When planning features that involve client-side data fetching, consider:
+| File/Path | Purpose | Key Exports/Usage |
+|-----------|---------|-------------------|
+| `prisma/schema.prisma` | Core DB models (User, Short, Scene, Style, CreditUsage, PlanFeature). Edit + `npx prisma db push/migrate`. | Relations: `userId` ownership, cascades on delete. |
+| `src/lib/api-client.ts` | Axios-like client for TanStack Query. | `apiClient`, `ApiError`. Use in all hooks. |
+| `src/lib/api-auth.ts` | API middleware helpers. | `validateApiKey`, `createUnauthorizedResponse`, `createSuccessResponse`. |
+| `src/lib/logging/api.ts` | Structured logging for routes. | `withApiLogging`. Wrap handlers. |
+| `src/lib/ai/models.ts` | AI provider configs. | `AIModel`, `getDefaultModel`, `getModelCredits`. |
+| `src/hooks/use-ai-models.ts` | Model fetching hooks. | `useAIModels`, `useDefaultModel`. |
+| `src/components/ui/*` | shadcn primitives (Button, DataTable, Textarea, Dropdown). | Extend props (e.g., `ButtonProps`, `DataTableProps`). |
+| `src/components/shorts/*` | Shorts workflow UI. | `CreateShortForm`, `SortableSceneList`, `CreditEstimate`, `AIModelSelector`. |
+| `src/components/roteirista/*` | Script wizard UI. | `ScriptWizard`, `SceneEditor`, `AITextAssistant`. |
+| `src/components/estilos/*` | Style editor UI. | `StyleForm`, `StyleCard`, `IconPicker`. |
+| `src/app/api/[feature]/[id]/*` | Feature-specific APIs (e.g., `shorts/[id]/generate`, `styles/[id]`). | Credit-gated mutations (e.g., script gen deducts credits). |
+| `src/contexts/page-metadata.tsx` | Page config (title, desc, breadcrumbs). | Use `usePageConfig` in pages. |
+| `src/lib/clerk/credit-packs.ts` | Billing mappings. | Update for new credit packs. |
 
-### Custom Hook Strategy
-- **Query Hooks**: For data fetching (GET operations)
-  - Structure: `use{Resource}(params?)` (e.g., `useUsers(filters)`)
-  - Query Keys: `[domain, resource, params]` format for cache management
-  - Error handling via API client, success data returned directly
-- **Mutation Hooks**: For data modifications (POST/PUT/DELETE operations)
-  - Structure: `use{Action}{Resource}()` (e.g., `useCreateUser()`, `useUpdateUser()`)
-  - Include optimistic updates and cache invalidation strategies
-  - Toast notifications for success/error states
+## Best Practices and Code Conventions
 
-### Cache Management Planning
-- **Stale Time**: How long data remains fresh (typically 1-5 minutes for user data)
-- **GC Time**: How long data stays in cache when inactive (typically 5-30 minutes)
-- **Invalidation**: Which mutations should invalidate which queries
-- **Background Refetch**: Whether data should refetch when window regains focus
+- **Naming**: Kebab-case files/directories, PascalCase components/types, camelCase hooks/functions. Query keys: `['domain', 'resource', params]` (e.g., `['admin', 'users', {page: 1}]`).
+- **TypeScript**: Zod for validation (`z.object({...}).parse()` in APIs). Infer types from Prisma (`Prisma.UserGetPayload`).
+- **Auth/Security**: Clerk middleware + `validateApiKey(userId)` in all APIs. Owner checks: `where: { userId, id }`. Rate-limit via Upstash/credits.
+- **Credits Gating**: For AI (`ai_text_*`, `ai_image_*`): Check `user.credits >= cost` pre-call, deduct post-success via `prisma.creditUsage.create({operationType: 'ai_script_gen', creditsUsed})`.
+- **AI Proxies**: Server-only (`src/app/api/ai/*`). Fallback to default model. Env: `OPENROUTER_API_KEY`, `FAL_KEY`.
+- **UI**: shadcn/ui + Tailwind. Animations via `framer-motion`. Themes: `ThemeProvider`.
+- **Performance**: Server Components default. Client: `Suspense` + streaming. Indexes on `userId`, `createdAt`.
+- **Error Handling**: `ApiError` with `statusCode`, `message`. Toasts via `sonner` in mutations.
+- **Migrations**: `npx prisma migrate dev --name feature`, `db push` for dev.
 
-### Hook Architecture Examples
+**Component Patterns**:
+```tsx
+// Reusable dialog/card
+interface Props { /* ... */ }
+export function Component({ ... }: Props) {
+  return (
+    <Card>
+      <CardHeader><CardTitle>Title</CardTitle></CardHeader>
+      <CardContent>...</CardContent>
+    </Card>
+  );
+}
+```
 
-#### Simple Resource Hook
-```typescript
-// For basic CRUD operations
-export function useUsers(params: UserFilters = {}) {
-  return useQuery({
-    queryKey: ['admin', 'users', params],
-    queryFn: () => api.get('/api/admin/users', { params }),
-    staleTime: 2 * 60_000, // 2 minutes
+**API Route Patterns**:
+```ts
+// src/app/api/feature/[id]/action/route.ts
+import { withApiLogging } from '@/lib/logging/api';
+import { validateApiKey } from '@/lib/api-auth';
+import { z } from 'zod';
+
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  return withApiLogging(async () => {
+    const userId = validateApiKey(await req.json());
+    const data = z.object({...}).parse(await req.json());
+    // Credit check + deduct
+    // AI call
+    return createSuccessResponse(result);
   });
 }
 ```
 
-#### Paginated Resource Hook
-```typescript
-// For data with cursor/offset pagination
-export function useInfiniteUsers(filters: UserFilters = {}) {
-  return useInfiniteQuery({
-    queryKey: ['admin', 'users', 'infinite', filters],
-    queryFn: ({ pageParam }) => api.get('/api/admin/users', {
-      params: { ...filters, cursor: pageParam }
-    }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-  });
+## Workflows for Common Tasks
+
+### 1. New Feature Planning (Always First)
+Follow **Architecture & Planning** prompt:
+1. Restate req + AC.
+2. Inventory: `listFiles('src/app/api/*feature*')`, `analyzeSymbols('src/components/*')`.
+3. Draft: Problem/Goals, Flows (URLs + metadata), Data (Prisma changes), APIs (endpoints + Zod schemas + `OperationType`), Security/Credits.
+4. Tasks: Break into PRs (e.g., #1: Models/Migrations, #2: APIs, #3: UI + Hooks).
+5. Validate: `npm run typecheck && npm run build`.
+
+### 2. Add/Modify Prisma Model
+1. Edit `prisma/schema.prisma` (add fields/relations/indexes).
+2. `npx prisma generate && npx prisma db push`.
+3. Update types in `src/types/prisma.ts` if needed.
+4. Add migrations: `npx prisma migrate dev`.
+
+### 3. New API Endpoint
+1. Create `src/app/api/[feature]/[action]/route.ts`.
+2. Import helpers: `validateApiKey`, `withApiLogging`, Zod schema.
+3. Structure: Auth → Validate → Credit check → Business logic → Deduct → Respond.
+4. For AI: Use `src/lib/ai/providers/*`, map to `getModelCredits(model)`.
+5. Test: `curl` or Postman with Clerk token.
+
+**Example** (Credit-gated AI gen):
+```ts
+const cost = getModelCredits(modelId) * scenes.length;
+if (user.credits < cost) throw new ApiError(402, 'Insufficient credits');
+await deductCredits(userId, cost); // prisma tx
+const result = await generateAI(...);
+await logUsage(userId, 'ai_short_gen', cost);
+```
+
+### 4. New Page/View
+1. Add `src/app/(protected)/feature/page.tsx` (Server Component).
+2. Client parts: New file `"use client"`, extract to `src/components/feature/*`.
+3. Metadata: `<PageMetadata title="Feature" breadcrumbs={...} />`.
+4. Data: Use QueryDevtools + custom hooks.
+
+**Page Skeleton**:
+```tsx
+import { PageMetadata } from '@/contexts/page-metadata';
+import { CreateFeatureForm } from '@/components/feature';
+
+export default function FeaturePage() {
+  return (
+    <div className="space-y-6">
+      <PageMetadata title="Feature" />
+      <CreateFeatureForm />
+    </div>
+  );
 }
 ```
 
-#### Mutation with Cache Updates
-```typescript
-// For operations that modify data
-export function useUpdateUser() {
-  const queryClient = useQueryClient();
+### 5. Client Data Fetching (TanStack Query)
+1. **Query Hook** (`src/hooks/useFeature.ts`):
+   ```ts
+   export function useFeatures(filters = {}) {
+     return useQuery({
+       queryKey: ['user', 'features', filters],
+       queryFn: () => apiClient.get('/api/user/features', { params: filters }),
+       staleTime: 5 * 60_000,
+     });
+   }
+   ```
+2. **Mutation Hook**:
+   ```ts
+   export function useCreateFeature() {
+     const queryClient = useQueryClient();
+     return useMutation({
+       mutationFn: (data) => apiClient.post('/api/feature', data),
+       onSuccess: () => {
+         queryClient.invalidateQueries({ queryKey: ['user', 'features'] });
+         toast.success('Created!');
+       },
+     });
+   }
+   ```
+3. Usage: `<FeatureList data={data} />`, `mutate(data)` in forms.
+4. Pagination: `useInfiniteQuery` with `cursor`.
 
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UserUpdate }) =>
-      api.put(`/api/admin/users/${id}`, data),
-    onSuccess: (updatedUser, variables) => {
-      // Update specific user in cache
-      queryClient.setQueryData(['admin', 'users', variables.id], updatedUser);
-      // Invalidate user lists
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-    },
-  });
-}
-```
+### 6. New Component/Dialog
+1. `src/components/feature/NewDialog.tsx`: Use `Dialog` from shadcn, form with `react-hook-form` + Zod resolver.
+2. Props: Typed interfaces (e.g., `DialogProps & { onSuccess?: () => void }`).
+3. Integrate `AIModelSelector`, `CreditEstimate` for AI features.
+4. Animations: `AnimatePresence` + variants.
 
-### Planning Considerations
-- **Data Relationships**: How updates to one resource affect others
-- **Real-time Needs**: Whether data needs real-time updates (consider WebSocket integration)
-- **Offline Support**: Whether mutations should queue when offline
-- **Background Sync**: Automatic refetching strategies for stale data
+### 7. Billing/Credits Integration
+1. New pack: Update `src/lib/clerk/credit-packs.ts`, Clerk dashboard Price ID.
+2. Webhook: Extend `src/app/api/webhooks/clerk/route.ts` → `addUserCredits`.
+3. UI: Use `src/components/credits/credit-status.tsx`.
 
-Billing & Credits
-- If adding one-time credit purchases, document the flow: checkout → Clerk invoice → Clerk webhook (`invoice.payment_succeeded`) → `addUserCredits`.
-- Record which Clerk Price IDs correspond to credit packs and update `src/lib/clerk/credit-packs.ts` in the PR.
-- For subscriptions, confirm plan→credits mapping and refresh path via `subscription.updated`.
+### 8. Testing and Deployment
+- **Local**: `npm run dev`, seed DB `npx prisma db seed`.
+- **Typecheck/Build**: `npm run typecheck && npm run build`.
+- **Lint**: ESLint + Prettier enforced.
+- **Deploy**: Vercel, watch migrations/webhooks.
+
+## Task Checklist Template
+- [ ] Planning doc (paste in PR).
+- [ ] Prisma changes + migrate.
+- [ ] APIs + auth/credits.
+- [ ] Hooks (queries/mutations + invalidation).
+- [ ] Components + pages.
+- [ ] Metadata/breadcrumbs.
+- [ ] E2E flows tested.
+- [ ] `typecheck` + `build` passes.

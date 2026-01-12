@@ -1,58 +1,166 @@
-# Credits: Server Source of Truth
+# Credits System
 
-This project treats the user’s credit balance as the source of truth on the server.
+The credits system manages user credit balances as the **server source of truth**. Balances are stored in the database (`User.creditsRemaining`) and govern access to paid features like AI text generation, image generation, and video creation. Client-side displays are optimistic but always refetch from the server for accuracy.
+
+## Key Concepts
+
+- **Credits**: Integer balance per user. Depleted by feature usage (e.g., 10 credits per AI image).
+- **Features**: Defined in `src/lib/credits/feature-config.ts` as `FeatureKey` (e.g., `'ai_text_chat'`, `'ai_image_generation'`).
+- **Costs**: Dynamic per-feature costs from admin settings (overrides static defaults).
+- **OperationType**: Prisma enum (`OperationType`) for usage tracking (mapped from `FeatureKey` via `toPrismaOperationType`).
+- **UsageHistory**: Auditable log of all transactions (deductions, refunds, grants).
+
+**Cross-references**:
+- [Feature config](src/lib/credits/feature-config.ts)
+- [Settings utils](src/lib/credits/settings.ts)
+- [Deduction logic](src/lib/credits/deduct.ts)
+- [Validation](src/lib/credits/validate-credits.ts)
+- [Errors](src/lib/credits/errors.ts)
+- [Prisma types](src/lib/prisma-types.ts)
 
 ## Reading Balance
-- Endpoint: `GET /api/credits/me` returns `{ creditsRemaining }` from the database.
-- The `useCredits()` hook uses React Query to fetch and keep it fresh:
-  - Refetches when the window regains focus
-  - Background refresh every 30s
-  - Exposes `refresh()` to force refetch after mutations
+
+Fetch the user's current balance via:
+
+### Server Endpoint
+```
+GET /api/credits/me
+```
+Response:
+```ts
+{
+  creditsRemaining: number;
+}
+```
+
+### Client Hook
+`useCredits()` from `src/hooks/use-credits.ts` (React Query powered):
+```tsx
+const { data: credits, isLoading, refresh } = useCredits();
+
+console.log(credits?.creditsRemaining); // e.g., 150
+```
+- **Refetch triggers**: Window focus, 30s background refresh.
+- **Exposes**: `getCost(operation: OperationType)`, `canPerformOperation(operation: OperationType)`.
+- **Settings integration**: Fetches `/api/credits/settings` for dynamic costs.
+
+**Usage example** (AI Chat):
+```tsx
+// src/app/(protected)/ai-chat/page.tsx
+if (!credits.canPerformOperation(OperationType.AI_TEXT_CHAT)) {
+  // Disable input or show upgrade prompt
+}
+```
 
 ## Spending Credits
-- API handlers call:
-  - `validateCreditsForFeature(clerkUserId, feature)`
-  - `deductCreditsForFeature({ clerkUserId, feature, details })`
-- Cost config: `src/lib/credits/feature-config.ts` (`FEATURE_CREDIT_COSTS`)
-- Mapping `Feature → OperationType` for usage history: `toPrismaOperationType()`
 
-## Admin Overrides (Feature Costs and Plan Credits)
-- Feature costs live in `AdminSettings.featureCosts`.
-- Plans live in the `Plan` table with a shape like `{ id, name, credits, active, priceMonthlyCents, ... }`.
-- The Admin UI at `/admin/settings` lets you:
-  - Set per-feature credit costs (e.g., `ai_text_chat`, `ai_image_generation`).
-  - Manage subscription plans, including their names, credit amounts, and prices.
-- Effective values:
-  - Server utilities: `getFeatureCost` in `src/lib/credits/settings.ts`.
-  - Public read-only endpoint: `GET /api/credits/settings` returns `{ featureCosts }`.
-  - Admin endpoints: `GET/POST /api/admin/plans` and `PUT/DELETE /api/admin/plans/:id` for plan CRUD.
+### Server-Side Flow
+API handlers (e.g., `/api/ai/chat`, `/api/ai/image`):
+1. `validateCreditsForFeature(clerkUserId, feature)`: Checks balance ≥ cost; throws `InsufficientCreditsError` if not.
+2. Perform operation (e.g., call AI provider).
+3. `deductCreditsForFeature({ clerkUserId, feature, details })`: Atomically deducts and logs `UsageHistory`.
 
-UI consumption
-- `useCredits()` now fetches `GET /api/credits/settings` and exposes `getCost(operation)` and `canPerformOperation(operation)` using the dynamic values.
-- AI Chat displays the current dynamic cost for text/image, and disables actions if balance < cost.
+**Example** (simplified from `src/app/api/ai/chat/route.ts`):
+```ts
+import { validateCreditsForFeature, deductCreditsForFeature } from '@/lib/credits';
 
-## Refund Policy (AI Chat and Image)
-- If a provider error occurs after credits are deducted, the system reimburses the user automatically:
-  - Text (`POST /api/ai/chat`): refunds on provider errors before the response is returned.
-  - Image (`POST /api/ai/image`): refunds on non-OK status, invalid responses, parse errors, or empty result.
-- Refunds are tracked in `UsageHistory` as negative `creditsUsed` with `{ refund: true, reason }` in `details` for auditing.
+const cost = getFeatureCost('ai_text_chat');
+validateCreditsForFeature(userId, 'ai_text_chat');
 
-## UI (AI Chat)
-- Text: after sending, the UI calls `refresh()` (backend deducts before the stream starts)
-- Image: after a successful `200 OK`, call `refresh()` immediately
-- Entry point: `src/app/(protected)/ai-chat/page.tsx`
+try {
+  const response = await openRouter.chat(...);
+  deductCreditsForFeature({ clerkUserId: userId, feature: 'ai_text_chat', creditsUsed: cost });
+  return response;
+} catch (error) {
+  // Refund logic (see Refunds)
+}
+```
 
-## Health Check
-- `GET /api/admin/health/credits-enum` (admin only)
-  - Confirms `toPrismaOperationType('ai_text_chat') === OperationType.AI_TEXT_CHAT` (and image likewise)
+### Costs
+- **Static defaults**: `FEATURE_CREDIT_COSTS` in `src/lib/credits/feature-config.ts`.
+- **Dynamic overrides**: `AdminSettings.featureCosts` via `getFeatureCost(feature)` (`src/lib/credits/settings.ts`).
 
-## Prisma Client & Enums
-- Client is generated at `prisma/generated/client`
-- Code imports `PrismaClient` from that path (not `@prisma/client`) to avoid enum mismatches at runtime
-- Shortcut: `src/lib/prisma-types.ts` re-exports `OperationType`
+| Feature | Default Cost | OperationType |
+|---------|--------------|---------------|
+| `ai_text_chat` | 1 | `AI_TEXT_CHAT` |
+| `ai_image_generation` | 10 | `AI_IMAGE_GENERATION` |
+| `ai_video_generation` | 50 | `AI_VIDEO_GENERATION` |
 
-## Admin & Webhooks
-- Admin manual adjustments create `UsageHistory`.
-- Asaas webhooks for payment events trigger the granting of credits.
-- Clerk webhooks are used for user data synchronization (`user.created`, etc.).
-- If user creation webhooks from Clerk fail, the `POST /api/admin/users/sync` endpoint can be used to reconcile user data.
+**Public endpoint**: `GET /api/credits/settings` (read-only feature costs).
+
+## Admin Overrides
+
+Configure via `/admin/settings` (`AdminSettingsPage`):
+- **Feature costs**: `{ [FeatureKey]: number }`.
+- **Plans**: CRUD via `GET/POST /api/admin/plans`.
+
+**Plan schema** (`BillingPlan` from `src/components/admin/plans/types.ts`):
+```ts
+{
+  id: string;
+  name: string;
+  credits: number; // e.g., 1000
+  active: boolean;
+  priceMonthlyCents: number;
+  // ...
+}
+```
+
+**Server utils**:
+- `addUserCredits(userId, amount)`: Manual grants (logs `UsageHistory`).
+- Asaas/Clerk webhooks auto-grant on payments/sync.
+
+## Client-Side UI Integration
+
+- **Display cost**: `credits.getCost(OperationType.AI_IMAGE_GENERATION)` → "10 credits".
+- **Optimistic checks**: `credits.canPerformOperation(op)` disables UI if insufficient.
+- **Post-mutation refresh**: Call `credits.refresh()` after success.
+
+**Example** (Image generation):
+```tsx
+const generateImage = useAiImage();
+const { refresh } = useCredits();
+
+const handleGenerate = async () => {
+  if (!credits.canPerformOperation(OperationType.AI_IMAGE_GENERATION)) return;
+  const result = await generateImage.mutateAsync(params);
+  if (result) refresh(); // Balance updated server-side
+};
+```
+
+## Refunds
+
+Automatic on provider failures **after deduction**:
+- **Text chat** (`/api/ai/chat`): Refund if provider errors before streaming response.
+- **Image** (`/api/ai/image`): Refund on non-200, invalid JSON, parse errors, empty blobs.
+- Logged as `UsageHistory` with `creditsUsed: -cost`, `details: { refund: true, reason: string }`.
+
+**Error**: `InsufficientCreditsError` (exported from `src/lib/credits/errors.ts`).
+
+## Usage History & Analytics
+
+- **Hook**: `useUsageHistory()` fetches paginated `UsageRecord[]`.
+- **Dashboard**: `useDashboard()` aggregates stats (e.g., total spent).
+- **Admin**: Manual adjustments create history entries.
+
+## Health & Debugging
+
+- **Admin check**: `GET /api/admin/health/credits-enum` verifies enum mappings.
+- **Sync users**: `POST /api/admin/users/sync` (Clerk webhook fallback).
+- **Logs**: All ops via `createLogger('credits')`.
+
+## Related Components & Hooks
+
+| Path | Purpose |
+|------|---------|
+| `src/hooks/use-credits.ts` | Balance + cost checks |
+| `src/hooks/use-usage.ts` | Real-time usage |
+| `src/hooks/use-usage-history.ts` | Transaction history |
+| `src/components/admin/settings/page.tsx` | Admin config UI |
+| `src/app/admin/plans/...` | Plan management |
+| `src/lib/asaas/client.ts` | Payment webhooks |
+
+## Migration Notes
+
+- Uses custom Prisma client (`prisma/generated/client`) to match runtime enums.
+- Re-export `OperationType` from `src/lib/prisma-types.ts`.
