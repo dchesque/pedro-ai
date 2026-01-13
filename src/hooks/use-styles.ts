@@ -18,8 +18,8 @@ export interface Style {
     // New fields
     targetAudience?: string
     keywords?: string[]
-    suggestedToneId?: string
-    suggestedTone?: {
+    suggestedClimateId?: string
+    suggestedClimate?: {
         id: string
         name: string
         icon?: string

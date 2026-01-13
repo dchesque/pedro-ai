@@ -20,7 +20,7 @@ interface ClimateCardProps {
 
 export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
     return (
-        <Card className="bg-zinc-900/50 border-white/10 overflow-hidden group hover:border-white/20 transition-all duration-300">
+        <Card className="bg-card border-border overflow-hidden group hover:border-primary/50 transition-all duration-300 shadow-sm">
             <CardHeader className="p-4 space-y-0 pb-2">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -28,10 +28,10 @@ export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
                             {climate.icon}
                         </div>
                         <div className="flex flex-col">
-                            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                                 {climate.name}
                                 {climate.isSystem && (
-                                    <Badge variant="secondary" className="text-[9px] h-4 py-0 px-1 font-normal opacity-50 bg-white/5 text-white/50 border-white/5 uppercase">
+                                    <Badge variant="secondary" className="text-[9px] h-4 py-0 px-1 font-medium bg-secondary text-secondary-foreground uppercase">
                                         Sistema
                                     </Badge>
                                 )}
@@ -49,7 +49,7 @@ export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-zinc-950 border-white/10">
+                            <DropdownMenuContent align="end" className="border-border">
                                 <DropdownMenuItem
                                     className="text-xs cursor-pointer gap-2"
                                     onClick={() => onEdit?.(climate)}
@@ -70,26 +70,26 @@ export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
             <CardContent className="p-4 pt-0">
                 <div className="flex flex-wrap gap-2 mt-2">
                     {climate.emotionalDetails && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] text-white/70">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted border border-border text-[10px] text-muted-foreground">
                             <span>{climate.emotionalDetails.icon}</span>
                             <span>{climate.emotionalDetails.label}</span>
                         </div>
                     )}
                     {climate.pressureDetails && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] text-white/70">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted border border-border text-[10px] text-muted-foreground">
                             <span>{climate.pressureDetails.icon}</span>
                             <span>{climate.pressureDetails.label}</span>
                         </div>
                     )}
                     {climate.revelationDetails && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] text-white/70">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted border border-border text-[10px] text-muted-foreground">
                             <span>{climate.revelationDetails.icon}</span>
                             <span>{climate.revelationDetails.label}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                     <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                         <MessageSquare className="h-3 w-3" />
                         <span>Prompt behavioral ativo</span>

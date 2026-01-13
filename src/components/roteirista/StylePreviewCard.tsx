@@ -26,10 +26,10 @@ export function StylePreviewCard({ style }: StylePreviewCardProps) {
                 </p>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-muted-foreground border-t border-primary/10 pt-3">
-                    {style.suggestedTone && (
+                    {style.suggestedClimate && (
                         <div className="flex items-center gap-1.5">
                             <Tag className="h-3 w-3" />
-                            <span>Tom: {style.suggestedTone.name}</span>
+                            <span>Clima: {style.suggestedClimate.name}</span>
                         </div>
                     )}
                     {style.targetAudience && (

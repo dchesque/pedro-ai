@@ -56,10 +56,21 @@ Baseado nas respostas acima, gere a configuração no formato JSON especificado.
 
     // 4. Chamar API de IA
     try {
-        const model = agent.model || 'deepseek/deepseek-chat';
+        let modelString = agent.model || 'deepseek/deepseek-chat';
+        let providerId = 'openrouter';
+        let modelId = modelString;
+
+        if (modelString.includes(':')) {
+            const parts = modelString.split(':');
+            providerId = parts[0];
+            modelId = parts.slice(1).join(':');
+        }
+
+        // TODO: Suportar outros providers além de OpenRouter no agent-executor
+        // Se providerId for 'fal', precisaríamos de um adaptador diferente aqui
 
         const { text } = await generateText({
-            model: openrouter(model as any),
+            model: openrouter(modelId as any),
             prompt: prompt,
         });
 

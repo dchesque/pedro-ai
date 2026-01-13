@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { ChevronLeft, Save, Sparkles } from 'lucide-react'
+import { ChevronLeft, Save, Sparkles, Loader2 } from 'lucide-react'
+import { ModelSelector } from '@/components/admin/model-selector'
 
 export default function AdminAgentEditPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -23,18 +24,33 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
         icon: '',
         systemMessage: '',
         model: '',
+        provider: 'openrouter',
+        modelId: '',
         creditsPerUse: 0,
         isActive: true,
     })
 
     useEffect(() => {
         if (agent) {
+            let provider = 'openrouter'
+            let modelId = agent.model
+
+            if (agent.model && agent.model.includes(':')) {
+                const parts = agent.model.split(':')
+                provider = parts[0]
+                modelId = parts.slice(1).join(':')
+            } else if (agent.model && agent.model.startsWith('fal-ai/')) {
+                provider = 'fal'
+            }
+
             setFormData({
                 name: agent.name,
                 description: agent.description,
                 icon: agent.icon,
                 systemMessage: agent.systemMessage,
                 model: agent.model,
+                provider,
+                modelId,
                 creditsPerUse: agent.creditsPerUse,
                 isActive: agent.isActive,
             })
@@ -42,14 +58,27 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
     }, [agent])
 
     const handleSave = async () => {
-        await updateMutation.mutateAsync({ id, ...formData })
+        const finalModel = formData.provider && formData.modelId
+            ? `${formData.provider}:${formData.modelId}`
+            : formData.modelId || formData.model
+
+        const payload = {
+            ...formData,
+            model: finalModel
+        }
+
+        // Limpar campos auxiliares
+        delete payload.provider
+        delete payload.modelId
+
+        await updateMutation.mutateAsync({ id, ...payload })
     }
 
     if (isLoading) return <div className="p-8 text-center">Carregando dados...</div>
     if (!agent) return <div className="p-8 text-center text-red-500">Agent não encontrado.</div>
 
     return (
-        <div className="container mx-auto py-8 max-w-4xl">
+        <div className="container mx-auto py-8">
             <div className="flex items-center gap-4 mb-8">
                 <Button variant="ghost" size="icon" onClick={() => router.back()}>
                     <ChevronLeft />
@@ -59,13 +88,13 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                     <p className="text-muted-foreground">{agent.name} ({agent.type})</p>
                 </div>
                 <Button className="ml-auto gap-2" onClick={handleSave} disabled={updateMutation.isPending}>
-                    <Save className="h-4 w-4" />
+                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {updateMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Configurações Básicas</CardTitle>
@@ -127,21 +156,26 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                             <CardTitle>IA & IA Model</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Modelo (Slug OpenRouter)</Label>
-                                <Input
-                                    value={formData.model}
-                                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                                    placeholder="deepseek/deepseek-chat"
-                                />
-                            </div>
-                            <div className="space-y-2">
+                            <ModelSelector
+                                selectedProvider={formData.provider}
+                                selectedModel={formData.modelId}
+                                onProviderChange={(p) => setFormData(prev => ({ ...prev, provider: p, modelId: '' }))}
+                                onModelChange={(m) => setFormData(prev => ({ ...prev, modelId: m }))}
+                                capability="text"
+                                showPricing={true}
+                                label="Configuração de IA"
+                            />
+
+                            <div className="space-y-2 pt-2">
                                 <Label>Créditos por Uso</Label>
                                 <Input
                                     type="number"
                                     value={formData.creditsPerUse}
                                     onChange={(e) => setFormData({ ...formData, creditsPerUse: Number(e.target.value) })}
                                 />
+                                <p className="text-[10px] text-muted-foreground">
+                                    Custo para o usuário final em créditos.
+                                </p>
                             </div>
                             <div className="flex items-center justify-between pt-4 border-t">
                                 <Label>Agent Ativo</Label>

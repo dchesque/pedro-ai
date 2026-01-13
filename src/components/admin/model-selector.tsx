@@ -102,7 +102,7 @@ export function ModelSelector({
             )}
 
             {/* Grid de Seleção */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
                 {/* Provider Select */}
                 <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Integração</Label>

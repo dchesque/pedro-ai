@@ -1,8 +1,34 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [1.13.0] - 2026-01-13
 
-## [1.11.0] - 2026-01-13
+### Added
+- **Seletor de Provedor e Modelo em Agents**: Integrado o `ModelSelector` na página de edição de agents (/admin/agents/[id]), permitindo a escolha dinâmica de provedores (OpenRouter, Fal.ai) e modelos com visualização em tempo real de custos e créditos.
+- **Suporte a Provedores no Executor**: O engine de execução de agents (`agent-executor.ts`) agora suporta o formato `provider:model`, permitindo roteamento flexível entre diferentes APIs.
+
+### Changed
+- **Otimização de Layout Admin**: Página de edição de agents expandida para largura total (100%) e grid ajustado para 3 colunas, melhorando a produtividade na edição de System Messages longos.
+- **Fluxo de Seleção de IA**: O seletor de modelos agora utiliza layout em coluna única para melhor legibilidade das informações de pricing.
+
+### Fixed
+- **Tipagem da Interface Agent**: Atualizada a interface `Agent` global para incluir campos de modelo, system message e status ativo, eliminando erros de compilação no painel administrativo.
+
+## [1.12.0] - 2026-01-13
+
+### Added
+- **Finalização do Módulo de Estilos & Climas**: Módulo agora totalmente integrado com o sistema de Agents v1.0.
+- **Listagem Dinâmica de Estilos**: Implementada a visualização de Estilos Visuais em `/estilos`, permitindo gerenciar estilos criados por IA ou manualmente.
+- **Integração v2.0 do Roteirista**: O gerador de cenas (`generate-scenes`) agora utiliza o novo motor de Clima Narrativo, aplicando regras comportamentais específicas (pressão, dinâmica de revelação, estado emocional) via prompt dinâmico.
+
+### Changed
+- **Migração de "Tone" para "Climate"**: Todas as referências legadas ao modelo de "Tom" foram migradas para o novo sistema de "Clima" em toda a aplicação (API, Hooks, UI).
+- **Refatoração do EstilosPage**: Layout aprimorado com separação visual clara entre biblioteca do sistema e climas/estilos pessoais.
+
+### Fixed
+- **Integridade de Dados no Clima API**: Corrigido bug onde IDs do Clerk estavam sendo usados em vez de IDs do banco de dados (CUID), o que quebrava as relações e impedia a visualização de climas personalizados.
+- **Prisma Client Path**: Normalização de caminhos de importação do Prisma Client em múltiplos arquivos da camada `src/lib`.
+- **UI de Manutenção**: Removida a mensagem de "em manutenção" das abas de estilos.
+
 
 ### Added
 - **Sistema de Agents v1.0**: Uma nova funcionalidade que permite aos usuários criar configurações complexas de Clima e Estilo através de assistentes interativos baseados em IA.

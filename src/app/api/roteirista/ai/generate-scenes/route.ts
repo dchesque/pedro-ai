@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { createId } from '@paralleldrive/cuid2'
 import type { GenerateScenesRequest, GenerateScenesResponse, SceneData } from '@/lib/roteirista/types'
 import { db } from '@/lib/db'
+import { buildClimatePrompt } from '@/lib/climate/behavior-mapping'
 
 const logger = createLogger('roteirista-generate-scenes')
 
@@ -22,7 +23,7 @@ const requestSchema = z.object({
     sceneCount: z.number().optional(),
     modelId: z.string().optional(),
     targetAudience: z.string().optional(),
-    toneId: z.string().optional(),
+    climateId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -50,34 +51,44 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { title, theme, premise, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, toneId: reqToneId } = parsed.data
+        const { title, theme, premise, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, climateId: reqClimateId } = parsed.data
 
         const finalTheme = premise || theme || title
 
-        // Buscar estilo e tom sugerido
+        // Buscar estilo e clima sugerido
         const style = await db.style.findUnique({
             where: { id: styleId },
-            include: { suggestedTone: true }
+            include: { suggestedClimate: true }
         })
 
         if (!style) {
             return NextResponse.json({ error: 'Style not found' }, { status: 404 })
         }
 
-        // Resolver Tom
-        let toneName = reqTone || style.suggestedTone?.name || 'Envolvente'
-        let tonePrompt = style.suggestedTone?.promptFragment || ''
+        // Resolver Clima
+        let climatePrompt = ''
+        let climateName = 'Padrão'
 
-        // Se toneId foi passado explicitamente, buscar (sobrescreve o do estilo)
-        if (reqToneId) {
-            const toneObj = await db.tone.findUnique({ where: { id: reqToneId } })
-            if (toneObj) {
-                toneName = toneObj.name
-                tonePrompt = toneObj.promptFragment || ''
+        // 1. Prioridade para clima passado no request
+        if (reqClimateId) {
+            const climateObj = await db.climate.findUnique({ where: { id: reqClimateId } })
+            if (climateObj) {
+                climateName = climateObj.name
+                climatePrompt = buildClimatePrompt(climateObj)
             }
         }
+        // 2. Fallback para clima sugerido no estilo
+        else if (style.suggestedClimate) {
+            climateName = style.suggestedClimate.name
+            climatePrompt = buildClimatePrompt(style.suggestedClimate)
+        }
+        // 3. Fallback final (texto livre do tone/clima se existir)
+        else if (reqTone) {
+            climateName = reqTone
+            climatePrompt = `TOM E CLIMA: ${reqTone}`
+        }
 
-        logger.info('Generate scenes request', { title, styleId, tone: toneName })
+        logger.info('Generate scenes request', { title, styleId, climate: climateName })
 
         // Resolver modelo
         const modelId = reqModelId || await getDefaultModel('agent_scriptwriter')
@@ -100,8 +111,8 @@ ${style.scriptwriterPrompt || 'Crie um roteiro envolvente e bem estruturado.'}
 ## PARÂMETROS
 - Público Alvo: ${targetAudience}
 - Número de cenas: ${sceneCount}
-- Tom: ${toneName}
-${tonePrompt ? `- Instruções de Tom: ${tonePrompt}` : ''}
+- Clima Narrativo: ${climateName}
+${climatePrompt ? `## INSTRUÇÕES COMPORTAMENTAIS (CLIMA):\n${climatePrompt}` : ''}
 
 ## REGRAS
 - Cada cena deve ter narração em português (1-2 frases)
@@ -126,7 +137,7 @@ Responda APENAS em JSON válido no formato:
 TÍTULO: ${title}
 TEMA: ${finalTheme}
 ${synopsis ? `SINOPSE: ${synopsis}` : ''}
-TOM: ${toneName}
+CLIMA: ${climateName}
 ${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
 
 Gere as ${sceneCount} cenas agora.`

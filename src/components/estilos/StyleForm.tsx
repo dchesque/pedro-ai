@@ -32,7 +32,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Save, X } from 'lucide-react'
 
-import { useTones } from '@/hooks/use-tones'
+import { useClimates } from '@/hooks/use-climates'
 
 const styleSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório').max(100),
@@ -42,7 +42,7 @@ const styleSchema = z.object({
     scriptwriterPrompt: z.string().max(5000).default(''),
     targetAudience: z.string().max(100).optional().default(''),
     keywords: z.string().optional().default(''),
-    suggestedToneId: z.string().optional().default(''),
+    suggestedClimateId: z.string().optional().default(''),
     narrativeStyle: z.string().max(50).default('direto'),
     languageStyle: z.string().max(50).default('informal'),
     exampleHook: z.string().max(500).default(''),
@@ -74,8 +74,8 @@ const LANGUAGE_OPTIONS = [
 
 export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) {
     const router = useRouter()
-    const { data: tonesData } = useTones()
-    const tones = tonesData?.tones || []
+    const { data: climatesData } = useClimates()
+    const climates = climatesData?.climates || []
 
     const form = useForm<StyleFormValues>({
         resolver: zodResolver(styleSchema) as any,
@@ -87,7 +87,7 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
             scriptwriterPrompt: initialData?.scriptwriterPrompt || '',
             targetAudience: initialData?.targetAudience || '',
             keywords: initialData?.keywords?.join(', ') || '',
-            suggestedToneId: initialData?.suggestedToneId || '',
+            suggestedClimateId: initialData?.suggestedClimateId || '',
             narrativeStyle: initialData?.narrativeStyle || 'direto',
             languageStyle: initialData?.languageStyle || 'informal',
             exampleHook: initialData?.exampleHook || '',
@@ -106,7 +106,7 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
                 scriptwriterPrompt: initialData.scriptwriterPrompt || '',
                 targetAudience: initialData.targetAudience || '',
                 keywords: initialData.keywords?.join(', ') || '',
-                suggestedToneId: initialData.suggestedToneId || '',
+                suggestedClimateId: initialData.suggestedClimateId || '',
                 narrativeStyle: initialData.narrativeStyle || 'direto',
                 languageStyle: initialData.languageStyle || 'informal',
                 exampleHook: initialData.exampleHook || '',
@@ -250,26 +250,26 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
 
                             <FormField
                                 control={form.control}
-                                name="suggestedToneId"
+                                name="suggestedClimateId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Tom Recomendado</FormLabel>
+                                        <FormLabel>Clima Recomendado</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecione um tom..." />
+                                                <SelectTrigger className="bg-muted/50 border-border">
+                                                    <SelectValue placeholder="Selecione um clima..." />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="none">Nenhum específico</SelectItem>
-                                                {tones.map(tone => (
-                                                    <SelectItem key={tone.id} value={tone.id}>
-                                                        {tone.icon} {tone.name} {tone.type === 'system' && '(Sistema)'}
+                                                {climates.map(climate => (
+                                                    <SelectItem key={climate.id} value={climate.id}>
+                                                        {climate.icon} {climate.name} {climate.isSystem && '(Sistema)'}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <FormDescription>Tom de voz sugerido para este estilo.</FormDescription>
+                                        <FormDescription>Define o tom emocional e ritmo sugerido para este estilo.</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}

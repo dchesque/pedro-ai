@@ -11,7 +11,7 @@ const updateStyleSchema = z.object({
     // Campos novos
     targetAudience: z.string().max(200).optional(),
     keywords: z.array(z.string()).optional(),
-    suggestedToneId: z.string().optional().nullable(),
+    suggestedClimateId: z.string().optional().nullable(),
 
     scriptwriterPrompt: z.string().max(5000).optional(),
     narrativeStyle: z.string().max(50).optional(),
@@ -53,7 +53,7 @@ export async function GET(
                 ]
             },
             include: {
-                suggestedTone: true
+                suggestedClimate: true
             }
         })
 

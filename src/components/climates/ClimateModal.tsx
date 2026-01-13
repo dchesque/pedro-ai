@@ -105,11 +105,11 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl bg-zinc-950 border-white/10 text-white overflow-hidden">
+            <DialogContent className="max-w-xl bg-background border-border text-foreground overflow-hidden">
                 <DialogHeader>
                     <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className="text-[10px] opacity-50">PASSO {step} DE 3</Badge>
-                        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                        <Badge variant="outline" className="text-[10px] opacity-50 uppercase">Passo {step} de 3</Badge>
+                        <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-primary transition-all duration-500"
                                 style={{ width: `${(step / 3) * 100}%` }}
@@ -134,7 +134,7 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                         value={formData.icon || ''}
                                         onChange={e => setFormData(p => ({ ...p, icon: e.target.value }))}
                                         placeholder="🎭"
-                                        className="text-center text-xl h-12 bg-white/5 border-white/10"
+                                        className="text-center text-xl h-12 bg-muted/30 border-border"
                                     />
                                 </div>
                                 <div className="col-span-3 space-y-2">
@@ -143,7 +143,7 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                         value={formData.name || ''}
                                         onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
                                         placeholder="Ex: Tensão Crescente"
-                                        className="h-12 bg-white/5 border-white/10"
+                                        className="h-12 bg-muted/30 border-border"
                                     />
                                 </div>
                             </div>
@@ -156,10 +156,10 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                             key={key}
                                             onClick={() => updateEmotionalState(key as EmotionalState)}
                                             className={cn(
-                                                "flex items-center gap-4 p-4 rounded-xl border transition-all text-left",
+                                                "flex items-center gap-4 p-4 rounded-xl border transition-all text-left group",
                                                 formData.emotionalState === key
-                                                    ? "bg-primary/10 border-primary text-white"
-                                                    : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                                                    ? "bg-primary/10 border-primary text-foreground"
+                                                    : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                                             )}
                                         >
                                             <span className="text-2xl">{value.icon}</span>
@@ -188,10 +188,10 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                                 disabled={!isAllowed}
                                                 onClick={() => setFormData(p => ({ ...p, revelationDynamic: key as RevelationDynamic }))}
                                                 className={cn(
-                                                    "flex flex-col gap-2 p-4 rounded-xl border transition-all text-left relative",
+                                                    "flex flex-col gap-2 p-4 rounded-xl border transition-all text-left relative group",
                                                     formData.revelationDynamic === key
-                                                        ? "bg-primary/10 border-primary text-white"
-                                                        : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10",
+                                                        ? "bg-primary/10 border-primary text-foreground"
+                                                        : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                                                     !isAllowed && "opacity-30 grayscale cursor-not-allowed"
                                                 )}
                                             >
@@ -217,10 +217,10 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                                 disabled={!isAllowed}
                                                 onClick={() => setFormData(p => ({ ...p, narrativePressure: key as NarrativePressure }))}
                                                 className={cn(
-                                                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all text-center",
+                                                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all text-center group",
                                                     formData.narrativePressure === key
-                                                        ? "bg-primary/10 border-primary text-white"
-                                                        : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10",
+                                                        ? "bg-primary/10 border-primary text-foreground"
+                                                        : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                                                     !isAllowed && "opacity-30 grayscale cursor-not-allowed"
                                                 )}
                                             >
@@ -242,7 +242,7 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                     value={formData.description || ''}
                                     onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
                                     placeholder="Explique brevemente quando usar este clima..."
-                                    className="bg-white/5 border-white/10"
+                                    className="bg-muted/30 border-border"
                                 />
                             </div>
 
@@ -255,7 +255,7 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                     value={formData.promptFragment || ''}
                                     onChange={e => setFormData(p => ({ ...p, promptFragment: e.target.value }))}
                                     placeholder="Adicione orientações específicas para o agente de IA escrever as cenas..."
-                                    className="min-h-[150px] bg-white/5 border-white/10 text-xs italic resize-none"
+                                    className="min-h-[150px] bg-muted/30 border-border text-xs italic resize-none"
                                 />
                                 <p className="text-[10px] text-muted-foreground">
                                     Estas instruções serão combinadas com o comportamento base selecionado nos passos anteriores.
@@ -267,27 +267,27 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                                     <Wand2 className="h-3 w-3" /> Preview do Comportamento
                                 </h4>
                                 <div className="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" className="bg-white/5 text-[9px]">{formData.hookType}</Badge>
-                                    <Badge variant="secondary" className="bg-white/5 text-[9px]">{formData.closingType}</Badge>
-                                    <Badge variant="secondary" className="bg-white/5 text-[9px]">MAX 15 PALAVRAS/FRASE</Badge>
+                                    <Badge variant="secondary" className="bg-muted/50 text-[9px]">{formData.hookType}</Badge>
+                                    <Badge variant="secondary" className="bg-muted/50 text-[9px]">{formData.closingType}</Badge>
+                                    <Badge variant="secondary" className="bg-muted/50 text-[9px]">MAX 15 PALAVRAS/FRASE</Badge>
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <DialogFooter className="border-t border-white/5 pt-4 gap-2">
+                <DialogFooter className="border-t border-border pt-4 gap-2">
                     <div className="flex-1 flex gap-2">
                         {step > 1 && (
-                            <Button variant="ghost" onClick={handlePrev} className="text-white/60">
+                            <Button variant="ghost" onClick={handlePrev} className="text-muted-foreground hover:text-foreground">
                                 <ChevronLeft className="h-4 w-4 mr-2" /> Anterior
                             </Button>
                         )}
-                        <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-white/40">Cancelar</Button>
+                        <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-muted-foreground/60">Cancelar</Button>
                     </div>
 
                     {step < 3 ? (
-                        <Button onClick={handleNext} className="bg-white text-black hover:bg-white/90">
+                        <Button onClick={handleNext} className="shadow-sm">
                             Próximo <ChevronRight className="h-4 w-4 ml-2" />
                         </Button>
                     ) : (

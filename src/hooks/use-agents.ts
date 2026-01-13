@@ -12,6 +12,10 @@ export interface Agent {
     icon: string
     type: 'CLIMATE' | 'STYLE' | 'CUSTOM'
     creditsPerUse: number
+    systemMessage?: string
+    model?: string
+    isActive?: boolean
+    validationRules?: any
     questions?: AgentQuestion[]
     outputFields?: AgentOutputField[]
 }

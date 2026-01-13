@@ -123,8 +123,8 @@ export function StyleCard({ style }: { style: Style }) {
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Tag className="h-3 w-3" />
-                        <span className="truncate" title={style.suggestedTone?.name || 'Vários'}>
-                            {style.suggestedTone?.name || 'Vários'}
+                        <span className="truncate" title={style.suggestedClimate?.name || 'Vários'}>
+                            {style.suggestedClimate?.name || 'Vários'}
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">

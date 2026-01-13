@@ -13,7 +13,7 @@ const styleSchema = z.object({
     // Novos campos
     targetAudience: z.string().max(200).optional(),
     keywords: z.array(z.string()).optional(),
-    suggestedToneId: z.string().optional(),
+    suggestedClimateId: z.string().optional(),
 
     scriptwriterPrompt: z.string().max(5000).optional(),
     narrativeStyle: z.string().max(50).optional(),

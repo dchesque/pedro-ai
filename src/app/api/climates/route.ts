@@ -6,13 +6,24 @@ import { EMOTIONAL_STATE_PROMPTS, REVELATION_DYNAMIC_PROMPTS, NARRATIVE_PRESSURE
 
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth()
+        const { userId: clerkUserId } = await auth()
+        if (!clerkUserId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        const user = await db.user.findUnique({
+            where: { clerkId: clerkUserId }
+        })
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 })
+        }
 
         const climates = await db.climate.findMany({
             where: {
                 OR: [
                     { isSystem: true },
-                    { userId: userId || "undefined_user" }
+                    { userId: user.id }
                 ],
             },
             orderBy: [
@@ -48,9 +59,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth()
-        if (!userId) {
+        const { userId: clerkUserId } = await auth()
+        if (!clerkUserId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        const user = await db.user.findUnique({
+            where: { clerkId: clerkUserId }
+        })
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 })
         }
 
         const body = await request.json()
@@ -71,7 +90,7 @@ export async function POST(request: NextRequest) {
                 sentenceMaxWords: agentOutput.sentenceMaxWords || 15,
                 maxScenes: agentOutput.suggestedScenes || 15,
                 isSystem: false,
-                userId
+                userId: user.id
             }
         } else {
             const { description, emotionalState, revelationDynamic, narrativePressure, promptFragment } = body
@@ -101,7 +120,7 @@ export async function POST(request: NextRequest) {
                 closingType: corrected.closingType,
                 promptFragment,
                 isSystem: false,
-                userId
+                userId: user.id
             }
         }
 
