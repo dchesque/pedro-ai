@@ -93,7 +93,14 @@ export async function POST(request: NextRequest) {
                 userId: user.id
             }
         } else {
-            const { description, emotionalState, revelationDynamic, narrativePressure, promptFragment } = body
+            const {
+                description,
+                emotionalState,
+                revelationDynamic,
+                narrativePressure,
+                promptFragment,
+                behaviorPreview
+            } = body
 
             if (!name || !emotionalState || !revelationDynamic || !narrativePressure) {
                 return NextResponse.json(
@@ -102,12 +109,15 @@ export async function POST(request: NextRequest) {
                 )
             }
 
-            // Validate combination with guard-rails
+            // Validate combination with guard-rails but respect overrides
             const { corrected } = validateClimateConfiguration({
                 emotionalState,
                 revelationDynamic,
-                narrativePressure
+                narrativePressure // Pass original pressure to check validity
             })
+
+            // Trust the frontend provided pressure if it exists, otherwise use corrected default
+            const finalNarrativePressure = narrativePressure || corrected.narrativePressure
 
             dataToSave = {
                 name,
@@ -115,10 +125,11 @@ export async function POST(request: NextRequest) {
                 description,
                 emotionalState: corrected.emotionalState,
                 revelationDynamic: corrected.revelationDynamic,
-                narrativePressure: corrected.narrativePressure,
+                narrativePressure: finalNarrativePressure,
                 hookType: corrected.hookType,
                 closingType: corrected.closingType,
                 promptFragment,
+                behaviorPreview,
                 isSystem: false,
                 userId: user.id
             }
@@ -130,7 +141,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             ...climate,
-            type: 'personal'
+            type: 'personal' // Ensure consistency with GET/PUT responses if needed, though usually implicit
         })
     } catch (error) {
         console.error("Error creating climate:", error)

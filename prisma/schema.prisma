@@ -406,6 +406,7 @@ model Climate {
   name            String
   description     String?
   icon            String?   // Emoji
+  behaviorPreview String?   // Preview do comportamento
   
   // Novos campos comportamentais v2.0
   emotionalState    EmotionalState    @default(CURIOSITY)

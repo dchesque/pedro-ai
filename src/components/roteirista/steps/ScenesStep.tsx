@@ -101,9 +101,10 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
                 premise: data.premise || '',
                 theme: data.theme || data.premise || '',
                 synopsis: data.synopsis || '',
-                tone: data.tone || '',
+                // tone: data.tone || '', // Legacy
+                climate: data.climate || 'neutro', // Default fallback
                 styleId: data.styleId || '',
-                toneId: data.toneId || '',
+                climateId: data.climateId || '',
                 modelId: data.modelId || '',
                 characterDescriptions: data.charactersDescription || '',
                 sceneCount: data.sceneCount || 7,
@@ -245,7 +246,8 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
                                         context={{
                                             title: data.title,
                                             synopsis: data.synopsis,
-                                            tone: data.tone,
+                                            // tone: data.tone,
+                                            climate: data.climate,
                                             targetAudience: data.targetAudience,
                                             characterDescriptions: data.charactersDescription,
                                         }}

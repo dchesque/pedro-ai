@@ -24,6 +24,10 @@ export function ScriptPreview({ data, className }: ScriptPreviewProps) {
                     <Film className="h-5 w-5" />
                     Preview do Roteiro
                 </CardTitle>
+                <div className="flex gap-2 text-sm">
+                    <span className="text-muted-foreground">Clima:</span>
+                    <span className="font-medium capitalize">{data.climate || 'Não definido'}</span>
+                </div>
             </CardHeader>
 
             <CardContent className="p-0">
@@ -33,9 +37,9 @@ export function ScriptPreview({ data, className }: ScriptPreviewProps) {
                         {data.title ? (
                             <div>
                                 <h2 className="text-xl font-bold">{data.title}</h2>
-                                {data.tone && (
+                                {data.climate && (
                                     <Badge variant="outline" className="mt-1">
-                                        {data.tone}
+                                        {data.climate}
                                     </Badge>
                                 )}
                             </div>

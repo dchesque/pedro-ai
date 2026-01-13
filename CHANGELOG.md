@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.13.2] - 2026-01-13
+
+### Changed
+- **Visualização de Climas**: Reformulação completa do modal de detalhes do clima (`ClimateDetailsModal`), agora com largura expandida (`max-w-5xl`), cartões visuais para os atributos comportamentais (Estado Emocional, Dinâmica, Pressão) e melhor hierarquia de informações.
+- **Integração de Pressão Narrativa**: A API agora respeita a escolha do usuário para "Pressão Narrativa" mesmo quando incompatível com o "Estado Emocional", permitindo configurações avançadas via confirmação explícita.
+- **Correção de Permissões**: Resolvido bug crítico de 403 Forbidden ao editar climas, corrigindo a comparação entre ID do Clerk e ID do banco de dados.
+- **Persistência de Dados**: Corrigido o salvamento do campo `behaviorPreview` na criação e edição de climas.
+- **UI Clean-up**: Removido ícone duplicado do clima no card de listagem e no modal de detalhes para um visual mais limpo.
+
+## [1.13.1] - 2026-01-13
+
+### Changed
+- **Validação de Climas**: Os campos "Descrição Interna", "Instruções Customizadas" e "Preview do Comportamento" no modal de criação de clima agora são obrigatórios para garantir a consistência das instruções geradas para os agentes.
+- **UX do Modal**: O botão de criação/salvamento permanece desabilitado até que todos os metadados e pré-visualizações comportamentais estejam devidamente preenchidos.
+
 ## [1.13.0] - 2026-01-13
 
 ### Added

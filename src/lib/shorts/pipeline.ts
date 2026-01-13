@@ -128,7 +128,7 @@ export async function generateScript(shortId: string): Promise<ShortScript> {
     const short = await db.short.findUniqueOrThrow({
         where: { id: shortId },
         include: {
-            tone: true,
+            climate: true, // Substitui tone: true
             styleRelation: true
         }
     })
@@ -179,15 +179,16 @@ export async function generateScript(shortId: string): Promise<ShortScript> {
 
     try {
         const script = await aiGenerateScript(
-            short.premise || short.theme, // Use premise if available (V2)
-            short.targetDuration,
-            short.style,
-            short.userId,
-            charactersForScript,
-            modelId, // Passar o modelo para o agente
-            short.styleRelation, // New
-            short.tone, // New
-            short.styleRelation?.targetAudience || undefined // New
+            short.userId, // 1. userId
+            short.premise || short.theme, // 2. theme
+            short.targetDuration, // 3. duration
+            short.style, // 4. styleKey
+            charactersForScript, // 5. characters
+            short.climateId || undefined, // 6. climateId (String? -> string | undefined)
+            modelId, // 7. modelOverride
+            short.styleRelation, // 8. styleObject
+            short.climate, // 9. climateObject
+            short.styleRelation?.targetAudience || undefined // 10. targetAudience
         )
 
         log.info('📄 Roteiro recebido', {

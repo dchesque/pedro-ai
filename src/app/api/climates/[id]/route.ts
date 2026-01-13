@@ -50,14 +50,31 @@ export async function PUT(
 ) {
     try {
         const { id } = await params
-        const { userId } = await auth()
+        const { userId: clerkUserId } = await auth()
 
-        if (!userId) {
+        if (!clerkUserId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
+        const user = await db.user.findUnique({
+            where: { clerkId: clerkUserId }
+        })
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 })
+        }
+
         const body = await request.json()
-        const { name, icon, description, emotionalState, revelationDynamic, narrativePressure, promptFragment } = body
+        const {
+            name,
+            icon,
+            description,
+            emotionalState,
+            revelationDynamic,
+            narrativePressure,
+            promptFragment,
+            behaviorPreview
+        } = body
 
         const existing = await db.climate.findUnique({
             where: { id },
@@ -67,19 +84,23 @@ export async function PUT(
             return NextResponse.json({ error: "Climate not found" }, { status: 404 })
         }
 
-        if (existing.isSystem || existing.userId !== userId) {
+        if (existing.isSystem || existing.userId !== user.id) {
             return NextResponse.json(
                 { error: "Forbidden" },
                 { status: 403 }
             )
         }
 
-        // Validate combination
+        // Validate combination but respect overrides from frontend
         const { corrected } = validateClimateConfiguration({
             emotionalState: emotionalState || existing.emotionalState,
             revelationDynamic: revelationDynamic || existing.revelationDynamic,
-            narrativePressure: narrativePressure || existing.narrativePressure
+            narrativePressure: narrativePressure || existing.narrativePressure // Use provided pressure even if "invalid"
         })
+
+        // If the user explicitly provided a narrativePressure, we trust it (it was confirmed in frontend)
+        // Otherwise use the corrected/default one
+        const finalNarrativePressure = narrativePressure || corrected.narrativePressure
 
         const updated = await db.climate.update({
             where: { id },
@@ -88,11 +109,12 @@ export async function PUT(
                 icon: icon || existing.icon,
                 description: description !== undefined ? description : existing.description,
                 emotionalState: corrected.emotionalState,
-                revelationDynamic: corrected.revelationDynamic,
-                narrativePressure: corrected.narrativePressure,
+                revelationDynamic: corrected.revelationDynamic, // We still enforce this if relevant, but frontend blocks incompatible ones
+                narrativePressure: finalNarrativePressure,
                 hookType: corrected.hookType,
                 closingType: corrected.closingType,
                 promptFragment: promptFragment !== undefined ? promptFragment : existing.promptFragment,
+                behaviorPreview: behaviorPreview !== undefined ? behaviorPreview : existing.behaviorPreview,
             },
         })
 
@@ -112,17 +134,25 @@ export async function DELETE(
 ) {
     try {
         const { id } = await params
-        const { userId } = await auth()
+        const { userId: clerkUserId } = await auth()
 
-        if (!userId) {
+        if (!clerkUserId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        const user = await db.user.findUnique({
+            where: { clerkId: clerkUserId }
+        })
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 })
         }
 
         const existing = await db.climate.findUnique({
             where: { id },
         })
 
-        if (!existing || existing.isSystem || existing.userId !== userId) {
+        if (!existing || existing.isSystem || existing.userId !== user.id) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
 

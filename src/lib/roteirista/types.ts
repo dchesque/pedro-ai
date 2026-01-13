@@ -81,13 +81,15 @@ export interface GenerateScenesRequest {
     theme?: string
     premise?: string
     synopsis: string
-    tone: string
+    climate: string         // Substitui tone
+    tone?: string           // Deprecated
     styleId: string
     characterDescriptions?: string
     sceneCount: number
     modelId?: string
     targetAudience?: string
-    toneId?: string
+    climateId?: string      // Substitui toneId
+    toneId?: string         // Deprecated
 }
 
 // Response de cenas geradas
@@ -100,8 +102,10 @@ export interface GenerateVisualPromptRequest {
     narration: string
     stylePrompt?: string
     characterDescriptions?: string
+    climate?: string
     tone?: string
     targetAudience?: string
+    climateId?: string
     toneId?: string
 }
 
@@ -109,3 +113,4 @@ export interface GenerateVisualPromptRequest {
 export interface GenerateVisualPromptResponse {
     visualPrompt: string
 }
+

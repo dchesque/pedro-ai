@@ -29,6 +29,7 @@ export interface Climate {
     maxScenes: number
 
     promptFragment?: string | null
+    behaviorPreview?: string | null
     type: 'system' | 'personal'
     isSystem: boolean
     createdAt: string

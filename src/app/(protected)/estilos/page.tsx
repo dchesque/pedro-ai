@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useClimates, useDeleteClimate, Climate } from '@/hooks/use-climates'
 import { ClimateCard } from '@/components/climates/ClimateCard'
 import { ClimateModal } from '@/components/climates/ClimateModal'
+import { ClimateDetailsModal } from '@/components/climates/ClimateDetailsModal'
 import { Badge } from '@/components/ui/badge'
 import { useStyles, useDeleteStyle, Style } from '@/hooks/use-styles'
 import { StyleCard } from '@/components/estilos/StyleCard'
@@ -16,7 +17,9 @@ import { useRouter } from 'next/navigation'
 export default function EstilosPage() {
     const [search, setSearch] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
     const [selectedClimate, setSelectedClimate] = useState<Climate | null>(null)
+    const [viewClimate, setViewClimate] = useState<Climate | null>(null)
 
     const { data: climatesData, isLoading: isLoadingClimates } = useClimates()
     const { data: stylesData, isLoading: isLoadingStyles } = useStyles()
@@ -37,6 +40,11 @@ export default function EstilosPage() {
     const handleEdit = (climate: Climate) => {
         setSelectedClimate(climate)
         setIsModalOpen(true)
+    }
+
+    const handleView = (climate: Climate) => {
+        setViewClimate(climate)
+        setIsDetailsModalOpen(true)
     }
 
     const handleCreateClimate = () => {
@@ -144,6 +152,7 @@ export default function EstilosPage() {
                                                 climate={climate}
                                                 onEdit={handleEdit}
                                                 onDelete={handleDeleteClimate}
+                                                onView={handleView}
                                             />
                                         ))}
                                     </div>
@@ -171,6 +180,7 @@ export default function EstilosPage() {
                                         <ClimateCard
                                             key={climate.id}
                                             climate={climate}
+                                            onView={handleView}
                                         />
                                     ))}
                                 </div>
@@ -240,6 +250,12 @@ export default function EstilosPage() {
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
                 climate={selectedClimate}
+            />
+
+            <ClimateDetailsModal
+                open={isDetailsModalOpen}
+                onOpenChange={setIsDetailsModalOpen}
+                climate={viewClimate}
             />
         </div>
     )

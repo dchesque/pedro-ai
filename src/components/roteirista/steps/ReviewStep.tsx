@@ -73,9 +73,12 @@ export function ReviewStep({ data }: ReviewStepProps) {
                             <p className="text-sm font-medium">{data.title || '-'}</p>
                         </div>
                         <div>
+                            <h4 className="font-medium text-sm text-muted-foreground">Clima</h4>
+                            <p className="capitalize">{data.climate || 'Não definido'}</p>
+                        </div>
+                        <div>
                             <p className="text-xs text-muted-foreground">Tom / Estilo</p>
                             <div className="flex flex-wrap gap-2 mt-1">
-                                {data.tone && <Badge variant="secondary">{data.tone}</Badge>}
                                 {/* Show Tone Name if available for toneId - assuming we don't have access to tone list here without hook, can use data.tone as string fallback if synced */}
                                 {data.styleId && <Badge variant="outline">Estilo ID: {data.styleId.slice(0, 8)}...</Badge>}
                                 {data.targetAudience && <Badge variant="outline" className="text-blue-500 border-blue-200">{data.targetAudience}</Badge>}

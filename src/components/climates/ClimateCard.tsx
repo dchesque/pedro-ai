@@ -4,7 +4,7 @@ import { Climate } from '@/hooks/use-climates'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Edit2, MessageSquare, MoreHorizontal, Settings, Trash2 } from 'lucide-react'
+import { Edit2, MessageSquare, MoreHorizontal, Settings, Trash2, Eye } from 'lucide-react'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,17 +16,15 @@ interface ClimateCardProps {
     climate: Climate
     onEdit?: (climate: Climate) => void
     onDelete?: (id: string) => void
+    onView?: (climate: Climate) => void
 }
 
-export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
+export function ClimateCard({ climate, onEdit, onDelete, onView }: ClimateCardProps) {
     return (
         <Card className="bg-card border-border overflow-hidden group hover:border-primary/50 transition-all duration-300 shadow-sm">
             <CardHeader className="p-4 space-y-0 pb-2">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="text-3xl grayscale group-hover:grayscale-0 transition-all duration-500">
-                            {climate.icon}
-                        </div>
                         <div className="flex flex-col">
                             <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                                 {climate.name}
@@ -42,29 +40,41 @@ export function ClimateCard({ climate, onEdit, onDelete }: ClimateCardProps) {
                         </div>
                     </div>
 
-                    {!climate.isSystem && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="border-border">
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer gap-2"
-                                    onClick={() => onEdit?.(climate)}
-                                >
-                                    <Edit2 className="h-3 w-3" /> Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer gap-2 text-destructive"
-                                    onClick={() => onDelete?.(climate.id)}
-                                >
-                                    <Trash2 className="h-3 w-3" /> Excluir
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => onView?.(climate)}
+                            title="Ver Detalhes"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
+
+                        {!climate.isSystem && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="border-border">
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer gap-2"
+                                        onClick={() => onEdit?.(climate)}
+                                    >
+                                        <Edit2 className="h-3 w-3" /> Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer gap-2 text-destructive"
+                                        onClick={() => onDelete?.(climate.id)}
+                                    >
+                                        <Trash2 className="h-3 w-3" /> Excluir
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="p-4 pt-0">

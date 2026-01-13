@@ -19,7 +19,7 @@ export function useSaveScript() {
                 title: data.title,
                 theme: data.theme,
                 synopsis: data.synopsis,
-                tone: data.tone,
+                // tone: data.tone, // Removed
                 style: data.styleId,
                 sceneCount: data.sceneCount,
                 // Enviar cenas para o endpoint de criação

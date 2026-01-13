@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { Agent } from '../../../prisma/generated/client_final';
 import { generateText } from 'ai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'; // Import openrouter provider
 
 const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
@@ -66,11 +66,26 @@ Baseado nas respostas acima, gere a configuração no formato JSON especificado.
             modelId = parts.slice(1).join(':');
         }
 
-        // TODO: Suportar outros providers além de OpenRouter no agent-executor
-        // Se providerId for 'fal', precisaríamos de um adaptador diferente aqui
+        let modelInstance;
+
+        if (providerId === 'openrouter') {
+            modelInstance = openrouter(modelId as any);
+        } else if (providerId === 'fal') {
+            // Fal adapter for text generation via Vercel AI SDK not typically standard yet in this codebase context?
+            // Fallback to openrouter if it happens to be valid there, or error.
+            // Assuming for now agent execution for JSON config is mainly LLM (OpenRouter).
+            // Se provider for fal, vamos tentar usar openrouter com o modelId pois 
+            // muitos modelos estão em ambos, ou lançar erro se for específico.
+            console.warn(`Provider 'fal' requested for text agent. Falling back to OpenRouter logic or specific implementation.`);
+            // TODO: Implementar adapter fal para vercel ai sdk se necessário
+            modelInstance = openrouter(modelId as any);
+        } else {
+            // Default to openrouter logic
+            modelInstance = openrouter(modelId as any);
+        }
 
         const { text } = await generateText({
-            model: openrouter(modelId as any),
+            model: modelInstance,
             prompt: prompt,
         });
 
@@ -79,7 +94,11 @@ Baseado nas respostas acima, gere a configuração no formato JSON especificado.
         try {
             // Remover possíveis blocos de código markdown
             const jsonContent = text.replace(/```json\n|\n```/g, '').trim();
-            output = JSON.parse(jsonContent);
+            // Tentar encontrar JSON pattern se houver texto em volta
+            const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+            const finalJson = jsonMatch ? jsonMatch[0] : jsonContent;
+
+            output = JSON.parse(finalJson);
         } catch (e) {
             console.error('Failed to parse IA response:', text);
             throw new Error('A IA retornou um formato inválido. Tente novamente.');
