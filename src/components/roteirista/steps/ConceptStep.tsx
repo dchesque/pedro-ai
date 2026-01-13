@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { AITextAssistant } from '../AITextAssistant'
 import { useStyles } from '@/hooks/use-styles'
-import { useTones } from '@/hooks/use-tones'
+import { useClimates, Climate } from '@/hooks/use-climates'
 import { useAvailableModels } from '@/hooks/use-available-models'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
@@ -27,6 +27,7 @@ import type { ScriptFormData } from '@/lib/roteirista/types'
 import { StylePreviewCard } from '../StylePreviewCard'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ClimateSelector } from '@/components/climates/ClimateSelector'
 
 interface ConceptStepProps {
     data: Partial<ScriptFormData>
@@ -38,27 +39,27 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
 
     // Data Hooks
     const { data: stylesData, isLoading: loadingStyles } = useStyles()
-    const { data: tonesData, isLoading: loadingTones } = useTones()
+    const { data: climatesData, isLoading: loadingClimates } = useClimates()
     const { data: modelsData, isLoading: loadingModels } = useAvailableModels()
 
     const styles = stylesData?.styles || []
-    const tones = tonesData?.tones || []
+    const climates = climatesData?.climates || []
     const models = modelsData?.models || []
 
     const [suggestingTitles, setSuggestingTitles] = useState(false)
     const [titles, setTitles] = useState<string[]>([])
 
     const selectedStyle = styles.find(s => s.id === data.styleId)
-    const selectedTone = tones.find(t => t.id === data.toneId)
+    const selectedClimate = climates.find(c => c.id === data.climateId)
 
     // Sync legacy/new fields
     const handleChange = (field: keyof ScriptFormData, value: any) => {
         const updates: Partial<ScriptFormData> = { [field]: value }
 
-        // Sync tone name if toneId changes
-        if (field === 'toneId') {
-            const toneObj = tones.find(t => t.id === value)
-            if (toneObj) updates.tone = toneObj.name
+        // Sync climate name if climateId changes
+        if (field === 'climateId') {
+            const climateObj = climates.find(c => c.id === value)
+            if (climateObj) updates.climate = climateObj.name
         }
 
         // Sync theme with premise
@@ -77,7 +78,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                 action: 'expand',
                 context: {
                     fieldType: 'synopsis',
-                    tone: selectedTone?.name || data.tone,
+                    tone: selectedClimate?.name || data.climate,
                 },
             })
             return response.suggestion
@@ -94,7 +95,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
             const response = await api.post<{ titles: string[] }>('/api/roteirista/ai/suggest-titles', {
                 theme: data.premise || data.theme || '',
                 styleId: data.styleId,
-                tone: selectedTone?.name || data.tone,
+                tone: selectedClimate?.name || data.climate,
             })
             return response.titles
         },
@@ -163,7 +164,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                         </Select>
                     </div>
 
-                    {/* Tom (Atualizado para usar ToneId) */}
+                    {/* Clima (Atualizado v2.0) */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Tom / Clima *</Label>
@@ -174,32 +175,17 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                                             <MessageSquare className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Gerenciar Tons</TooltipContent>
+                                    <TooltipContent>Gerenciar Climas</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                         </div>
-                        <Select
-                            value={data.toneId || ''}
-                            onValueChange={(value) => handleChange('toneId', value)}
-                        >
-                            <SelectTrigger className="bg-background/50 h-9">
-                                <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {loadingTones ? (
-                                    <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
-                                ) : (
-                                    tones.map((tone) => (
-                                        <SelectItem key={tone.id} value={tone.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{tone.icon}</span>
-                                                <span>{tone.name}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
+                        <ClimateSelector
+                            value={data.climateId}
+                            onValueChange={(id, climate) => {
+                                handleChange('climateId', id)
+                                if (climate) handleChange('climate', climate.name)
+                            }}
+                        />
                     </div>
 
                     {/* Modelo de IA */}
@@ -309,7 +295,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                 placeholder="Descreva brevemente a ideia central da história..."
                 description="Uma frase ou parágrafo curto. A IA vai expandir isso em uma sinopse completa."
                 fieldType="synopsis"
-                context={{ title: data.title, tone: selectedTone?.name || data.tone }}
+                context={{ title: data.title, tone: selectedClimate?.name || data.climate }}
                 rows={2}
                 actions={['improve', 'rewrite']}
             />
@@ -323,7 +309,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                     placeholder="A história completa em detalhes..."
                     description="Descrição completa da história. Pode gerar automaticamente a partir do tema."
                     fieldType="synopsis"
-                    context={{ title: data.title, tone: selectedTone?.name || data.tone }}
+                    context={{ title: data.title, tone: selectedClimate?.name || data.climate }}
                     rows={5}
                     actions={['improve', 'expand', 'rewrite', 'summarize']}
                 />

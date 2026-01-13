@@ -11,8 +11,8 @@ import type { Agent, Style } from './use-agents'
 
 export function useGlobalAgents() {
     return useQuery<{ agents: Agent[] }>({
-        queryKey: ['admin', 'agents'],
-        queryFn: () => api.get('/api/admin/agents'),
+        queryKey: ['admin', 'system-agents'],
+        queryFn: () => api.get('/api/admin/system-agents'),
     })
 }
 
@@ -22,10 +22,10 @@ export function useSaveGlobalAgent() {
 
     return useMutation({
         mutationFn: (agent: Partial<Agent> & { type: string; systemPrompt: string }) =>
-            api.post('/api/admin/agents', agent),
+            api.post('/api/admin/system-agents', agent),
         onSuccess: () => {
             toast({ title: 'Agente global salvo!' })
-            queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'system-agents'] })
         },
         onError: (error: Error) => {
             toast({ title: 'Erro', description: error.message, variant: 'destructive' })
@@ -38,10 +38,10 @@ export function useDeleteGlobalAgent() {
     const { toast } = useToast()
 
     return useMutation({
-        mutationFn: (type: string) => api.delete(`/api/admin/agents/${type}`),
+        mutationFn: (type: string) => api.delete(`/api/admin/system-agents/${type}`),
         onSuccess: () => {
             toast({ title: 'Agente deletado!' })
-            queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'system-agents'] })
         },
         onError: (error: Error) => {
             toast({ title: 'Erro', description: error.message, variant: 'destructive' })

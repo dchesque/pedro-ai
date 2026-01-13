@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { AgentType } from '../../../prisma/generated/client_final'
+import { SystemAgentType } from '../../../prisma/generated/client_final'
 import { DEFAULT_AGENT_PROMPTS, DEFAULT_STYLES, getDefaultStyle } from './defaults'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 
@@ -32,7 +32,7 @@ export interface ResolvedStyle {
 // ============================================
 
 export async function resolveAgent(
-    type: AgentType,
+    type: SystemAgentType,
     userId?: string
 ): Promise<ResolvedAgent> {
     // 1. Tentar buscar agente do usuário
@@ -84,8 +84,8 @@ export async function resolveAgent(
 }
 
 // Helper para mapear AgentType para LLMFeatureKey
-async function getDefaultModelForAgent(type: AgentType): Promise<string> {
-    const featureKeyMap: Record<AgentType, string> = {
+async function getDefaultModelForAgent(type: SystemAgentType): Promise<string> {
+    const featureKeyMap: Record<SystemAgentType, string> = {
         SCRIPTWRITER: 'agent_scriptwriter',
         PROMPT_ENGINEER: 'agent_prompt_engineer',
         NARRATOR: 'agent_narrator',

@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.0] - 2026-01-13
+
+### Added
+- **Sistema de Agents v1.0**: Uma nova funcionalidade que permite aos usuários criar configurações complexas de Clima e Estilo através de assistentes interativos baseados em IA.
+- **Novos Modelos de Dados**: Implementação do modelo `Agent` no Prisma com suporte a campos flexíveis (`questions`, `outputFields`, `validationRules`) armazenados em JSON.
+- **Agent Executor**: Motor central de processamento (`agent-executor.ts`) que mapeia respostas do usuário para prompts de IA e valida o output gerado.
+- **Public APIs**: Endpoints para listagem, detalhes e execução de agents.
+- **Admin APIs**: Interface de backend para gerenciamento completo dos agents pelo administrador.
+- **User Interface**: 
+    - Dashboard de Agents em `/agents`.
+    - Wizard de interação em `/agents/[slug]` com suporte a múltiplos tipos de perguntas (select, texto, etc).
+    - Modal de finalização para transformar output de IA em Climas ou Estilos permanentes.
+- **Admin Interface**: 
+    - Gestão de agents em `/admin/agents`.
+    - Editor de Agent com foco em System Message e parâmetros de modelo.
+- **Seed System**: Novo script `scripts/seed-agents.js` populando os agents especializados de Clima e Estilo.
+
+### Changed
+- **Refatoração SystemAgentType**: O enum `AgentType` antigo (usado por `GlobalAgent`) foi renomeado para `SystemAgentType` para garantir isolamento e evitar conflitos com os novos Agents de usuário.
+- **Configuração de Seed**: Atualizado `package.json` para executar seeds de ambientes e agents simultaneamente.
+- **Integração de Criação**: Endpoints de `Climates` e `Styles` agora aceitam flag `fromAgent` para processar inputs estruturados vindos do sistema de agents.
+- **Navegação**: Ícone de "Sparkles" adicionado às sidebars de usuário e admin.
+
+### Fixed
+- **Isolamento de Tipos**: Garantida a separação entre agents de infraestrutura (Scriptwriter, Narrator) e agents de template (Clima, Estilo).
+- **Prisma Import nos Seeds**: Corrigidos caminhos de importação do Prisma Client nos scripts de seed para evitar erros de inicialização.
+- **Robustez de Seed**: Implementada verificação manual de existência no `seed-climates.js` para maior resiliência em ambientes Windows.
+
+## [1.10.0] - 2026-01-13
+
+### Added
+- **Sistema de Climas v2.0**: Refatoração completa da entidade "Tom de Voz" para "Climas Narrativos", introduzindo controles comportamentais guiados.
+- **Controle Comportamental**: Novos campos no banco de dados (`EmotionalState`, `RevelationDynamic`, `NarrativePressure`, `HookType`, `ClosingType`) para guiar a IA de forma precisa.
+- **Interfaces de Climas**: 
+    - `ClimateSelector`: Novo componente de seleção premium com metadados visuais.
+    - `ClimateModal`: Wizard de 3 passos para criação guiada de climas narrativos.
+    - `ClimateCard`: Exibição detalhada de atributos comportamentais.
+- **Scripts de Gestão**: Inclusão de scripts para migração de dados e seed de climas do sistema (`seed-climates.js`).
+
+### Changed
+- **Database Schema**: Renomeado modelo `Tone` para `Climate` e atualizadas todas as relações em `Short` e `Style`.
+- **Backend API**: Refatorada rota `/api/tones` para `/api/climates` com integração de `guard-rails` e `behavior-mapping`.
+- **Scriptwriter Agent**: Atualizado para injetar instruções comportamentais dinâmicas baseadas no clima.
+
 ## [1.9.1] - 2026-01-13
 
 ### Fixed

@@ -1,0 +1,123 @@
+import { NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { auth } from "@clerk/nextjs/server"
+import { validateClimateConfiguration } from "@/lib/climate/guard-rails"
+import { EMOTIONAL_STATE_PROMPTS, REVELATION_DYNAMIC_PROMPTS, NARRATIVE_PRESSURE_PROMPTS } from "@/lib/climate/behavior-mapping"
+
+export async function GET(request: NextRequest) {
+    try {
+        const { userId } = await auth()
+
+        const climates = await db.climate.findMany({
+            where: {
+                OR: [
+                    { isSystem: true },
+                    { userId: userId || "undefined_user" }
+                ],
+            },
+            orderBy: [
+                { isSystem: 'desc' },
+                { name: 'asc' }
+            ]
+        })
+
+        // Add labels, icons and type for frontend
+        const serializedClimates = climates.map(climate => {
+            const emotionalDetails = EMOTIONAL_STATE_PROMPTS[climate.emotionalState]
+            const revelationDetails = REVELATION_DYNAMIC_PROMPTS[climate.revelationDynamic]
+            const pressureDetails = NARRATIVE_PRESSURE_PROMPTS[climate.narrativePressure]
+
+            return {
+                ...climate,
+                type: climate.isSystem ? 'system' : 'personal',
+                emotionalDetails,
+                revelationDetails,
+                pressureDetails
+            }
+        })
+
+        return NextResponse.json({ climates: serializedClimates })
+    } catch (error) {
+        console.error("Error fetching climates:", error)
+        return NextResponse.json(
+            { error: "Internal Server Error" },
+            { status: 500 }
+        )
+    }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const { userId } = await auth()
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        const body = await request.json()
+        const { name, icon, fromAgent, agentOutput } = body
+
+        let dataToSave: any = {}
+
+        if (fromAgent && agentOutput) {
+            dataToSave = {
+                name,
+                icon: icon || '🎭',
+                description: agentOutput.description,
+                emotionalState: agentOutput.emotionalState,
+                revelationDynamic: agentOutput.revelationDynamic,
+                narrativePressure: agentOutput.narrativePressure,
+                hookType: agentOutput.hookType,
+                closingType: agentOutput.closingType,
+                sentenceMaxWords: agentOutput.sentenceMaxWords || 15,
+                maxScenes: agentOutput.suggestedScenes || 15,
+                isSystem: false,
+                userId
+            }
+        } else {
+            const { description, emotionalState, revelationDynamic, narrativePressure, promptFragment } = body
+
+            if (!name || !emotionalState || !revelationDynamic || !narrativePressure) {
+                return NextResponse.json(
+                    { error: "Missing required fields" },
+                    { status: 400 }
+                )
+            }
+
+            // Validate combination with guard-rails
+            const { corrected } = validateClimateConfiguration({
+                emotionalState,
+                revelationDynamic,
+                narrativePressure
+            })
+
+            dataToSave = {
+                name,
+                icon: icon || '🎭',
+                description,
+                emotionalState: corrected.emotionalState,
+                revelationDynamic: corrected.revelationDynamic,
+                narrativePressure: corrected.narrativePressure,
+                hookType: corrected.hookType,
+                closingType: corrected.closingType,
+                promptFragment,
+                isSystem: false,
+                userId
+            }
+        }
+
+        const climate = await db.climate.create({
+            data: dataToSave
+        })
+
+        return NextResponse.json({
+            ...climate,
+            type: 'personal'
+        })
+    } catch (error) {
+        console.error("Error creating climate:", error)
+        return NextResponse.json(
+            { error: "Internal Server Error" },
+            { status: 500 }
+        )
+    }
+}

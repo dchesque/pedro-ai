@@ -1,28 +1,24 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin';
 
-// GET - Listar todos os agents (admin)
 export async function GET() {
-    await requireAdmin();
-
     try {
         const agents = await db.agent.findMany({
+            where: { isActive: true },
             select: {
                 id: true,
                 name: true,
                 slug: true,
+                description: true,
+                icon: true,
                 type: true,
-                model: true,
-                isActive: true,
-                updatedAt: true,
             },
             orderBy: { name: 'asc' },
         });
 
         return NextResponse.json({ agents });
     } catch (error) {
-        console.error('Admin fetch agents error:', error);
+        console.error('Failed to fetch agents:', error);
         return NextResponse.json({ error: 'Failed to fetch agents' }, { status: 500 });
     }
 }

@@ -1,10 +1,10 @@
-import { AgentType } from '../../../prisma/generated/client_final'
+import { SystemAgentType } from '../../../prisma/generated/client_final'
 
 // ============================================
 // PROMPTS PADRÃO DOS AGENTES (FALLBACK)
 // ============================================
 
-export const DEFAULT_AGENT_PROMPTS: Record<AgentType, {
+export const DEFAULT_AGENT_PROMPTS: Record<SystemAgentType, {
     name: string
     systemPrompt: string
     model: string

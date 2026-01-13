@@ -55,7 +55,7 @@ export async function GET() {
                 _count: {
                     select: { shorts: true }
                 },
-                suggestedTone: true // Include tone details
+                suggestedClimate: true // Include climate details
             },
             orderBy: [
                 { isDefault: 'desc' },
@@ -96,19 +96,38 @@ export async function POST(req: Request) {
         }
 
         const json = await req.json()
-        const parsed = styleSchema.safeParse(json)
+        const { name, icon, fromAgent, agentOutput } = json
 
-        if (!parsed.success) {
-            return NextResponse.json({ error: 'Invalid data', details: parsed.error.format() }, { status: 400 })
+        let styleData: any = {}
+
+        if (fromAgent && agentOutput) {
+            styleData = {
+                name,
+                icon: icon || '🎨',
+                description: agentOutput.description,
+                contentType: agentOutput.contentType.toLowerCase(),
+                narrativeStyle: agentOutput.narrativeStructure,
+                languageStyle: agentOutput.narrativePerspective,
+                exampleHook: agentOutput.suggestedHookTemplate,
+                exampleCta: agentOutput.suggestedCtaTemplate,
+                userId: user.id
+            }
+        } else {
+            const parsed = styleSchema.safeParse(json)
+
+            if (!parsed.success) {
+                return NextResponse.json({ error: 'Invalid data', details: parsed.error.format() }, { status: 400 })
+            }
+
+            styleData = {
+                ...parsed.data,
+                userId: user.id,
+                keywords: parsed.data.keywords || [],
+            }
         }
 
         const style = await db.style.create({
-            data: {
-                ...parsed.data,
-                userId: user.id,
-                // Garantir keywords array
-                keywords: parsed.data.keywords || [],
-            }
+            data: styleData
         })
 
         return NextResponse.json({

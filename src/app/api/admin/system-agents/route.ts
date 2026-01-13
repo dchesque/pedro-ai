@@ -1,43 +1,41 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { validateUserAuthentication, getUserFromClerkId } from '@/lib/auth-utils'
+import { requireAdmin } from '@/lib/admin'
 import { SystemAgentType } from '../../../../../prisma/generated/client_final'
 
-// GET - Listar agentes do usuário
+// GET - Listar agentes globais
 export async function GET() {
-    const clerkUserId = await validateUserAuthentication()
-    const user = await getUserFromClerkId(clerkUserId)
+    await requireAdmin()
 
-    const agents = await db.userAgent.findMany({
-        where: { userId: user.id },
+    const agents = await db.globalAgent.findMany({
         orderBy: { type: 'asc' },
     })
 
     return NextResponse.json({ agents })
 }
 
-// POST - Criar/Atualizar agente do usuário
+// POST - Criar/Atualizar agente global
 const AgentSchema = z.object({
     type: z.nativeEnum(SystemAgentType),
     name: z.string().min(1).max(100),
     description: z.string().max(500).optional(),
     systemPrompt: z.string().min(10).max(10000),
-    model: z.string().max(100).optional(),
-    temperature: z.number().min(0).max(2).optional(),
+    model: z.string().min(1).max(100),
+    temperature: z.number().min(0).max(2),
     isActive: z.boolean().optional(),
 })
 
 export async function POST(req: Request) {
-    const clerkUserId = await validateUserAuthentication()
-    const user = await getUserFromClerkId(clerkUserId)
+    await requireAdmin()
 
     const json = await req.json()
     const data = AgentSchema.parse(json)
 
-    const agent = await db.userAgent.upsert({
-        where: { userId_type: { userId: user.id, type: data.type } },
-        create: { ...data, userId: user.id, clerkUserId },
+    // Upsert - cria ou atualiza
+    const agent = await db.globalAgent.upsert({
+        where: { type: data.type },
+        create: data,
         update: data,
     })
 

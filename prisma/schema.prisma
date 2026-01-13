@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "./generated/client_final"
@@ -15,49 +9,46 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String?  @unique
-  name      String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  creditBalance      CreditBalance?
-  usageHistory       UsageHistory[]
-  storageObjects     StorageObject[]
-  subscriptionEvents SubscriptionEvent[]
-  asaasCustomerId    String?   @unique
-  asaasCustomerIdSandbox    String?   @unique
-  asaasCustomerIdProduction String?   @unique
-  asaasSubscriptionId String?
-  currentPlanId      String?
-  cpfCnpj            String?
-  billingPeriodEnd      DateTime?
-  cancellationScheduled Boolean  @default(false)
-  cancellationDate      DateTime?
+  id                        String              @id @default(cuid())
+  clerkId                   String              @unique
+  email                     String?             @unique
+  name                      String?
+  isActive                  Boolean             @default(true)
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  asaasCustomerId           String?             @unique
+  asaasCustomerIdSandbox    String?             @unique
+  asaasCustomerIdProduction String?             @unique
+  asaasSubscriptionId       String?
+  currentPlanId             String?
+  cpfCnpj                   String?
+  billingPeriodEnd          DateTime?
+  cancellationScheduled     Boolean             @default(false)
+  cancellationDate          DateTime?
+  characters                Character[]
+  creditBalance             CreditBalance?
+  shorts                    Short[]
+  storageObjects            StorageObject[]
+  styles                    Style[]
+  subscriptionEvents        SubscriptionEvent[]
+  climates                  Climate[]
+  usageHistory              UsageHistory[]
+  userAgents                UserAgent[]
+  userStyles                UserStyle[]
 
   @@index([email])
   @@index([name])
   @@index([createdAt])
   @@index([isActive])
   @@index([currentPlanId])
-  shorts            Short[]
-  userAgents        UserAgent[]
-  userStyles        UserStyle[]
-  styles            Style[]
-  tones             Tone[]
-  characters        Character[]
 }
 
-
-// Workspace features and linkage to projects
 model Feature {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   name        String
   description String?
   tags        String[]
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -65,16 +56,15 @@ model Feature {
 }
 
 model CreditBalance {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  clerkUserId       String   @unique
-  creditsRemaining  Int      @default(100)  // Cached from Clerk
-  lastSyncedAt      DateTime @default(now())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user              User     @relation(fields: [userId], references: [id])
-  usageHistory      UsageHistory[]
+  id               String         @id @default(cuid())
+  userId           String         @unique
+  clerkUserId      String         @unique
+  creditsRemaining Int            @default(100)
+  lastSyncedAt     DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  user             User           @relation(fields: [userId], references: [id])
+  usageHistory     UsageHistory[]
 
   @@index([userId])
   @@index([clerkUserId])
@@ -82,18 +72,16 @@ model CreditBalance {
   @@index([lastSyncedAt])
 }
 
-// Track individual usage events
 model UsageHistory {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   userId          String
   creditBalanceId String
   operationType   OperationType
   creditsUsed     Int
   details         Json?
-  timestamp       DateTime @default(now())
-
-  user            User     @relation(fields: [userId], references: [id])
+  timestamp       DateTime      @default(now())
   creditBalance   CreditBalance @relation(fields: [creditBalanceId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([creditBalanceId])
@@ -101,6 +89,354 @@ model UsageHistory {
   @@index([operationType])
   @@index([userId, timestamp])
   @@index([operationType, timestamp])
+}
+
+model Short {
+  id               String           @id @default(cuid())
+  userId           String
+  clerkUserId      String
+  title            String?
+  theme            String
+  targetDuration   Int              @default(30)
+  style            String           @default("engaging")
+  script           Json?
+  hook             String?
+  cta              String?
+  status           ShortStatus      @default(DRAFT)
+  progress         Int              @default(0)
+  errorMessage     String?
+  creditsUsed      Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  completedAt      DateTime?
+  aiModel          String?          @default("deepseek/deepseek-v3.2")
+  scriptApprovedAt DateTime?
+  scriptVersion    Int              @default(1)
+  summary          String?
+  synopsis         String?
+  styleId          String?
+  fullNarration    String?
+  premise          String?
+  story            String?
+  toneId           String?
+  styleRelation    Style?           @relation(fields: [styleId], references: [id])
+  climate          Climate?         @relation(fields: [climateId], references: [id]) 
+  climateId        String?
+  user             User             @relation(fields: [userId], references: [id])
+  characters       ShortCharacter[]
+  scenes           ShortScene[]
+
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ShortScene {
+  id             String         @id @default(cuid())
+  shortId        String
+  order          Int
+  duration       Int            @default(5)
+  narration      String?
+  visualDesc     String?
+  imagePrompt    String?
+  negativePrompt String?
+  mediaType      SceneMediaType @default(IMAGE)
+  mediaUrl       String?
+  mediaWidth     Int?
+  mediaHeight    Int?
+  isGenerated    Boolean        @default(false)
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  visualPrompt   String?
+  short          Short          @relation(fields: [shortId], references: [id], onDelete: Cascade)
+
+  @@index([shortId])
+  @@index([order])
+}
+
+model AdminSettings {
+  id            String   @id @default("singleton")
+  featureCosts  Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  defaultModels Json?
+}
+
+model Plan {
+  id                String   @id @default(cuid())
+  asaasId           String?  @unique
+  clerkId           String?  @unique
+  clerkName         String?
+  name              String
+  credits           Int
+  active            Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  currency          String?  @default("brl")
+  priceMonthlyCents Int?
+  priceYearlyCents  Int?
+  description       String?
+  features          Json?
+  badge             String?
+  highlight         Boolean  @default(false)
+  ctaType           String?  @default("contact")
+  ctaLabel          String?
+  ctaUrl            String?
+  billingSource     String   @default("manual")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([active])
+  @@index([sortOrder])
+}
+
+model StorageObject {
+  id          String    @id @default(cuid())
+  userId      String
+  clerkUserId String
+  provider    String    @default("vercel_blob")
+  url         String
+  pathname    String
+  name        String
+  contentType String?
+  size        Int
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([clerkUserId])
+  @@index([contentType])
+  @@index([deletedAt])
+  @@index([name])
+}
+
+model SubscriptionEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  clerkUserId String
+  planKey     String?
+  status      String
+  eventType   String
+  occurredAt  DateTime @default(now())
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([clerkUserId, occurredAt])
+  @@index([userId, occurredAt])
+}
+
+model GlobalAgent {
+  id           String          @id @default(cuid())
+  type         SystemAgentType @unique
+  name         String
+  description  String?
+  systemPrompt String
+  model        String          @default("anthropic/claude-3.5-sonnet")
+  temperature  Float           @default(0.7)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model UserAgent {
+  id           String          @id @default(cuid())
+  userId       String
+  clerkUserId  String
+  type         SystemAgentType
+  name         String
+  description  String?
+  systemPrompt String
+  model        String?
+  temperature  Float?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([type])
+}
+
+model Agent {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  description     String?
+  icon            String?   // Emoji
+  type            AgentType
+  systemMessage   String    @db.Text
+  questions       Json      // Array de perguntas
+  outputFields    Json      // Campos do output
+  validationRules Json?     // Regras de validação cruzada
+  model           String    @default("deepseek/deepseek-chat")
+  creditsPerUse   Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model GlobalStyle {
+  id                   String   @id @default(cuid())
+  key                  String   @unique
+  name                 String
+  description          String?
+  icon                 String?
+  scriptwriterPrompt   String?
+  promptEngineerPrompt String?
+  visualStyle          String?
+  negativePrompt       String?
+  sortOrder            Int      @default(0)
+  isActive             Boolean  @default(true)
+  isDefault            Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([key])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model UserStyle {
+  id                   String   @id @default(cuid())
+  userId               String
+  clerkUserId          String
+  key                  String
+  name                 String
+  description          String?
+  icon                 String?
+  scriptwriterPrompt   String?
+  promptEngineerPrompt String?
+  visualStyle          String?
+  negativePrompt       String?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([key])
+}
+
+model Character {
+  id                String           @id @default(cuid())
+  userId            String
+  clerkUserId       String
+  name              String
+  description       String?
+  imageUrl          String
+  thumbnailUrl      String?
+  traits            Json?
+  promptDescription String
+  isActive          Boolean          @default(true)
+  usageCount        Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortCharacters   ShortCharacter[]
+
+  @@index([userId])
+  @@index([clerkUserId])
+  @@index([isActive])
+  @@index([usageCount])
+}
+
+model ShortCharacter {
+  id             String    @id @default(cuid())
+  shortId        String
+  characterId    String
+  role           String    @default("character")
+  orderIndex     Int       @default(0)
+  customPrompt   String?
+  customClothing String?
+  createdAt      DateTime  @default(now())
+  character      Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  short          Short     @relation(fields: [shortId], references: [id], onDelete: Cascade)
+
+  @@unique([shortId, characterId])
+  @@index([shortId])
+  @@index([characterId])
+}
+
+model Style {
+  id                 String   @id @default(cuid())
+  userId             String?
+  name               String
+  description        String?
+  icon               String?  @default("🎬")
+  contentType        String   @default("story")
+  scriptwriterPrompt String?
+  narrativeStyle     String?
+  languageStyle      String?
+  exampleHook        String?
+  exampleCta         String?
+  visualPrompt       String?
+  isDefault          Boolean  @default(false)
+  isPublic           Boolean  @default(false)
+  usageCount         Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  keywords           String[]
+  suggestedClimateId    String?
+  targetAudience     String?
+  shorts             Short[]
+  suggestedClimate   Climate?    @relation(fields: [suggestedClimateId], references: [id])
+  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+// Clima da narrativa
+model Climate {
+  id              String    @id @default(cuid())
+  userId          String?   // Null = Sistema, ID = Pessoal
+  
+  name            String
+  description     String?
+  icon            String?   // Emoji
+  
+  // Novos campos comportamentais v2.0
+  emotionalState    EmotionalState    @default(CURIOSITY)
+  revelationDynamic RevelationDynamic @default(PROGRESSIVE)
+  narrativePressure NarrativePressure @default(FLUID)
+  hookType          HookType          @default(QUESTION)
+  closingType       ClosingType       @default(CTA_DIRECT)
+  
+  // Limites e Regras
+  allowedRevelations Json?             // Array de revelações permitidas
+  allowedPressures   Json?             // Array de pressões permitidas
+  sentenceMaxWords   Int               @default(15)
+  minScenes          Int               @default(3)
+  maxScenes          Int               @default(15)
+
+  // Instruções para o agente (agora opcional para ajuste fino)
+  promptFragment  String?    @db.Text 
+  
+  // Metadados
+  isSystem        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relações
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shorts          Short[]
+  Style           Style[]
+  
+  @@unique([name, userId])
+  @@index([userId])
+  @@index([isSystem])
 }
 
 enum OperationType {
@@ -114,477 +450,70 @@ enum OperationType {
   SCENE_REGENERATION
 }
 
-// Status do Short
+enum EmotionalState {
+  CURIOSITY
+  THREAT
+  FASCINATION
+  CONFRONTATION
+  DARK_INSPIRATION
+}
+
+enum RevelationDynamic {
+  PROGRESSIVE
+  HIDDEN
+  EARLY
+  FRAGMENTS
+}
+
+enum NarrativePressure {
+  SLOW
+  FLUID
+  FAST
+}
+
+enum HookType {
+  QUESTION
+  SHOCK
+  CHALLENGE
+  MYSTERY
+  STATEMENT
+}
+
+enum ClosingType {
+  CTA_DIRECT
+  REVELATION
+  QUESTION
+  CHALLENGE
+  LOOP
+}
+
 enum ShortStatus {
-  DRAFT              // Rascunho inicial (só tema/config)
-  GENERATING_SCRIPT  // Gerando roteiro
-  SCRIPT_READY       // Roteiro pronto - aguardando aprovação do usuário
-  SCRIPT_APPROVED    // Roteiro aprovado - pronto para gerar mídia
-  GENERATING_IMAGES  // Gerando imagens
-  IMAGES_READY       // Imagens prontas - pronto para vídeo
-  GENERATING_VIDEO   // Gerando vídeo
-  VIDEO_READY        // Vídeo pronto
-  PUBLISHED          // Publicado
-  COMPLETED          // Concluído (Legado/Geral)
-  FAILED             // Falhou
+  DRAFT
+  GENERATING_SCRIPT
+  SCRIPT_READY
+  SCRIPT_APPROVED
+  GENERATING_IMAGES
+  IMAGES_READY
+  GENERATING_VIDEO
+  VIDEO_READY
+  PUBLISHED
+  COMPLETED
+  FAILED
 }
 
-// Tipo de mídia da cena
 enum SceneMediaType {
-  IMAGE           // Imagem estática
-  VIDEO           // Vídeo animado
+  IMAGE
+  VIDEO
 }
 
-// Short principal
-model Short {
-  id              String       @id @default(cuid())
-  userId          String
-  clerkUserId     String
-  
-  // Input do usuário
-  title           String?      // Título (preenchido após roteiro)
-  theme           String       // Tema/nicho do short
-  targetDuration  Int          @default(30)  // Duração alvo em segundos
-  style           String       @default("engaging") // Estilo (engaging, educational, funny, etc)
-  styleId         String?      // Relacionamento com o novo sistema de estilos
-  styleRelation   Style?       @relation(fields: [styleId], references: [id])
-  
-  // Relação com Tom selecionado
-  toneId          String?
-  tone            Tone?        @relation(fields: [toneId], references: [id])
-  
-  // Novo: Modelo de IA escolhido pelo usuário
-  aiModel           String?     @default("deepseek/deepseek-v3.2")
-
-  // Novo: Resumo da história (gerado junto com roteiro)
-  summary           String?     @db.Text
-  synopsis          String?     @db.Text  // Sinopse expandida para o roteirista
-  premise           String?     @db.Text  // Premissa original do usuário
-  
-  // Roteiro gerado
-  script          Json?        // Roteiro completo em JSON (mantido por compatibilidade)
-  
-  story           String?      @db.Text // História/Sinopse gerada
-  hook            String?      @db.Text // Gancho inicial
-  cta             String?      @db.Text // Call to action final
-  fullNarration   String?      @db.Text // Narração completa concatenada
-  
-  // Novo: Versão do roteiro (para histórico futuro)
-  scriptVersion     Int         @default(1)
-  
-  // Status e progresso
-  status          ShortStatus  @default(DRAFT)
-  progress        Int          @default(0)    // 0-100
-  errorMessage    String?
-  
-  // Novo: Data de aprovação do roteiro
-  scriptApprovedAt  DateTime?
-
-  // Custos
-  creditsUsed     Int          @default(0)
-  
-  // Timestamps
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  completedAt     DateTime?
-  
-  // Relations
-  user            User         @relation(fields: [userId], references: [id])
-  scenes          ShortScene[]
-  characters      ShortCharacter[]
-  
-  @@index([userId])
-  @@index([clerkUserId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-// Cena do Short
-model ShortScene {
-  id              String         @id @default(cuid())
-  shortId         String
-  
-  // Ordem e timing
-  order           Int            // Ordem da cena (0, 1, 2...)
-  duration        Int            @default(5)  // Duração em segundos
-  
-  // Conteúdo do roteiro
-  narration       String?        @db.Text // Texto de narração desta cena
-  visualDesc      String?        @db.Text // Descrição visual do roteiro (original)
-  visualPrompt    String?        @db.Text // Prompt visual detalhado para IA
-  
-  // Prompts gerados
-  imagePrompt     String?        // Prompt para imagem
-  negativePrompt  String?        // Negative prompt
-  
-  // Mídia gerada
-  mediaType       SceneMediaType @default(IMAGE)
-  mediaUrl        String?        // URL da imagem/vídeo gerado
-  mediaWidth      Int?
-  mediaHeight     Int?
-  
-  // Status
-  isGenerated     Boolean        @default(false)
-  errorMessage    String?
-  
-  // Timestamps
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  
-  // Relations
-  short           Short          @relation(fields: [shortId], references: [id], onDelete: Cascade)
-  
-  @@index([shortId])
-  @@index([order])
-}
-
-// Singleton row storing admin-configurable credit settings
-model AdminSettings {
-  id           String   @id @default("singleton")
-  featureCosts Json?
-  defaultModels Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-// Subscription plans managed manually and optionally linked to payment providers
-model Plan {
-  id        String   @id @default(cuid())
-  asaasId   String?  @unique // Asaas plan ID for payment processing
-  clerkId   String?  @unique // Legacy Clerk plan ID (deprecated)
-  clerkName String?  // Legacy field
-  name      String
-  credits   Int
-  active    Boolean  @default(true)
-  sortOrder Int      @default(0)
-  // Pricing configuration (amounts in cents)
-  // Asaas only supports BRL (Brazilian Real)
-  currency           String?  @default("brl")
-  priceMonthlyCents  Int?
-  priceYearlyCents   Int?
-  description        String?  @db.Text
-  features           Json?
-  badge              String?
-  highlight          Boolean  @default(false)
-  ctaType            String?  @default("contact")
-  ctaLabel           String?
-  ctaUrl             String?
-  billingSource      String   @default("manual")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([active])
-  @@index([sortOrder])
-}
-
-// File/object uploads tracked for admin management
-model StorageObject {
-  id           String   @id @default(cuid())
-  userId       String
-  clerkUserId  String
-  provider     String   @default("vercel_blob")
-  url          String
-  pathname     String
-  name         String
-  contentType  String?
-  size         Int
-  deletedAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user         User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([createdAt])
-  @@index([clerkUserId])
-  @@index([contentType])
-  @@index([deletedAt])
-  @@index([name])
-}
-
-// Track subscription lifecycle events for revenue analytics
-model SubscriptionEvent {
-  id           String   @id @default(cuid())
-  userId       String?
-  clerkUserId  String
-  planKey      String?
-  status       String
-  eventType    String
-  occurredAt   DateTime @default(now())
-  metadata     Json?
-  createdAt    DateTime @default(now())
-
-  user         User?    @relation(fields: [userId], references: [id])
-
-  @@index([clerkUserId, occurredAt])
-  @@index([userId, occurredAt])
-}
-
-// ============================================
-// SISTEMA DE AGENTES E ESTILOS CONFIGURÁVEIS
-// ============================================
-
-// Tipo de agente
 enum AgentType {
-  SCRIPTWRITER      // Roteirista - cria roteiros
-  PROMPT_ENGINEER   // Engenheiro de Prompts - cria prompts de imagem
-  NARRATOR          // Narrador (futuro - ElevenLabs)
+  CLIMATE
+  STYLE
+  CUSTOM
 }
 
-// Agente Global (Admin) - fallback para todos os usuários
-model GlobalAgent {
-  id              String      @id @default(cuid())
-  type            AgentType   @unique  // Apenas 1 por tipo
-  name            String
-  description     String?
-  systemPrompt    String      @db.Text
-  model           String      @default("anthropic/claude-3.5-sonnet")
-  temperature     Float       @default(0.7)
-  isActive        Boolean     @default(true)
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  @@index([type])
-  @@index([isActive])
-}
-
-// Agente do Usuário - sobrepõe o global se existir
-model UserAgent {
-  id              String      @id @default(cuid())
-  userId          String
-  clerkUserId     String
-  type            AgentType
-  name            String
-  description     String?
-  systemPrompt    String      @db.Text
-  model           String?     // Se null, usa o do global ou default
-  temperature     Float?
-  isActive        Boolean     @default(true)
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, type])  // 1 agente por tipo por usuário
-  @@index([userId])
-  @@index([clerkUserId])
-  @@index([type])
-}
-
-// Estilo Global (Admin) - disponível para todos
-model GlobalStyle {
-  id              String      @id @default(cuid())
-  key             String      @unique  // ex: "engaging", "educational", "tech_review"
-  name            String               // ex: "Envolvente", "Educacional"
-  description     String?              // Descrição para UI
-  icon            String?              // Emoji ou nome do ícone (ex: "🔥", "Flame")
-  
-  // Prompts adicionais injetados no agente
-  scriptwriterPrompt    String?   @db.Text  // Adicional para o roteirista
-  promptEngineerPrompt  String?   @db.Text  // Adicional para prompt engineer
-  
-  // Configurações visuais para geração de imagem
-  visualStyle     String?     @db.Text  // Ex: "cinematic, dramatic lighting, 8k"
-  negativePrompt  String?     @db.Text  // Ex: "cartoon, anime, low quality"
-  
-  sortOrder       Int         @default(0)
-  isActive        Boolean     @default(true)
-  isDefault       Boolean     @default(false)  // Estilo padrão selecionado
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  @@index([key])
-  @@index([isActive])
-  @@index([sortOrder])
-}
-
-// Estilo do Usuário - customização pessoal
-model UserStyle {
-  id              String      @id @default(cuid())
-  userId          String
-  clerkUserId     String
-  
-  key             String      // ex: "meu_estilo_gaming", "reviews_tech"
-  name            String
-  description     String?
-  icon            String?
-  
-  // Prompts adicionais
-  scriptwriterPrompt    String?   @db.Text
-  promptEngineerPrompt  String?   @db.Text
-  
-  // Configurações visuais
-  visualStyle     String?     @db.Text
-  negativePrompt  String?     @db.Text
-  
-  isActive        Boolean     @default(true)
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, key])  // Key única por usuário
-  @@index([userId])
-  @@index([clerkUserId])
-  @@index([key])
-}
-
-// ============================================
-// SISTEMA DE BIBLIOTECA DE PERSONAGENS
-// ============================================
-
-model Character {
-  id                String   @id @default(cuid())
-  userId            String
-  clerkUserId       String
-  
-  // Informações básicas
-  name              String              // "Maria"
-  description       String?  @db.Text   // Descrição livre
-  
-  // Imagem de referência
-  imageUrl          String              // URL da imagem uploaded
-  thumbnailUrl      String?             // Versão menor para listagem
-  
-  // Características físicas (JSON estruturado)
-  traits            Json?
-  // Estrutura sugerida:
-  // {
-  //   "age": "6 anos",
-  //   "gender": "female",
-  //   "hairColor": "castanho",
-  //   "hairStyle": "rabo de cavalo",
-  //   "skinTone": "clara",
-  //   "eyeColor": "castanho",
-  //   "clothing": "vestido rosa",
-  //   "accessories": "laço vermelho",
-  //   "bodyType": "criança magra",
-  //   "distinctiveFeatures": "sardas no rosto"
-  // }
-  
-  // Prompt otimizado (gerado automaticamente ou editado pelo usuário)
-  promptDescription String   @db.Text   // Prompt em inglês otimizado para IA
-  
-  // Metadados
-  isActive          Boolean  @default(true)
-  usageCount        Int      @default(0)  // Quantos shorts usaram este personagem
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shortCharacters   ShortCharacter[]
-  
-  @@index([userId])
-  @@index([clerkUserId])
-  @@index([isActive])
-  @@index([usageCount])
-}
-
-model ShortCharacter {
-  id            String    @id @default(cuid())
-  shortId       String
-  characterId   String
-  
-  // Papel no short
-  role          String    @default("character")  // "protagonist", "sidekick", "antagonist", "supporting"
-  orderIndex    Int       @default(0)            // Ordem de importância/aparição
-  
-  // Customização para este short específico (opcional)
-  customPrompt  String?   @db.Text               // Override do prompt para este short
-  customClothing String?                          // Roupa diferente neste short
-  
-  createdAt     DateTime  @default(now())
-  
-  // Relations
-  short         Short     @relation(fields: [shortId], references: [id], onDelete: Cascade)
-  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  
-  @@unique([shortId, characterId])  // Mesmo personagem não pode ser adicionado 2x
-  @@index([shortId])
-  @@index([characterId])
-}
-
-model Style {
-  id          String   @id @default(cuid())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Identificação
-  name        String
-  description String?  @db.Text
-  icon        String?  @default("🎬")  // Emoji ou ícone
-  
-  // === NOVOS CAMPOS PARA O ROTEIRISTA ===
-  
-  // Tipo de conteúdo
-  contentType String   @default("story")  // news, story, meme, educational, motivational, tutorial, custom
-  
-  // Instruções para o agente roteirista
-  scriptwriterPrompt  String?  @db.Text   // Prompt detalhado com instruções
-  
-  // Parâmetros de estrutura
-  targetAudience      String?        // Público-alvo (ex: "Jovens 18-25")
-  keywords            String[]       // Palavras-chave/tags
-  
-  // Estilo de narrativa
-  narrativeStyle  String?  // "direto", "storytelling", "primeira_pessoa", "narrador_onisciente"
-  languageStyle   String?  // "formal", "informal", "jovem", "técnico"
-  
-  suggestedToneId String?
-  suggestedTone   Tone?    @relation("SuggestedTone", fields: [suggestedToneId], references: [id])
-  
-  // Exemplos (ajudam o agente a entender o estilo)
-  exampleHook     String?  @db.Text  // Exemplo de gancho/abertura
-  exampleCta      String?  @db.Text  // Exemplo de CTA/fechamento
-  
-  // === CAMPOS EXISTENTES (manter) ===
-  
-  // Estilo visual para geração de imagens
-  visualPrompt    String?  @db.Text  // Prompt base para imagens
-  
-  // Metadados
-  isDefault   Boolean  @default(false)
-  isPublic    Boolean  @default(false)  // Futuramente: compartilhar estilos
-  usageCount  Int      @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relações
-  shorts      Short[]
-  
-
-  @@index([userId])
-}
-
-// Tom/Clima da narrativa (separado do Estilo)
-model Tone {
-  id              String    @id @default(cuid())
-  userId          String?   // Null = Sistema, ID = Pessoal
-  
-  name            String
-  description     String?
-  icon            String?   // Emoji
-  
-  // Instruções para o agente
-  promptFragment  String    @db.Text // Trecho de prompt que define o tom
-  
-  // Metadados
-  isSystem        Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relações
-  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shorts          Short[]
-  suggestedIn     Style[]   @relation("SuggestedTone")
-  
-  @@index([userId])
-  @@index([isSystem])
+enum SystemAgentType {
+  SCRIPTWRITER
+  PROMPT_ENGINEER
+  NARRATOR
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/admin'
-import { AgentType } from '../../../../../../prisma/generated/client_final'
+import { SystemAgentType } from '../../../../../../prisma/generated/client_final'
 
 // DELETE - Deletar agente global
 export async function DELETE(
@@ -12,7 +12,7 @@ export async function DELETE(
     const { type } = await params
 
     await db.globalAgent.delete({
-        where: { type: type as AgentType },
+        where: { type: type as SystemAgentType },
     })
 
     return NextResponse.json({ success: true })

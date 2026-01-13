@@ -1,165 +1,160 @@
-"use client"
+'use client'
 
-import React from 'react'
-import { Plus, Palette, Loader2, MessageSquare } from 'lucide-react'
+import React, { useState } from 'react'
+import { Plus, LayoutGrid, Search, Filter, Loader2, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useClimates, useDeleteClimate, Climate } from '@/hooks/use-climates'
+import { ClimateCard } from '@/components/climates/ClimateCard'
+import { ClimateModal } from '@/components/climates/ClimateModal'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useRouter } from 'next/navigation'
-import { useStyles } from '@/hooks/use-styles'
-import { useTones } from '@/hooks/use-tones'
-import { StyleCard } from '@/components/estilos/StyleCard'
-import { ToneCard } from '@/components/tones/ToneCard'
-import { ToneDialog } from '@/components/tones/ToneDialog'
 
 export default function EstilosPage() {
-    const router = useRouter()
+    const [search, setSearch] = useState('')
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [selectedClimate, setSelectedClimate] = useState<Climate | null>(null)
 
-    // Styles Data
-    const { data: stylesData, isLoading: isLoadingStyles } = useStyles()
-    const styles = stylesData?.styles || []
-    const systemStyles = styles.filter(s => !s.userId || s.isDefault)
-    const personalStyles = styles.filter(s => s.userId && !s.isDefault)
+    const { data, isLoading } = useClimates()
+    const deleteMutation = useDeleteClimate()
 
-    // Tones Data
-    const { data: tonesData, isLoading: isLoadingTones } = useTones()
-    const tones = tonesData?.tones || []
-    const systemTones = tones.filter(t => t.type === 'system')
-    const personalTones = tones.filter(t => t.type === 'personal')
+    const climates = data?.climates || []
+    const filteredClimates = climates.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.description?.toLowerCase().includes(search.toLowerCase())
+    )
+
+    const systemClimates = filteredClimates.filter(c => c.isSystem)
+    const personalClimates = filteredClimates.filter(c => !c.isSystem)
+
+    const handleEdit = (climate: Climate) => {
+        setSelectedClimate(climate)
+        setIsModalOpen(true)
+    }
+
+    const handleCreate = () => {
+        setSelectedClimate(null)
+        setIsModalOpen(true)
+    }
+
+    const handleDelete = async (id: string) => {
+        if (confirm('Tem certeza que deseja excluir este clima?')) {
+            await deleteMutation.mutateAsync(id)
+        }
+    }
 
     return (
-        <div className="container max-w-7xl mx-auto py-8 px-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">🎨 Estilos e Identidade</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Gerencie os padrões visuais, estilos narrativos e tons de voz.
+        <div className="container max-w-7xl mx-auto py-8 px-4 space-y-8 animate-in fade-in duration-700">
+            {/* Header com Glassmorphism */}
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-8">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <Wand2 className="h-5 w-5 text-primary" />
+                        <h1 className="text-3xl font-bold tracking-tight text-white">Estilos & Climas</h1>
+                    </div>
+                    <p className="text-muted-foreground">
+                        Gerencie a identidade visual e o comportamento emocional dos seus scripts.
                     </p>
                 </div>
-            </div>
 
-            <Tabs defaultValue="styles" className="space-y-6">
-                <TabsList>
-                    <TabsTrigger value="styles" className="gap-2">
-                        <Palette className="h-4 w-4" /> Estilos
-                    </TabsTrigger>
-                    <TabsTrigger value="tones" className="gap-2">
-                        <MessageSquare className="h-4 w-4" /> Tons de Voz
-                    </TabsTrigger>
-                </TabsList>
-
-                {/* ABA ESTILOS */}
-                <TabsContent value="styles">
-                    <div className="flex justify-end mb-4">
-                        <Button
-                            onClick={() => router.push('/estilos/novo')}
-                            className="gap-2 bg-primary hover:bg-primary/90 text-white"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Novo Estilo
-                        </Button>
+                <div className="flex items-center gap-3">
+                    <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input
+                            placeholder="Buscar climas..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10 w-full md:w-[300px] bg-white/5 border-white/10 focus:border-primary/50 transition-all h-11"
+                        />
                     </div>
+                    <Button
+                        onClick={handleCreate}
+                        className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold gap-2 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="h-5 w-5" /> Novo Clima
+                    </Button>
+                </div>
+            </header>
 
-                    {isLoadingStyles ? (
-                        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                            <p className="text-muted-foreground animate-pulse">Carregando estilos...</p>
+            <Tabs defaultValue="climates" className="w-full">
+                <div className="flex items-center justify-between mb-6">
+                    <TabsList className="bg-zinc-900 border border-white/5 p-1">
+                        <TabsTrigger value="climates" className="gap-2 px-6">
+                            <LayoutGrid className="h-4 w-4" /> Climas <Badge variant="secondary" className="bg-white/10 text-[10px] h-4 py-0 px-1 ml-1">{climates.length}</Badge>
+                        </TabsTrigger>
+                        <TabsTrigger value="estilos" className="gap-2 px-6">
+                            🎨 Estilos Visuais
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="climates" className="space-y-12 outline-none">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground italic">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p>Carregando galeria de climas...</p>
                         </div>
                     ) : (
-                        <div className="space-y-12">
-                            <section>
-                                <div className="flex items-center gap-2 mb-6">
-                                    <h2 className="text-xl font-bold">Seus Estilos</h2>
-                                    <Badge variant="outline" className="text-[10px] h-5">{personalStyles.length}</Badge>
+                        <>
+                            {/* Personal Climates Section */}
+                            <section className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-sm font-semibold uppercase tracking-widest text-white/40">Meus Climas Customizados</h2>
+                                    <div className="h-px flex-1 mx-4 bg-white/5" />
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {personalStyles.map((style) => (
-                                        <StyleCard key={style.id} style={style} />
-                                    ))}
-                                    <button
-                                        onClick={() => router.push('/estilos/novo')}
-                                        className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border/50 bg-card/10 p-6 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group min-h-[250px] glass-panel"
-                                    >
-                                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                            <Plus className="h-6 w-6" />
-                                        </div>
-                                        <div className="text-center">
-                                            <span className="block font-semibold">Criar Estilo</span>
-                                        </div>
-                                    </button>
-                                </div>
+
+                                {personalClimates.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {personalClimates.map(climate => (
+                                            <ClimateCard
+                                                key={climate.id}
+                                                climate={climate}
+                                                onEdit={handleEdit}
+                                                onDelete={handleDelete}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
+                                        <p className="text-muted-foreground text-sm">Você ainda não criou climas personalizados.</p>
+                                        <Button variant="link" onClick={handleCreate} className="text-primary text-xs mt-1">
+                                            Clique aqui para começar
+                                        </Button>
+                                    </div>
+                                )}
                             </section>
 
-                            <section className="pt-8 border-t border-border/50">
-                                <div className="flex items-center gap-2 mb-6">
-                                    <h2 className="text-xl font-bold text-muted-foreground">Biblioteca do Sistema</h2>
-                                    <Badge variant="secondary" className="text-[10px] h-5 opacity-70">Padrão</Badge>
+                            {/* System Climates Section */}
+                            <section className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-sm font-semibold uppercase tracking-widest text-white/40">Biblioteca do Sistema</h2>
+                                    <div className="h-px flex-1 mx-4 bg-white/5" />
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 opacity-85 hover:opacity-100 transition-opacity">
-                                    {systemStyles.map((style) => (
-                                        <StyleCard key={style.id} style={style} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-12">
+                                    {systemClimates.map(climate => (
+                                        <ClimateCard
+                                            key={climate.id}
+                                            climate={climate}
+                                        />
                                     ))}
                                 </div>
                             </section>
-                        </div>
+                        </>
                     )}
                 </TabsContent>
 
-                {/* ABA TONS */}
-                <TabsContent value="tones">
-                    <div className="flex justify-end mb-4">
-                        <ToneDialog>
-                            <Button className="gap-2 bg-primary hover:bg-primary/90 text-white">
-                                <Plus className="h-4 w-4" />
-                                Novo Tom
-                            </Button>
-                        </ToneDialog>
+                <TabsContent value="estilos">
+                    <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-white/5 rounded-2xl">
+                        <p className="text-muted-foreground">Sistema de Estilos Visuais em manutenção para integração v2.0.</p>
                     </div>
-
-                    {isLoadingTones ? (
-                        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                            <p className="text-muted-foreground animate-pulse">Carregando tons...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-12">
-                            <section>
-                                <div className="flex items-center gap-2 mb-6">
-                                    <h2 className="text-xl font-bold">Seus Tons</h2>
-                                    <Badge variant="outline" className="text-[10px] h-5">{personalTones.length}</Badge>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {personalTones.map((tone) => (
-                                        <ToneCard key={tone.id} tone={tone} />
-                                    ))}
-                                    <ToneDialog>
-                                        <button className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border/50 bg-card/10 p-6 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group min-h-[180px] w-full glass-panel">
-                                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                                <Plus className="h-6 w-6" />
-                                            </div>
-                                            <div className="text-center">
-                                                <span className="block font-semibold">Criar Tom Personalizado</span>
-                                            </div>
-                                        </button>
-                                    </ToneDialog>
-                                </div>
-                            </section>
-
-                            <section className="pt-8 border-t border-border/50">
-                                <div className="flex items-center gap-2 mb-6">
-                                    <h2 className="text-xl font-bold text-muted-foreground">Tons do Sistema</h2>
-                                    <Badge variant="secondary" className="text-[10px] h-5 opacity-70">Padrão</Badge>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 opacity-85 hover:opacity-100 transition-opacity">
-                                    {systemTones.map((tone) => (
-                                        <ToneCard key={tone.id} tone={tone} />
-                                    ))}
-                                </div>
-                            </section>
-                        </div>
-                    )}
                 </TabsContent>
             </Tabs>
+
+            <ClimateModal
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+                climate={selectedClimate}
+            />
         </div>
     )
 }

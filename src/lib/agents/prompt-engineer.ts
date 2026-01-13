@@ -2,7 +2,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText } from 'ai'
 import type { ShortScript, PromptEngineerOutput } from './types'
 import { resolveAgent, resolveStyle } from './resolver'
-import { AgentType } from '../../../prisma/generated/client_final'
+import { SystemAgentType } from '../../../prisma/generated/client_final'
 import { combineCharactersForScene } from '@/lib/characters/prompt-generator'
 import { createLogger } from '@/lib/logger'
 
@@ -77,7 +77,7 @@ export async function generatePrompts(
         style: styleKey
     })
 
-    const agent = await resolveAgent(AgentType.PROMPT_ENGINEER, userId)
+    const agent = await resolveAgent(SystemAgentType.PROMPT_ENGINEER, userId)
     const style = await resolveStyle(styleKey, userId)
 
     log.info('🎨 Configuração carregada', {

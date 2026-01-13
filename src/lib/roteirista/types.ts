@@ -24,8 +24,8 @@ export interface ScriptFormData {
     synopsis: string        // Descrição expandida
     styleId?: string        // ID do estilo visual
     modelId?: string        // ID do modelo de IA
-    toneId?: string         // ID do tom de voz
-    tone?: string           // Mantido para compatibilidade (nome do tom)
+    climateId?: string      // ID do clima narrativo
+    climate?: string        // Mantido para compatibilidade (nome do clima)
     targetAudience?: string // Público-alvo
 
     // Etapa 2: Personagens

@@ -13,6 +13,7 @@ import {
   Users,
   DollarSign,
   Cpu,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +51,7 @@ const settings: Item[] = [
   { title: "Modelos de IA", href: "/admin/models", icon: Cpu },
   { title: "Custos por Funcionalidade", href: "/admin/settings/features", icon: SlidersHorizontal },
   { title: "Planos de Assinatura", href: "/admin/settings/plans", icon: DollarSign },
+  { title: "Agents", href: "/admin/agents", icon: Sparkles },
 ];
 
 function NavList({ items, pathname, devMode }: { items: Item[]; pathname: string; devMode: boolean }) {

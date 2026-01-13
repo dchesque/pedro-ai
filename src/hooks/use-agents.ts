@@ -1,130 +1,88 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 
-// Types
 export interface Agent {
     id: string
-    type: 'SCRIPTWRITER' | 'PROMPT_ENGINEER' | 'NARRATOR'
     name: string
-    description?: string
-    systemPrompt: string
-    model?: string
-    temperature?: number
-    isActive: boolean
+    slug: string
+    description: string
+    icon: string
+    type: 'CLIMATE' | 'STYLE' | 'CUSTOM'
+    creditsPerUse: number
+    questions?: AgentQuestion[]
+    outputFields?: AgentOutputField[]
 }
 
-export interface Style {
+export interface AgentQuestion {
+    id: string
+    order: number
+    label: string
+    helpText?: string
+    example?: string
+    type: 'select' | 'text' | 'number'
+    required: boolean
+    options?: { value: string; label: string; description?: string }[]
+}
+
+export interface AgentOutputField {
     key: string
-    name: string
-    description?: string
-    icon?: string
-    scriptwriterPrompt?: string
-    promptEngineerPrompt?: string
-    visualStyle?: string
-    negativePrompt?: string
-    isActive?: boolean
-    source?: 'user' | 'global' | 'default'
+    label: string
+    type: 'select' | 'text' | 'number' | 'textarea'
+    editable: boolean
+    options?: string[]
 }
 
-// ============================================
-// HOOKS PARA USUÁRIO
-// ============================================
-
-export function useUserAgents() {
+export function useAgents() {
     return useQuery<{ agents: Agent[] }>({
-        queryKey: ['user', 'agents'],
-        queryFn: () => api.get('/api/user/agents'),
+        queryKey: ['agents'],
+        queryFn: () => api.get('/api/agents'),
     })
 }
 
-export function useSaveUserAgent() {
-    const queryClient = useQueryClient()
+export function useAgent(slug: string) {
+    return useQuery<Agent>({
+        queryKey: ['agents', slug],
+        queryFn: () => api.get(`/api/agents/${slug}`),
+        enabled: !!slug,
+    })
+}
+
+export function useExecuteAgent(slug: string) {
     const { toast } = useToast()
 
     return useMutation({
-        mutationFn: (agent: Partial<Agent> & { type: string }) =>
-            api.post('/api/user/agents', agent),
-        onSuccess: () => {
-            toast({ title: 'Agente salvo com sucesso!' })
-            queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
-        },
+        mutationFn: (answers: Record<string, any>) =>
+            api.post(`/api/agents/${slug}/execute`, { answers }),
         onError: (error: Error) => {
-            toast({ title: 'Erro ao salvar agente', description: error.message, variant: 'destructive' })
+            toast({
+                title: 'Erro ao executar agent',
+                description: error.message,
+                variant: 'destructive',
+            })
         },
     })
 }
 
-export function useUserStyles() {
-    return useQuery<{ styles: Style[] }>({
-        queryKey: ['user', 'styles'],
-        queryFn: () => api.get('/api/user/styles'),
-    })
-}
-
-export function useCreateUserStyle() {
-    const queryClient = useQueryClient()
+// Hook para criar clima/estilo a partir do output do agent
+export function useCreateFromAgent(type: 'CLIMATE' | 'STYLE') {
     const { toast } = useToast()
+    const endpoint = type === 'CLIMATE' ? '/api/climates' : '/api/styles'
 
     return useMutation({
-        mutationFn: (style: Partial<Style> & { key: string; name: string }) =>
-            api.post('/api/user/styles', style),
+        mutationFn: (data: { name: string; icon?: string; agentOutput: any }) =>
+            api.post(endpoint, { ...data, fromAgent: true }),
         onSuccess: () => {
-            toast({ title: 'Estilo criado com sucesso!' })
-            queryClient.invalidateQueries({ queryKey: ['user', 'styles'] })
-            queryClient.invalidateQueries({ queryKey: ['styles', 'available'] })
+            toast({ title: 'Criado com sucesso!' })
         },
         onError: (error: Error) => {
-            toast({ title: 'Erro ao criar estilo', description: error.message, variant: 'destructive' })
+            toast({
+                title: 'Erro ao criar',
+                description: error.message,
+                variant: 'destructive',
+            })
         },
-    })
-}
-
-export function useUpdateUserStyle() {
-    const queryClient = useQueryClient()
-    const { toast } = useToast()
-
-    return useMutation({
-        mutationFn: ({ id, ...data }: Partial<Style> & { id: string }) =>
-            api.put(`/api/user/styles/${id}`, data),
-        onSuccess: () => {
-            toast({ title: 'Estilo atualizado!' })
-            queryClient.invalidateQueries({ queryKey: ['user', 'styles'] })
-            queryClient.invalidateQueries({ queryKey: ['styles', 'available'] })
-        },
-        onError: (error: Error) => {
-            toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' })
-        },
-    })
-}
-
-export function useDeleteUserStyle() {
-    const queryClient = useQueryClient()
-    const { toast } = useToast()
-
-    return useMutation({
-        mutationFn: (id: string) => api.delete(`/api/user/styles/${id}`),
-        onSuccess: () => {
-            toast({ title: 'Estilo deletado!' })
-            queryClient.invalidateQueries({ queryKey: ['user', 'styles'] })
-            queryClient.invalidateQueries({ queryKey: ['styles', 'available'] })
-        },
-        onError: (error: Error) => {
-            toast({ title: 'Erro ao deletar', description: error.message, variant: 'destructive' })
-        },
-    })
-}
-
-// ============================================
-// HOOK PARA LISTAR ESTILOS DISPONÍVEIS
-// ============================================
-
-export function useAvailableStyles() {
-    return useQuery<{ styles: Style[] }>({
-        queryKey: ['styles', 'available'],
-        queryFn: () => api.get('/api/styles/available'),
-        staleTime: 60_000,
     })
 }

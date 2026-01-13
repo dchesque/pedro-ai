@@ -15,6 +15,7 @@ import {
   Users,
   FileText,
   Palette,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ type SidebarProps = {
 
 export const navigationItems = [
   { name: "Painel", href: "/dashboard", icon: Home },
+  { name: "Agents", href: "/agents", icon: Sparkles },
   { name: "Roteirista", href: "/roteirista", icon: FileText },
   { name: "Chat com IA", href: "/ai-chat", icon: Bot },
   { name: "AI Studio", href: "/ai-studio", icon: Wand2 },
