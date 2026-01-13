@@ -23,13 +23,13 @@ export interface GuardRailRules {
 
 export const VALID_COMBINATIONS: Record<EmotionalState, GuardRailRules> = {
     CURIOSITY: {
-        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.HIDDEN, RevelationDynamic.FRAGMENTS],
+        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.FRAGMENTS],
         allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID],
         forcedHook: null,
         forcedClosing: null
     },
     THREAT: {
-        allowedRevelations: [RevelationDynamic.PROGRESSIVE],
+        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.HIDDEN],
         allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST],
         forcedHook: HookType.SHOCK,
         forcedClosing: ClosingType.CTA_DIRECT
@@ -41,7 +41,7 @@ export const VALID_COMBINATIONS: Record<EmotionalState, GuardRailRules> = {
         forcedClosing: null
     },
     CONFRONTATION: {
-        allowedRevelations: [RevelationDynamic.EARLY, RevelationDynamic.FRAGMENTS],
+        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.EARLY],
         allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST],
         forcedHook: HookType.CHALLENGE,
         forcedClosing: ClosingType.CHALLENGE
