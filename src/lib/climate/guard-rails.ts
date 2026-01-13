@@ -29,13 +29,13 @@ export const VALID_COMBINATIONS: Record<EmotionalState, GuardRailRules> = {
         forcedClosing: null
     },
     THREAT: {
-        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.EARLY],
+        allowedRevelations: [RevelationDynamic.PROGRESSIVE],
         allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST],
         forcedHook: HookType.SHOCK,
         forcedClosing: ClosingType.CTA_DIRECT
     },
     FASCINATION: {
-        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.FRAGMENTS],
+        allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.FRAGMENTS, RevelationDynamic.EARLY],
         allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID],
         forcedHook: HookType.MYSTERY,
         forcedClosing: null

@@ -12,6 +12,8 @@
 
 ### Fixed
 - **Tipagem da Interface Agent**: Atualizada a interface `Agent` global para incluir campos de modelo, system message e status ativo, eliminando erros de compilação no painel administrativo.
+- **Regras de Clima**: Desabilitado o dinâmico de revelação "Revelar cedo e aprofundar" (EARLY) quando o estado emocional "Ameaça" (THREAT) é selecionado.
+- **Regras de Clima**: Habilitado "Revelar cedo e aprofundar" (EARLY) para o estado "Fascínio" (FASCINATION).
 
 ## [1.12.0] - 2026-01-13
 
