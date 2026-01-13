@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,13 +24,27 @@ interface ClimateSelectorProps {
     value?: string
     onValueChange: (value: string, climate?: Climate) => void
     className?: string
+    compatibleClimates?: string[]
 }
 
-export function ClimateSelector({ value, onValueChange, className }: ClimateSelectorProps) {
+export function ClimateSelector({ value, onValueChange, className, compatibleClimates = [] }: ClimateSelectorProps) {
     const [open, setOpen] = React.useState(false)
     const { data, isLoading } = useClimates()
 
-    const climates = data?.climates || []
+    const climatesRaw = data?.climates || []
+
+    // Ordenar: Compatíveis primeiro
+    const climates = React.useMemo(() => {
+        if (!compatibleClimates?.length) return climatesRaw;
+
+        return [...climatesRaw].sort((a, b) => {
+            const aIs = compatibleClimates.includes(a.id);
+            const bIs = compatibleClimates.includes(b.id);
+            if (aIs && !bIs) return -1;
+            if (!aIs && bIs) return 1;
+            return 0;
+        });
+    }, [climatesRaw, compatibleClimates]);
     const selectedClimate = climates.find((c) => c.id === value)
 
     return (
@@ -97,6 +111,12 @@ export function ClimateSelector({ value, onValueChange, className }: ClimateSele
                                                     <span>{climate.emotionalDetails?.icon}</span>
                                                     <span>{climate.emotionalDetails?.label}</span>
                                                 </Badge>
+                                                {compatibleClimates?.includes(climate.id) && (
+                                                    <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
+                                                        <Sparkles className="h-2 w-2" />
+                                                        Compatível
+                                                    </Badge>
+                                                )}
                                                 <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center border-white/5 bg-white/5">
                                                     <span>{climate.pressureDetails?.icon}</span>
                                                     <span>{climate.pressureDetails?.label}</span>

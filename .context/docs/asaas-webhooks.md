@@ -2,96 +2,115 @@
 
 ## Overview
 
-This guide explains how to configure and test Asaas webhooks for handling payment events in the application. Webhooks enable automatic processing of payment confirmations, such as updating user credits upon successful payments.
+This guide details the configuration, implementation, and testing of Asaas webhooks for real-time payment event processing. Webhooks automatically handle events like payment confirmations, updating user subscriptions and credits in the database.
 
-**Key Concepts**:
-- **Webhook Endpoint**: `POST /api/webhooks/asaas` (Next.js App Router route at `src/app/api/webhooks/asaas/route.ts`)
-- **Purpose**: Receives real-time events from Asaas (e.g., `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`) and updates the database (e.g., user credits).
-- **Verification**: Uses HMAC SHA256 signature with `ASAAS_WEBHOOK_SECRET`.
-- **Environment**: Supports **Sandbox** (testing) and **Production** modes.
-- **Related Components**:
-  - [AsaasClient](../src/lib/asaas/client.ts): Client for Asaas API interactions.
-  - [Credits System](../src/lib/credits/): Handles credit updates triggered by webhooks.
-  - [Subscription Hooks](../src/hooks/use-subscription.ts): Queries subscription status post-webhook.
+**Key Features**:
+- **Endpoint**: `POST /api/webhooks/asaas` (`src/app/api/webhooks/asaas/route.ts`)
+- **Events Handled**: `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`
+- **Security**: HMAC SHA256 verification using `ASAAS_WEBHOOK_SECRET`
+- **Modes**: Sandbox (`https://sandbox.asaas.com/api/v3`) and Production (`https://www.asaas.com/api/v3`)
+- **Integrations**:
+  - [AsaasClient](../src/lib/asaas/client.ts): API client for payment fetches
+  - [Credits Management](../src/lib/credits/validate-credits.ts): `addUserCredits` for credit allocation
+  - [Subscription Hooks](../src/hooks/use-subscription.ts): `SubscriptionStatus` updates
+  - [Logger](../src/lib/logger.ts): Event logging
 
-**Webhook vs. Callback**:
-| Aspect       | Webhook                          | Callback                          |
-|--------------|----------------------------------|-----------------------------------|
-| **Trigger**  | Payment event from Asaas backend | User redirected after payment     |
-| **URL**      | `/api/webhooks/asaas`            | `/dashboard?payment=success`      |
-| **Scope**    | Server-side (credits update)     | Client-side (UI feedback)         |
-| **Config**   | Asaas Dashboard > Webhooks       | `NEXT_PUBLIC_APP_URL`             |
+**Webhook vs. Callback Comparison**:
 
-**⚠️ Critical**: Both webhook and callback URLs must share the **same base domain** (e.g., tunnel URL during dev).
+| Aspect          | Webhook (`/api/webhooks/asaas`)              | Callback (`/dashboard?payment=success`)     |
+|-----------------|----------------------------------------------|---------------------------------------------|
+| **Trigger**     | Server-side Asaas events                     | Client-side post-payment redirect           |
+| **Reliability** | Retried by Asaas on failure                  | Single-shot, UI-only                        |
+| **Use Case**    | Credit/subscription updates                  | User feedback/redirect                      |
+| **Config**      | Asaas Dashboard > Webhooks                   | `NEXT_PUBLIC_APP_URL` in payment links      |
+
+**⚠️ Important**: Webhook and callback must use the **same HTTPS domain** (critical for dev tunnels).
 
 ## Prerequisites
 
-- Next.js dev server running: `npm run dev` (listens on `http://localhost:3000`).
-- Asaas account with API keys in `.env`:
+- Running dev server: `npm run dev` (`http://localhost:3000`)
+- Asaas API credentials in `.env.local`:
   ```env
-  ASAAS_API_KEY=your_sandbox_or_prod_key  # Sandbox: acc_*, Prod: key_*
-  ASAAS_API_URL=https://sandbox.asaas.com/api/v3  # Or https://www.asaas.com/api/v3 for prod
+  ASAAS_API_KEY=acc_your_sandbox_key  # acc_* (sandbox) or key_* (prod)
+  ASAAS_API_URL=https://sandbox.asaas.com/api/v3
+  ASAAS_WEBHOOK_SECRET=whsec_your_secret  # Generated in Asaas dashboard
+  NEXT_PUBLIC_APP_URL=https://your-tunnel-url  # Required for callbacks
   ```
-- Public tunnel tool: Cloudflare Tunnel (`npm run tunnel:cf`) or ngrok (`npm run tunnel:ngrok`).
-- `NEXT_PUBLIC_APP_URL` set to tunnel URL.
+- Tunnel for public HTTPS exposure: Cloudflare (`npm run tunnel:cf`) or ngrok (`npm run tunnel:ngrok`)
 
-## Setup Steps
+## Setup
 
-### 1. Expose Local Server via Tunnel
-
+### 1. Expose Localhost via Tunnel
 ```bash
-# Cloudflare (recommended, via package.json scripts)
-npm run tunnel:cf
-# Output: https://<hash>.cfargotunnel.com
-
-# ngrok
-npm run tunnel:ngrok
-# Output: https://<subdomain>.ngrok.io
+npm run tunnel:cf  # e.g., https://example.cfargotunnel.com
+# Or: npm run tunnel:ngrok  # e.g., https://abc123.ngrok.io
 ```
+Set `NEXT_PUBLIC_APP_URL=https://example.cfargotunnel.com` and restart `npm run dev`.
 
-Copy the **HTTPS** public URL.
+### 2. Configure Asaas Webhook
+1. [Sandbox Dashboard](https://sandbox.asaas.com/) or [Prod](https://www.asaas.com/)
+2. **Integrações > Webhooks > Adicionar Webhook**
+3. **URL**: `https://your-tunnel-url/api/webhooks/asaas`
+4. **Token de Verificação**: Copy to `ASAAS_WEBHOOK_SECRET`
+5. **Events**:
+   - `PAYMENT_RECEIVED`
+   - `PAYMENT_CONFIRMED`
+   - `PAYMENT_OVERDUE` (optional)
+6. Save and note the webhook ID for monitoring.
 
-### 2. Update Environment
-
-```env
-NEXT_PUBLIC_APP_URL=https://<your-tunnel-url>.cfargotunnel.com
-ASAAS_WEBHOOK_SECRET=whsec_your_asaas_webhook_secret  # From Asaas dashboard
-```
-
-**Restart dev server** after changes: `npm run dev`.
-
-### 3. Configure Webhook in Asaas Dashboard
-
-1. Login: [Sandbox](https://sandbox.asaas.com/) or [Production](https://www.asaas.com/).
-2. Navigate: **Integrações > Webhooks > Adicionar Webhook**.
-3. **URL**: `https://<your-tunnel-url>/api/webhooks/asaas`.
-4. **Token de Verificação**: Copy and set as `ASAAS_WEBHOOK_SECRET`.
-5. **Eventos** (recommended):
-   - `PAYMENT_RECEIVED` (Cobrança Recebida)
-   - `PAYMENT_CONFIRMED` (Cobrança Confirmada)
-   - `PAYMENT_OVERDUE` (Cobrança Vencida, optional for reminders)
-6. Save.
-
-## Implementation Details
+## Implementation
 
 ### Webhook Handler (`src/app/api/webhooks/asaas/route.ts`)
+Verifies signature, parses event, and dispatches:
 
-Handles incoming POST requests with signature verification and event processing.
+```ts
+// Core verification (excerpt)
+import { createHmac } from 'crypto';
+import { NextRequest } from 'next/server';
+import { AsaasClient } from '@/lib/asaas/client';
+import { addUserCredits } from '@/lib/credits/validate-credits';
+import { createLogger } from '@/lib/logger';
 
-**Key Logic**:
-1. **Verification**: Computes HMAC SHA256 of raw body using `ASAAS_WEBHOOK_SECRET` and compares to `X-Hub-Signature-256` header.
-2. **Event Dispatch**:
-   - `PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`: Fetch payment via [AsaasClient](../src/lib/asaas/client.ts), update user credits via `addUserCredits`.
-3. **Logging**: Uses app logger for debugging (e.g., `[Webhook] Credits updated: user@example.com -> 1000 credits`).
-4. **Error Handling**: Returns 400/401 on invalid signature; 200 on success.
+const log = createLogger('[Asaas Webhook]');
 
-**Example Payload** (Asaas `PAYMENT_RECEIVED`):
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const signature = req.headers.get('x-asaas-signature') ?? '';
+  const secret = process.env.ASAAS_WEBHOOK_SECRET;
+  if (!secret || !verifySignature(body, signature, secret)) {
+    log.error('Invalid signature');
+    return Response.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  const event = JSON.parse(body) as AsaasEvent;
+  log.info(`Event: ${event.event} for payment ${event.payment.id}`);
+
+  switch (event.event) {
+    case 'PAYMENT_RECEIVED':
+    case 'PAYMENT_CONFIRMED':
+      const client = new AsaasClient(process.env.ASAAS_API_KEY!, process.env.ASAAS_API_URL!);
+      const payment = await client.getPayment(event.payment.id);
+      await addUserCredits({ userId: payment.customer, credits: payment.value * 100 });  // e.g., R$99.90 -> 9990 credits
+      break;
+    // ... other cases
+  }
+
+  return new Response('OK', { status: 200 });
+}
+
+function verifySignature(body: string, signature: string, secret: string): boolean {
+  const expected = `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
+  return signature === expected;
+}
+```
+
+**Event Payload Example** (`PAYMENT_RECEIVED`):
 ```json
 {
   "event": "PAYMENT_RECEIVED",
   "payment": {
     "id": "pay_abc123",
-    "customer": "cus_123",
+    "customer": "cus_user123",
     "value": 99.90,
     "status": "CONFIRMED",
     "billingType": "PIX",
@@ -100,81 +119,72 @@ Handles incoming POST requests with signature verification and event processing.
 }
 ```
 
-**Signature Verification Code Snippet**:
-```ts
-// Simplified from route.ts
-import { createHmac } from 'crypto';
-
-export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const signature = req.headers.get('x-asaas-signature') || '';
-  const expectedSignature = `sha256=${createHmac('sha256', process.env.ASAAS_WEBHOOK_SECRET!).update(body).digest('hex')}`;
-  
-  if (signature !== expectedSignature) {
-    return new Response('Invalid signature', { status: 401 });
-  }
-  
-  const event = JSON.parse(body);
-  // Handle event...
-}
-```
-
-### AsaasClient Usage (`src/lib/asaas/client.ts`)
-
+### AsaasClient (`src/lib/asaas/client.ts`)
 ```ts
 export class AsaasClient {
-  constructor(private apiKey: string, private apiUrl: string = 'https://sandbox.asaas.com/api/v3') {}
+  constructor(private apiKey: string, private baseUrl: string) {}
 
-  async getPayment(id: string) {
-    return this.fetch(`/payments/${id}`);
+  async getPayment(id: string): Promise<AsaasPayment> {
+    const res = await fetch(`${this.baseUrl}/payments/${id}`, {
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    });
+    if (!res.ok) throw new Error(`Payment fetch failed: ${res.status}`);
+    return res.json();
   }
-
-  private async fetch(endpoint: string) {
-    // Authenticated fetch with apiKey
-  }
+  // Additional methods: listPayments, createPayment, etc.
 }
 ```
 
-**Cross-References**:
-- [Credits Validation](../src/lib/credits/validate-credits.ts): `addUserCredits`.
-- [Subscription Status](../src/hooks/use-subscription.ts): Reflects webhook updates.
+**Usage in Webhook**: Instantiates client to fetch full payment details by ID.
 
-## Testing the Flow
+**Related Exports**:
+- `addUserCredits` ([src/lib/credits/validate-credits.ts](../src/lib/credits/validate-credits.ts))
+- `SubscriptionStatus` ([src/hooks/use-subscription.ts](../src/hooks/use-subscription.ts))
 
-1. Create a test subscription via app UI (e.g., upgrade plan).
-2. Complete PIX payment in Asaas Sandbox (instant confirmation).
-3. Monitor logs:
+## Testing
+
+1. **Create Test Payment**:
+   - In app: Upgrade plan → PIX payment.
+   - Sandbox PIX confirms instantly (any CPF/email).
+
+2. **Monitor Logs**:
    ```
-   [Asaas] Environment: SANDBOX
-   [Webhook] Received event: PAYMENT_RECEIVED for pay_abc123
-   [Credits] Added 1000 credits to user_123
+   [Asaas Webhook] Event: PAYMENT_RECEIVED for pay_abc123
+   [Asaas] Fetched payment: cus_user123, R$99.90 CONFIRMED
+   [Credits] Added 9990 credits to user_123
    ```
-4. Verify in app: User dashboard shows updated credits/subscription.
 
-**Sandbox Test Payments**:
-- PIX: Use any CPF/CNPJ, email; confirms instantly.
-- Boleto: Use `34191.09008 00019.5512 07206.3 747 00000001037`.
+3. **Verify**:
+   - App dashboard: Credits/subscription updated.
+   - Asaas: Webhooks > Histórico (delivery status).
+
+**Test Boleto**: `34191.09008 00019.5512 07206.3 747 00000001037` (sandbox).
 
 ## Troubleshooting
 
-| Issue                          | Cause/Solution |
-|--------------------------------|----------------|
-| **No webhook events**          | - Tunnel down? Run `npm run tunnel:cf`.<br>- URL mismatch? Check Asaas > Webhooks > Histórico.<br>- Secret invalid? Verify `ASAAS_WEBHOOK_SECRET`. |
-| **Signature 401**              | Raw body tampering or wrong secret. Use `req.text()` before JSON.parse. |
-| **No credit update**           | Check payment `customer` matches Clerk user ID. Logs in `/api/webhooks/asaas`. |
-| **Callback redirect fails**    | `NEXT_PUBLIC_APP_URL` mismatch. Restart server. |
-| **Prod vs Sandbox mixup**      | Toggle `ASAAS_API_URL` and use correct dashboard. |
+| Issue | Cause & Fix |
+|-------|-------------|
+| **No Events** | Tunnel expired (`npm run tunnel:cf`); Wrong URL in Asaas; Check Histórico. |
+| **401 Signature** | Modified body (use `req.text()` first); Wrong `ASAAS_WEBHOOK_SECRET`. |
+| **No Credits** | `customer` ID mismatch (Clerk ID); Logs for errors; Test `addUserCredits`. |
+| **Tunnel/Callback Fail** | HTTP vs HTTPS; Update `NEXT_PUBLIC_APP_URL`; Restart server. |
+| **Sandbox/Prod Mix** | Wrong `ASAAS_API_URL`/dashboard; Toggle explicitly. |
 
-**Debug Tips**:
-- Add `console.log(event)` in handler (dev only).
-- Asaas Logs: Dashboard > Webhooks > Histórico (delivery status, retries).
-- Extend Events: Add cases in `route.ts` switch (e.g., `PAYMENT_CANCELED`).
+**Debug**:
+- Add `log.debug(JSON.stringify(event))` (dev only).
+- Asaas retry: Up to 10x, exponential backoff.
+- Extend: Add `PAYMENT_CANCELED` case in switch.
 
-## Production Deployment
+## Production
 
-- Use Vercel/Netlify domain for `NEXT_PUBLIC_APP_URL`.
-- Update Asaas webhook to prod URL.
-- Monitor with Vercel Logs or Sentry.
-- Rotate `ASAAS_WEBHOOK_SECRET` periodically.
+- Deploy to Vercel: Auto-HTTPS domain.
+- Update Asaas webhook URL.
+- Monitor: Vercel Logs, Sentry.
+- Security: Rotate `ASAAS_WEBHOOK_SECRET`; Rate-limit endpoint.
+- Scale: Idempotent handling (check payment status before update).
 
-For extending webhook logic, see [API Auth Utils](../src/lib/api-auth.ts) and [Logger](../src/lib/logger.ts).
+**Extensions**:
+- Refund handling: `PAYMENT_CANCELED` → deduct credits.
+- Analytics: Track via [Usage Hooks](../src/hooks/use-usage.ts).
+
+For API patterns, see [api-auth.ts](../src/lib/api-auth.ts). Questions? Check [AdminSettings](../src/hooks/use-admin-settings.ts).

@@ -2,243 +2,294 @@
 
 ## Overview
 
-The backend leverages Next.js App Router API routes for a serverless architecture, integrated with PostgreSQL via Prisma ORM, Clerk for authentication, and Asaas for payments. It powers an AI-driven content creation platform focused on shorts, characters, styles, and credits-based usage.
+The backend is built on Next.js App Router for serverless API routes, using PostgreSQL with Prisma ORM, Clerk for authentication, and Asaas for Brazilian payments. It supports an AI-powered platform for generating short-form videos ("shorts"), characters, styles, scripts via Roteirista AI, and media (images/videos) with credits-based metering.
 
-Key features:
-- **User Management**: Synced with Clerk via webhooks.
-- **Credits System**: Tracks usage, validates consumption, and deducts for AI generations (images, videos, scripts).
-- **AI Integrations**: OpenRouter, Fal.ai adapters for LLM and media generation.
-- **Storage**: Vercel Blob or Replit support.
-- **Admin Tools**: Plan management, user sync, settings.
-- **Shorts Pipeline**: Script generation (Roteirista), scene management, media generation.
+**Key Features**:
+- User auth/sync via Clerk webhooks.
+- Credits system for AI usage (LLMs, image/video gen).
+- Shorts pipeline: script gen → scene approval → media gen.
+- Admin dashboard for plans, settings, user sync.
+- Storage: Vercel Blob or Replit.
+- AI providers: OpenRouter (LLMs), Fal.ai (Flux/Kling for media).
 
-Total API routes: ~20 (in `app/api/`), following consistent auth/validation patterns.
+**Stats**:
+- ~20 API routes in `app/api/`.
+- 31 Prisma models.
+- 178 controller-like symbols, 184 utils.
+
+**Deployment**: Vercel (serverless), Prisma Accelerate for global DB.
 
 ## Core Technologies
 
-| Technology | Purpose | Key Files |
-|------------|---------|-----------|
-| **Next.js App Router** | Serverless API routes | `app/api/**/*` |
-| **Prisma ORM** | Type-safe DB access | `prisma/schema.prisma`, `src/lib/db.ts` |
-| **PostgreSQL** | Data persistence | Via Prisma |
-| **Clerk** | Auth & user sync | `@clerk/nextjs/server`, webhooks |
-| **Zod** | Input validation | Throughout API routes |
-| **TypeScript** | Full type safety | All server code |
-| **Asaas** | Subscriptions/payments | `src/lib/asaas/client.ts` |
-| **AI Providers** | LLM/Image/Video | `src/lib/ai/providers/*` |
+| Technology | Role | Key Files/Exports |
+|------------|------|-------------------|
+| **Next.js 15** | API routes, server actions | `app/api/**/*` |
+| **Prisma 5** | ORM, migrations | `prisma/schema.prisma`, `src/lib/db.ts` (`PrismaClient`) |
+| **PostgreSQL** | DB (Supabase/Vercel PG) | Via Prisma URL |
+| **Clerk** | Auth, webhooks | `src/lib/auth-utils.ts` (`getUserFromClerkId`) |
+| **Zod** | Schemas/validation | All POST/PUT routes |
+| **TypeScript** | Types everywhere | `src/types/*`, `src/lib/**/*.ts` |
+| **Asaas** | Pix/subscriptions | `src/lib/asaas/client.ts` (`AsaasClient`) |
+| **OpenRouter** | LLMs | `src/lib/ai/providers/openrouter-adapter.ts` |
+| **Fal.ai** | Images/videos | `src/lib/ai/providers/fal-adapter.ts`, `src/lib/fal/{flux,kling}.ts` |
+| **Vercel Blob** | File storage | `src/lib/storage/vercel-blob.ts` (`VercelBlobStorage`) |
 
-Cross-references:
-- [Prisma Client](prisma/generated/client_final/index-browser.d.ts) (stub for browser; full in server).
-- [Logger](src/lib/logger.ts): Structured logging with `createLogger`.
+**Cross-refs**:
+- [DB Client](src/lib/db.ts): Singleton `db` with `$disconnect()` on exit.
+- [Logger](src/lib/logger.ts): `createLogger`, `LogLevel` (DEBUG/INFO/WARN/ERROR).
+- [Cache](src/lib/cache.ts): `SimpleCache` (TTL, in-memory).
 
 ## Database Schema
 
-Prisma models (inferred from symbols/usage: 31 models):
+Prisma models (from symbols/usage):
 
-- **User**: `id`, `clerkId`, `name`, `email`.
-- **CreditBalance**: `userId`, `creditsRemaining`.
-- **UsageHistory**: `userId`, `operationType`, `creditsUsed`, `timestamp`.
-- **Short**: `id`, `userId`, `title`, `status` (e.g., `ShortStatus`).
-- **ShortScene**: Scenes with media URLs.
-- **Character**: `traits` (`CharacterTraits`), prompts.
-- **Style**: `contentType` (`ContentType`), config.
-- **StorageObject**: `userId`, `key`, `url`.
-- **AdminSettings**: Global config (`AdminSettingsPayload`).
-- **BillingPlan**: Admin-defined plans.
+| Model | Fields | Relations |
+|-------|--------|-----------|
+| **User** | `id`, `clerkId`, `name`, `email`, `createdAt` | 1:N `Short`, `Character`, `Style`, `CreditBalance`, `UsageHistory`, `StorageObject` |
+| **CreditBalance** | `userId`, `creditsRemaining` (Decimal) | 1:1 `User` |
+| **UsageHistory** | `userId`, `operationType` (`OperationType`), `creditsUsed`, `details` (JSON), `timestamp` | N:1 `User` |
+| **Short** | `id`, `userId`, `title`, `status` (`ShortStatus`: DRAFT/PENDING/APPROVED), `script` (JSON) | 1:N `ShortScene`, N:1 `User` |
+| **ShortScene** | `shortId`, `index`, `prompt`, `imageUrl`, `videoUrl` | N:1 `Short`, N:M `ShortCharacter` |
+| **Character** | `id`, `userId`, `name`, `traits` (`CharacterTraits`), `promptData` (`CharacterPromptData`) | N:1 `User`, N:M `ShortScene` (via `ShortCharacter`) |
+| **Style** | `id`, `userId`, `name`, `config` (JSON: `ContentType`, `DiscourseArchitecture`, etc.) | N:1 `User` |
+| **StorageObject** | `id`, `userId`, `key`, `url`, `size`, `mimeType` | N:1 `User` |
+| **AdminSettings** | `id`, `payload` (`AdminSettingsPayload`: plans, features) | Singleton |
+| **BillingPlan** | `id`, `name`, `credits`, `price`, `asaasCheckoutUrl` | Admin-only |
 
-Relations: User → 1:N (Shorts, Characters, Styles, StorageObjects, UsageHistory, CreditBalance).
-
-Connection: Singleton Prisma client in [src/lib/db.ts](src/lib/db.ts) with global caching for dev/hot-reload safety.
-
-Example queries:
+**Example Queries**:
 ```ts
 import { db } from '@/lib/db';
+import type { Short } from '@prisma/client'; // Generated
 
-// Find user-owned shorts
-const shorts = await db.short.findMany({
-  where: { userId: user.id },
-  include: { scenes: { include: { characters: true } } },
+// List user shorts with scenes/characters
+const shorts: Short[] = await db.short.findMany({
+  where: { userId },
+  include: {
+    scenes: {
+      include: { characters: { include: { character: true } } },
+      orderBy: { index: 'asc' },
+    },
+  },
   orderBy: { updatedAt: 'desc' },
+  take: 20,
 });
 ```
 
-## API Architecture
+**Migrations**: `pnpm db:push` (dev), `prisma migrate deploy` (prod).
 
-### Route Structure
+## API Routes
 
+**Structure** (`app/api/`):
 ```
-app/api/
-├── admin/
-│   ├── plans/[*route.ts]     # CRUD plans
-│   ├── settings/route.ts     # GET/POST admin settings
-│   └── users/sync/route.ts   # POST user sync
-├── credits/
-│   └── me/route.ts           # GET user credits
-├── characters/[*]            # CRUD characters
-├── shorts/[*]                # CRUD shorts, scenes, media gen
-├── styles/[*]                # CRUD styles
-├── storage/[*]               # List/upload/delete
-├── users/
-│   ├── route.ts              # GET list, POST create
-│   └── [id]/route.ts         # GET/PUT/DELETE user
-├── health/route.ts
-└── webhooks/
-    ├── clerk/route.ts        # User lifecycle
-    └── asaas/route.ts        # Payment confirmations
+admin/
+├── plans/route.ts          # GET/POST/PUT/DELETE BillingPlan
+├── settings/route.ts       # GET/POST AdminSettingsPayload
+└── users/sync/route.ts     # POST Clerk → DB sync
+credits/
+└── me/route.ts             # GET CreditsResponse
+characters/
+├── route.ts                # GET list
+├── [id]/route.ts           # GET/PUT/DELETE
+└── [id]/image/route.ts     # POST generate image
+shorts/
+├── route.ts                # GET list/create
+├── [id]/route.ts           # GET/update
+├── [id]/script/route.ts    # POST generate/regenerate
+├── [id]/approve/route.ts   # POST approveScript
+└── [id]/scenes/route.ts    # POST addScene/media
+styles/
+├── route.ts                # GET/create/delete
+└── [id]/route.ts           # GET/update/duplicate
+storage/
+├── route.ts                # GET list/delete
+└── upload/route.ts         # POST UploadResult
+users/
+├── route.ts                # GET list, POST create
+└── [id]/route.ts           # GET/PUT/DELETE
+ai/
+└── image/route.ts          # POST GenerateImageResponse (Fal/Flux)
+webhooks/
+├── clerk/route.ts          # POST user events
+├── asaas/route.ts          # POST payment confirm
+└── users/route.ts          # POST external sync
+health/route.ts             # GET DB ping
 ```
 
-**Public endpoints**: `/api/health`.
-
-**Protected**: All others require Clerk `userId` → DB `User`.
-
-### Standard Route Pattern
-
-Every route:
-1. Auth via `auth()` (Clerk).
-2. Resolve DB `User` via [getUserFromClerkId](src/lib/auth-utils.ts).
-3. Validate input (Zod).
-4. Business logic (credits check via [validate-credits.ts](src/lib/credits/validate-credits.ts)).
-5. Respond or [handleApiError](src/lib/api-client.ts).
-
-Example GET (read):
+**Auth Pattern** (all protected except `/health`):
 ```ts
-// app/api/shorts/route.ts
-import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/lib/db';
 import { getUserFromClerkId } from '@/lib/auth-utils';
+import { validateUserAuthentication } from '@/lib/auth-utils';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-export async function GET() {
+export async function POST(request: Request) {
   try {
     const { userId } = await auth();
-    if (!userId) return createUnauthorizedResponse();
+    const user = await getUserFromClerkId(userId!);
+    validateUserAuthentication(user);
 
-    const user = await getUserFromClerkId(userId);
-    const shorts: Short[] = await db.short.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const data = await request.json();
+    const schema = z.object({ /* ... */ });
+    const validated = schema.parse(data);
 
-    return NextResponse.json({ data: shorts });
+    // Business logic, e.g., validateCreditsForFeature
+    // db.$transaction(async tx => { ... });
+
+    return NextResponse.json({ data: result, success: true }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors, success: false }, { status: 422 });
+    }
+    console.error(error);
+    return NextResponse.json({ error: 'Internal error', success: false }, { status: 500 });
   }
 }
 ```
 
-POST/PUT/DELETE follow similar patterns with ownership checks and transactions.
-
 **Responses**:
-- Success: `{ data: T, success: true }` (201 for creates).
-- Error: `{ error: string, success: false }` (401/404/422/500).
-- `ApiError` class for typed errors ([src/lib/api-client.ts](src/lib/api-client.ts)).
+- Success: `{ success: true, data: T }` (200/201).
+- Error: `{ success: false, error: string | ApiError }` (400-500).
+- `InsufficientCreditsError`, `ApiError`.
 
-## Key Endpoints
+**Pagination**: `take`, `cursor` in lists.
 
-### Credits & Usage
-- **GET /api/credits/me**: Current balance + usage summary (`CreditsResponse`).
-- Validates via [addUserCredits](src/lib/credits/validate-credits.ts), deducts via [deductCreditsForFeature](src/lib/credits/deduct.ts).
-- Hooks: [use-credits.ts](src/hooks/use-credits.ts), [use-usage.ts](src/hooks/use-usage.ts).
+## Credits System
 
-### Shorts Pipeline
-- **POST /api/shorts**: Create short (`CreateShortInput`).
-- **POST /api/shorts/script**: Generate script (Roteirista: [types.ts](src/lib/roteirista/types.ts)).
-- **POST /api/shorts/media**: Generate scene image/video (Fal/Kling/Flux).
-- Utils: [pipeline.ts](src/lib/shorts/pipeline.ts) (`addScene`, `approveScript`).
+**Flow**:
+1. Admin sets `AdminSettingsPayload` (features: `FeatureKey` e.g., `'shorts.script'`: 10 credits).
+2. Usage: `validateCreditsForFeature(userId, feature, cost)` → throws `InsufficientCreditsError`.
+3. Consume: `deductCreditsForFeature(userId, feature, cost)` → `UsageHistory` log.
+4. Top-up: Asaas webhook → `addUserCredits`.
 
-### Admin
-- **GET/POST /api/admin/plans**: CRUD `BillingPlan`.
-- **POST /api/admin/users/sync**: Clerk → DB sync (no plans/credits).
-- **GET/POST /api/admin/settings**: `AdminSettingsPayload` (plans, features).
+**Endpoints**:
+- `GET /api/credits/me` → `{ balance: Decimal, usage: UsageData[] }`.
+- Tracked: `OperationType` (SCRIPT_GEN, IMAGE_GEN, VIDEO_GEN).
 
-### Storage
-- **GET /api/storage**: List (`StorageResponse`).
-- Supports [VercelBlobStorage](src/lib/storage/vercel-blob.ts), [ReplitAppStorage](src/lib/storage/replit.ts).
+**Utils**:
+- [credits/deduct.ts](src/lib/credits/deduct.ts)
+- [credits/validate-credits.ts](src/lib/credits/validate-credits.ts)
+- [credits/track-usage.ts](src/lib/credits/track-usage.ts)
 
-## Billing & Credits
+**Hooks** (FE mirror): `useCredits`, `useUsage`, `useUsageHistory`.
 
-Fully manual admin-configured:
-1. Create plans in `/admin/settings/plans` (`name`, `price`, `credits`, `asaasCheckoutUrl`).
-2. User subscribes → Asaas checkout.
-3. **Webhook POST /api/webhooks/asaas**: On `PAYMENT_CONFIRMED`, grant credits via `addUserCredits`.
-4. Usage: Pre-validate (`validateCreditsForFeature`), post-deduct (`deductCreditsForFeature`), log to `UsageHistory`.
+## Shorts Pipeline
 
-Features: `FeatureKey`/`LLMFeatureKey` (e.g., image gen: 5 credits).
+**Core Exports** (`src/lib/shorts/pipeline.ts`):
+- `addScene(shortId: string, sceneData: ShortSceneInput)`
+- `approveScript(shortId: string)`
+- `generateScript` (Roteirista: `AIAction[]`, `ShortStatus` updates)
 
-[AsaasClient](src/lib/asaas/client.ts) for payments.
+**Flow**:
+1. POST `/api/shorts` → draft `Short`.
+2. POST `/api/shorts/[id]/script` → Roteirista (`src/lib/roteirista/types.ts`).
+3. POST `/api/shorts/[id]/approve` → `APPROVED`.
+4. POST `/api/shorts/[id]/scenes` → gen image/video per scene (`FluxInput`, `KlingInput`).
 
-## AI Providers
+**Types**:
+- `Short`, `ShortScene`, `ShortStatus` (DRAFT|SCRIPT_PENDING|READY|MEDIA_PENDING|COMPLETED).
 
-Registry-driven ([src/lib/ai/providers/registry.ts](src/lib/ai/providers/registry.ts)):
-- **OpenRouterAdapter**: LLMs (`AIModel`).
-- **FalAdapter**: Images (`FluxInput`/`FluxOutput`), videos (`KlingInput`).
+## AI & Providers
 
-Config: [models-config.ts](src/lib/ai/models-config.ts).
+**Registry** (`src/lib/ai/providers/registry.ts`):
+```ts
+import { OpenRouterAdapter } from './openrouter-adapter';
+import { FalAdapter } from './fal-adapter';
+
+const providers = {
+  openrouter: new OpenRouterAdapter(),
+  fal: new FalAdapter(),
+};
+```
+
+**Capabilities** (`ProviderType`, `ProviderCapability`: TEXT|IMAGE|VIDEO).
+
+**Models** (`src/lib/ai/models-config.ts`): `LLMFeatureKey`, `ModelType` (e.g., 'openrouter:anthropic/claude-3.5-sonnet').
+
+**Inputs/Outputs**:
+- Image: `FluxInput` → `FluxOutput` (Fal).
+- Video: `KlingInput` → `KlingOutput`.
+
+## Admin & Billing
+
+**Plans** (`BillingPlan`):
+- Admin CRUD `/api/admin/plans`.
+- `asaasCheckoutUrl` → Pix/credit card.
+
+**Settings** (`POST /api/admin/settings`): `AdminSettingsPayload` (features, models).
+
+**User Sync** (`POST /api/admin/users/sync`): Bulk Clerk → DB (no credits).
+
+**Middleware**: `requireAdmin` (`src/lib/admin.ts`).
+
+## Storage
+
+**Providers** (`StorageProviderType`: 'vercel-blob'|'replit'):
+- `src/lib/storage/index.ts` → routes to active provider.
+- Upload: Signed URL or direct → `StorageObject`.
+- List: `GET /api/storage?prefix=chars/` → `StorageResponse`.
 
 ## Webhooks
 
-### Clerk (`POST /api/webhooks/clerk`)
-Syncs `user.created/updated/deleted` to DB `User`.
+**Clerk** (`POST /api/webhooks/clerk`, `POST` only):
+- Events: `user.created`/`updated`/`deleted` → upsert/delete `User`.
 
-### Asaas (`POST /api/webhooks/asaas`)
-Confirms payments, grants credits atomically.
+**Asaas** (`POST /api/webhooks/asaas`):
+- `PAYMENT_CONFIRMED` → `addUserCredits(delta)` transactionally.
 
-### Users (`POST /api/webhooks/users`) - External Sync
-- Signature verification (HMAC).
-- Events: `user.created/updated/deleted`.
-- Credits: `creditsRemaining`/`creditDelta`.
-- Idempotent, transactional.
+**Users** (external, HMAC-signed):
+- `user.created` etc. → sync `creditsRemaining`.
 
-## Utilities & Patterns
+**Security**: Verify signatures, idempotency keys.
 
-### Auth
-- [auth-utils.ts](src/lib/auth-utils.ts): `getUserFromClerkId`, `validateUserAuthentication`.
-- [api-auth.ts](src/lib/api-auth.ts): `validateApiKey`, response helpers.
+## Utilities
 
-### Caching
-- [SimpleCache](src/lib/cache.ts): In-memory, TTL-based.
-- `getCacheKey` for queries.
+- **Auth**: `validateApiKey`, `createUnauthorizedResponse` (`src/lib/api-auth.ts`).
+- **Limits**: `canCreateCharacter`, `canAddCharacterToShort` (`src/lib/characters/limits.ts`).
+- **Prompts**: `analyzeCharacterImage`, `buildClimatePrompt` (`src/lib/characters/prompt-generator.ts`).
 
-### Logging
-- [logger.ts](src/lib/logger.ts): `createLogger`, levels (`LogLevel`), context-aware.
-- API: `isApiLoggingEnabled`, min status filter.
+## Security & Best Practices
 
-### Validation Schemas
-Centralized in routes; examples:
-```ts
-import { z } from 'zod';
-const createShortSchema = z.object({
-  title: z.string().min(1),
-  // ...
-});
+- **Ownership**: Always `where: { userId }`.
+- **Transactions**: Credits + usage (`db.$transaction`).
+- **Rate Limits**: Upstash/Upstream in Vercel.
+- **Env Validation**: `ClerkEnvKey[]` (`src/lib/onboarding/env-check.ts`).
+- **Errors**: Catch/log, never leak stack.
+- **Indexes**: `userId`, `createdAt`, `status`.
+
+## Development & Deployment
+
+**Local**:
+```
+pnpm i
+pnpm db:push
+pnpm dev  # http://localhost:3000/api/health
 ```
 
-## Security & Performance
+**Test**:
+- Thunder Client: Add `Authorization: Bearer <clerk-token>`.
+- `pnpm prisma studio`.
 
-- **Auth**: Clerk + DB ownership checks everywhere.
-- **Rate Limiting**: Implement per-route ([utils example](src/lib/utils.ts)).
-- **Transactions**: For credits/media gen.
-- **Indexes**: On `userId`, `createdAt` (Prisma schema).
-- **Pagination**: `take`/`cursor` for lists.
-- **Errors**: `InsufficientCreditsError`, Zod issues exposed.
+**Env Vars**:
+```
+CLERK_* (publishable/secret)
+DATABASE_URL
+ASAAS_API_KEY
+STORAGE_PROVIDER=vercel-blob  # or replit
+OPENROUTER_API_KEY
+FAL_API_KEY
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+```
 
-## Deployment & Monitoring
+**Prod**:
+- Vercel: Auto-deploys, Blob native.
+- Prisma: `migrate deploy`, Accelerate proxy.
 
-- **Env**: Clerk keys, Prisma URL, Asaas API key, storage providers.
-- **Health**: `GET /api/health` (DB ping).
-- **Logs**: Console + potential Sentry.
-- **Caching**: Global Prisma, in-memory utils.
+**Monitoring**:
+- Logs: `createLogger('api:shorts')`.
+- Health: `/api/health` pings DB.
 
-## Development
+**Frontend Integration**:
+- Hooks (`src/hooks/`): `useShorts` ↔ `/api/shorts`, `useAiImage` ↔ Fal.
 
-1. `pnpm dev` → Local API at `localhost:3000/api/*`.
-2. Seed DB: `pnpm db:push && npx prisma studio`.
-3. Test routes: Use Thunder Client/Postman with Clerk token.
-4. Mock Clerk: `NEXT_PUBLIC_CLERK_DEV=true`.
-
-Cross-references:
-- [Frontend Hooks](src/hooks/) mirror API (e.g., `useShorts` → `/api/shorts`).
-- [Admin UI](src/app/admin/).
-- Full symbols: See codebase analysis.
-
-For contributions: Follow patterns, add Zod schemas, transaction credits ops.
+For PRs: Add types, Zod schemas, tests (`src/lib/__tests__`), transactions for mutates.

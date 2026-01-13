@@ -256,6 +256,14 @@ export default function EstilosPage() {
                 open={isDetailsModalOpen}
                 onOpenChange={setIsDetailsModalOpen}
                 climate={viewClimate}
+                onEdit={(c) => {
+                    setIsDetailsModalOpen(false)
+                    handleEdit(c)
+                }}
+                onDelete={async (id) => {
+                    await handleDeleteClimate(id)
+                    setIsDetailsModalOpen(false)
+                }}
             />
         </div>
     )

@@ -5,6 +5,19 @@ import { resolveAgent, resolveStyle, ResolvedStyle } from './resolver'
 import { SystemAgentType } from '../../../prisma/generated/client_final'
 import { createLogger } from '@/lib/logger'
 import { buildClimatePrompt } from '@/lib/climate/behavior-mapping'
+import {
+    DISCOURSE_ARCHITECTURE_LABELS,
+    LANGUAGE_REGISTER_LABELS,
+    SCRIPT_FUNCTION_LABELS,
+    NARRATOR_POSTURE_LABELS,
+    CONTENT_COMPLEXITY_LABELS,
+    DiscourseArchitecture,
+    LanguageRegister,
+    ScriptFunction,
+    NarratorPosture,
+    ContentComplexity
+} from '@/types/style'
+import { processAdvancedInstructions } from '@/lib/ai/prompt-builder'
 
 interface CharacterInfo {
     name: string
@@ -91,12 +104,47 @@ export async function generateScript(
         climate: climateObject?.name
     })
 
-    let fullSystemPrompt = `${agent.systemPrompt}\n\n${style.scriptwriterPrompt}`
+    let styleBlock = '';
+
+    // Build Style Block (Legacy vs New)
+    if (style.scriptwriterPrompt && !style.discourseArchitecture) {
+        styleBlock = style.scriptwriterPrompt;
+    } else {
+        const architecture = DISCOURSE_ARCHITECTURE_LABELS[style.discourseArchitecture as DiscourseArchitecture]?.description || style.discourseArchitecture;
+        const register = LANGUAGE_REGISTER_LABELS[style.languageRegister as LanguageRegister]?.description || style.languageRegister;
+        const func = SCRIPT_FUNCTION_LABELS[style.scriptFunction as ScriptFunction]?.description || style.scriptFunction;
+        const posture = NARRATOR_POSTURE_LABELS[style.narratorPosture as NarratorPosture]?.description || style.narratorPosture;
+        const complexity = CONTENT_COMPLEXITY_LABELS[style.contentComplexity as ContentComplexity]?.description || style.contentComplexity;
+
+        styleBlock = `
+ESTRUTURA DA NARRATIVA:
+- Arquitetura: ${architecture}
+- Registro da Linguagem: ${register}
+- Função do Roteiro: ${func}
+- Postura do Narrador: ${posture}
+- Complexidade: ${complexity}
+
+${style.hookExample ? `EXEMPLO DE HOOK (Tipo): ${style.hookExample}` : ''}
+${style.ctaExample ? `EXEMPLO DE CTA (Tipo): ${style.ctaExample}` : ''}
+        `.trim();
+    }
+
+    let fullSystemPrompt = `${agent.systemPrompt}\n\n${styleBlock}`
 
     // Append Climate behavioral prompt if present
     if (climateObject) {
         const climateBehavioralPrompt = buildClimatePrompt(climateObject)
         fullSystemPrompt += `\n\nINSTRUÇÕES DE CLIMA (${climateObject.name}):\n${climateBehavioralPrompt}`
+    }
+
+    // Process Advanced Instructions (New protection logic)
+    if (style.advancedInstructions) {
+        const advancedBlock = processAdvancedInstructions(
+            style.advancedInstructions,
+            style,
+            climateObject || {}
+        );
+        fullSystemPrompt += `\n\n${advancedBlock}`;
     }
 
     try {

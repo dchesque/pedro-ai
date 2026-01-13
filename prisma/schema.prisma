@@ -43,6 +43,53 @@ model User {
   @@index([currentPlanId])
 }
 
+// Novos Enums para Estilo
+
+enum ContentType {
+  NEWS          // Notícias
+  STORIES       // Histórias
+  MEMES_HUMOR   // Memes/Humor
+  EDUCATIONAL   // Educacional
+  MOTIVATIONAL  // Motivacional
+  TUTORIAL      // Tutorial
+  CUSTOM        // Personalizado
+}
+
+enum DiscourseArchitecture {
+  DIRECT_OBJECTIVE    // Direto e Objetivo
+  NARRATIVE_FLUID     // Narrativo e Fluido
+  TECHNICAL_DETAILED  // Técnico e Detalhado
+  CONVERSATIONAL      // Conversacional
+  PROVOCATIVE         // Provocativo
+}
+
+enum LanguageRegister {
+  FORMAL       // Formal
+  INFORMAL     // Informal
+  TECHNICAL    // Técnico
+  COLLOQUIAL   // Coloquial
+}
+
+enum ScriptFunction {
+  INFORM       // Informar
+  ENTERTAIN    // Entreter
+  CONVINCE     // Convencer
+  REFLECT      // Provocar reflexão
+}
+
+enum NarratorPosture {
+  AUTHORITY    // Autoridade
+  COMPANION    // Companheiro
+  OBSERVER     // Observador
+  PROVOCATEUR  // Provocador
+}
+
+enum ContentComplexity {
+  SIMPLE       // Simples
+  MEDIUM       // Médio
+  DENSE        // Denso
+}
+
 model Feature {
   id          String   @id @default(cuid())
   workspaceId String
@@ -370,32 +417,57 @@ model ShortCharacter {
 }
 
 model Style {
-  id                 String   @id @default(cuid())
-  userId             String?
-  name               String
-  description        String?
-  icon               String?  @default("🎬")
-  contentType        String   @default("story")
-  scriptwriterPrompt String?
-  narrativeStyle     String?
-  languageStyle      String?
-  exampleHook        String?
-  exampleCta         String?
-  visualPrompt       String?
-  isDefault          Boolean  @default(false)
-  isPublic           Boolean  @default(false)
-  usageCount         Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  keywords           String[]
-  suggestedClimateId    String?
-  targetAudience     String?
-  shorts             Short[]
-  suggestedClimate   Climate?    @relation(fields: [suggestedClimateId], references: [id])
-  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(cuid())
+  
+  // === INFORMAÇÕES BÁSICAS ===
+  name                  String
+  description           String?
+  icon                  String?   @default("📝")
+  contentType           ContentType @default(CUSTOM)
+  
+  // === PARÂMETROS DE ESTRUTURA ===
+  targetAudience        String?   // Público-alvo (texto livre)
+  keywords              String[]  // Palavras-chave (array)
+  discourseArchitecture DiscourseArchitecture @default(DIRECT_OBJECTIVE)
+  languageRegister      LanguageRegister @default(INFORMAL)
+  
+  // === BLOCOS GUIADOS (novo) ===
+  scriptFunction        ScriptFunction @default(INFORM)
+  narratorPosture       NarratorPosture @default(AUTHORITY)
+  contentComplexity     ContentComplexity @default(MEDIUM)
+  
+  // === INSTRUÇÕES AVANÇADAS (opcional) ===
+  advancedInstructions  String?   // Texto livre para ajustes finos
+  
+  // === HOOKS E CTA (tipo, não forma) ===
+  hookType              StyleHookType?
+  hookExample           String?   // Exemplo de abertura
+  ctaType               StyleCtaType?
+  ctaExample            String?   // Exemplo de fechamento
+  
+  // === ESTILO VISUAL ===
+  visualPromptBase      String?   // Prompt base para imagens
+  
+  // === CLIMAS COMPATÍVEIS (sugestão) ===
+  compatibleClimates    String[]  // IDs dos climas sugeridos
 
-  @@unique([name, userId])
+  // === METADADOS ===
+  isSystem              Boolean   @default(false)
+  isActive              Boolean   @default(true)
+  userId                String?
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relações
+  shorts                Short[]
+  defaultClimate        Climate?  @relation(fields: [defaultClimateId], references: [id])
+  defaultClimateId      String?
+
   @@index([userId])
+  @@index([isSystem])
+  @@index([contentType])
 }
 
 // Clima da narrativa
@@ -412,15 +484,10 @@ model Climate {
   emotionalState    EmotionalState    @default(CURIOSITY)
   revelationDynamic RevelationDynamic @default(PROGRESSIVE)
   narrativePressure NarrativePressure @default(FLUID)
-  hookType          HookType          @default(QUESTION)
-  closingType       ClosingType       @default(CTA_DIRECT)
-  
   // Limites e Regras
   allowedRevelations Json?             // Array de revelações permitidas
   allowedPressures   Json?             // Array de pressões permitidas
-  sentenceMaxWords   Int               @default(15)
   minScenes          Int               @default(3)
-  maxScenes          Int               @default(15)
 
   // Instruções para o agente (agora opcional para ajuste fino)
   promptFragment  String?    @db.Text 
@@ -472,21 +539,7 @@ enum NarrativePressure {
   FAST
 }
 
-enum HookType {
-  QUESTION
-  SHOCK
-  CHALLENGE
-  MYSTERY
-  STATEMENT
-}
 
-enum ClosingType {
-  CTA_DIRECT
-  REVELATION
-  QUESTION
-  CHALLENGE
-  LOOP
-}
 
 enum ShortStatus {
   DRAFT
@@ -517,4 +570,20 @@ enum SystemAgentType {
   SCRIPTWRITER
   PROMPT_ENGINEER
   NARRATOR
+}
+
+enum StyleHookType {
+  QUESTION
+  STRONG_STATEMENT
+  DATA_FACT
+  SHORT_STORY
+  CONTRAST
+}
+
+enum StyleCtaType {
+  DIRECT_ACTION
+  ENGAGEMENT
+  REFLECTION
+  SHARE
+  FOLLOW
 }

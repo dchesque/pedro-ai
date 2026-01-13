@@ -1,336 +1,317 @@
 # Development Guidelines
 
-This document outlines the coding standards, patterns, and best practices for contributing to the Pedro AI codebase. The project is a Next.js 14+ app with App Router, TypeScript, Prisma, Clerk authentication, TanStack Query for data fetching, shadcn/ui components, and AI integrations (Fal.ai, OpenRouter, Kling/Flux models).
+This document outlines coding standards, patterns, best practices, and architecture for contributing to Pedro AI—a Next.js 14+ app with App Router, TypeScript, Prisma ORM, Clerk auth, TanStack Query, shadcn/ui, and AI integrations (Fal.ai, OpenRouter, Kling/Flux).
 
-Follow these guidelines to maintain consistency, security, and performance.
+Adhere to these for consistency, type safety, security, and performance. Total codebase: ~400 files, 896 symbols (208 .ts, 166 .tsx).
 
 ## Code Standards
 
-### TypeScript Configuration
+### TypeScript Strictness
 
-`tsconfig.json` enforces strict mode. Key rules:
+`tsconfig.json` enables `strict: true`, `noImplicitAny: true`, `strictNullChecks: true`. Avoid `any`; prefer `unknown`, generics, or branded types.
 
-- **Type Safety**: No `any`—use `unknown`, unions, or generics. Enable strict null checks (`strictNullChecks: true`).
-- **Interfaces for Data**: Define for all props, API responses, and models.
-- **Generics**: For reusable hooks/components (e.g., `useQuery<T>`).
-
-```tsx
-// ✅ Good
-export interface Short {
-  id: string;
-  title: string;
-  scenes: ShortScene[];
-  status: ShortStatus;
-}
-
-async function fetchShort(id: string): Promise<Short | null> {
-  const { data } = await apiClient.get(`/shorts/${id}`);
-  return data;
-}
-
-// ❌ Bad
-function fetchShort(id: any): any { /* ... */ }
-```
-
-#### Common Types (from codebase)
-
-See key exports:
-- `Short`, `ShortScene` (`src/hooks/use-shorts.ts`)
-- `CreditData`, `CreditsResponse` (`src/hooks/use-credits.ts`)
-- `AdminSettings` (`src/hooks/use-admin-settings.ts`)
-- `CharacterPromptData` (`src/lib/characters/types.ts`)
-
-Use `ApiError` for errors (`src/lib/api-client.ts`).
-
-### File Naming Conventions
-
-```
-Components: PascalCase.tsx (e.g., AddSceneDialog.tsx, AppShell.tsx)
-Pages: kebab-case/page.tsx (e.g., ai-studio/page.tsx)
-Hooks: camelCase.ts (e.g., use-shorts.ts, use-credits.ts)
-Utils: camelCase.ts (e.g., api-client.ts, utils.ts)
-Types: camelCase.ts (e.g., types.ts)
-Constants: UPPER_SNAKE_CASE.ts (e.g., feature-config.ts)
-API Routes: route.ts (e.g., /api/shorts/route.ts)
-```
-
-### Import Organization
+- **Interfaces/Types**: Define for props, API payloads, models (e.g., `Short`, `Agent`, `CreditsResponse`).
+- **Errors**: Extend `ApiError` or use `InsufficientCreditsError`.
+- **Generics**: Hooks like `useQuery<TData, TError>`.
 
 ```tsx
-// 1. React/Next.js
-import React from 'react';
+// ✅ Props interface
+export interface ShortCardProps {
+  short: Short; // From src/hooks/use-shorts.ts
+  onApprove?: () => void;
+}
+
+// ✅ API handler
+async function createShort(data: CreateShortInput): Promise<Short> {
+  // ...
+  return short;
+}
+
+// ❌ Avoid
+function badFn(id: any): any { /* ... */ }
+```
+
+**Common Types** (key exports):
+- Data: `Short`, `ShortScene`, `ShortCharacterWithDetails` (`src/hooks/use-shorts.ts`, `use-short-characters.ts`)
+- Credits: `CreditData`, `CreditsResponse`, `UsageData` (`src/hooks/use-credits.ts`, `use-usage.ts`)
+- AI: `Agent`, `AgentQuestion`, `AIModel` (`src/hooks/use-agents.ts`, `use-available-models.ts`)
+- Admin: `AdminSettings`, `Plan`, `ClerkPlan` (`src/hooks/use-admin-settings.ts`, `use-admin-plans.ts`)
+- Storage: `StorageItem`, `UploadResult` (`src/hooks/use-storage.ts`, `src/lib/storage/types.ts`)
+
+### File Naming & Organization
+
+| Category | Convention | Examples |
+|----------|------------|----------|
+| Components | `PascalCase.tsx` | `AddSceneDialog.tsx`, `AdminChrome.tsx`, `ShortCard.tsx` |
+| Pages | `kebab-case/page.tsx` | `admin/agents/[id]/page.tsx`, `ai-studio/page.tsx` |
+| Hooks | `camelCase.ts` | `use-shorts.ts`, `use-credits.ts`, `use-agents.ts` |
+| Utils/Libs | `camelCase.ts` | `api-client.ts`, `pipeline.ts`, `cache.ts` |
+| Types | `types.ts` (or inline) | `src/lib/shorts/types.ts` |
+| API Routes | `route.ts` | `src/app/api/shorts/route.ts` |
+| Constants | `UPPER_SNAKE_CASE.ts` | `feature-config.ts`, `models-config.ts` |
+
+**Imports** (grouped, alphabetical within groups, `@/` alias):
+```tsx
+// 1. React/Next built-ins
+import React, { useCallback, useMemo } from 'react';
 import { NextRequest } from 'next/server';
 
-// 2. Lib utils (alphabetical)
-import { cn } from '@/lib/utils';
-import { apiClient } from '@/lib/api-client';
+// 2. Libs/Utils (alpha)
+import { cn, generateApiKey } from '@/lib/utils';
+import { apiClient, ApiError } from '@/lib/api-client';
 import db from '@/lib/db';
+import { createShort, addScene } from '@/lib/shorts/pipeline';
 
 // 3. Hooks (client-only)
-import { useShorts, useCreateShort } from '@/hooks/use-shorts';
+import { useShorts, useGenerateScript } from '@/hooks/use-shorts';
 
-// 4. Components/UI
-import { Button } from '@/components/ui/button';
-import { AddSceneDialog } from '@/components/shorts/AddSceneDialog';
+// 4. Components/UI (alpha)
+import { Button, Input } from '@/components/ui/*';
+import { AdminTopbar } from '@/components/admin/admin-topbar';
 
-// 5. Types
-import type { Short } from '@/hooks/use-shorts';
+// 5. Types (type imports)
+import type { Short, CreateShortInput } from '@/hooks/use-shorts';
 
-// 6. Styles/CSS
-import './component.css';
+// 6. Styles (last)
+import './ShortCard.css';
 ```
 
-**Note**: Prefix internal imports with `@/` alias.
+## Architecture Layers
 
-## Architecture Overview
+| Layer | Path | Dependencies | Key Symbols (Exports) |
+|-------|------|--------------|-----------------------|
+| **Utils/Libs** | `src/lib/` | Models/DB | 183 (e.g., `cn`, `apiClient`, `addScene`, `deductCredits`, `OpenRouterAdapter`) |
+| **Controllers (API)** | `src/app/api/` | Libs/Models | 178 (e.g., route handlers for shorts, credits) |
+| **Components** | `src/components/` | Hooks/Libs | 198 (e.g., `AddSceneDialog`, `AdminChrome`, `AppShell`) |
+| **Client Hooks** | `src/hooks/` | apiClient | ~50 (e.g., `useShorts`, `useCredits`, `useAgents`) |
+| **Models/DB** | Prisma | - | 31 (e.g., `Short`, `Character`, `Credit`) |
+| **Storage** | `src/lib/storage/` | - | 8 (e.g., `VercelBlobStorage`, `useStorage`) |
 
-- **Layers**:
-  | Layer | Path | Dependencies | Symbols |
-  |-------|------|--------------|---------|
-  | Utils | `src/lib/` | Controllers, Models | 171 |
-  | Controllers (API) | `src/app/api/` | Models | 159 |
-  | Components | `src/components/` | Models | 179 |
-  | Models | Prisma schema | - | 29 |
-  | Hooks (Client Data) | `src/hooks/` | apiClient | ~50 |
+**Key Flows & Cross-Refs**:
+- **Shorts**: `useShorts` → `src/lib/shorts/pipeline.ts` (`addScene`, `approveScript`, `generateMedia`). Rel: `use-short-characters.ts`.
+- **Agents/AI**: `useAgents` → `src/lib/agents/` (`scriptwriter.ts`, `prompt-engineer.ts`). Providers: `src/lib/ai/providers/registry.ts`.
+- **Credits**: `useCredits` → `src/lib/credits/` (`deduct`, `validate-credits`, `track-usage`).
+- **Admin**: `AdminLayout` + `useAdminSettings`, `useAdminPlans`.
+- **High-Impact Files**: `src/components/roteirista/ScriptWizard.tsx` (imported 5x), `src/lib/storage/index.ts` (3x).
 
-- **Key Flows**:
-  - **Shorts Pipeline**: `src/lib/shorts/pipeline.ts` (addScene, approveScript, generateMedia).
-  - **Credits**: `src/lib/credits/` (deduct, validate, track-usage).
-  - **AI Providers**: `src/lib/ai/providers/` (OpenRouterAdapter, FalAdapter).
-  - **Storage**: `src/lib/storage/` (VercelBlobStorage, ReplitAppStorage).
+## Component & Page Patterns
 
-Cross-references:
-- Shorts: Uses `useShorts`, `useShortCharacters`.
-- Admin: `AdminChrome`, `useAdminSettings`, `useAdminPlans`.
-
-## Component Guidelines
-
-### Page Metadata (Protected Routes)
-
-All `(protected)` pages use `PageMetadataContext` for titles/breadcrumbs:
+### Protected Pages
+Use `PageMetadataContext` for SEO/breadcrumbs. Wrap in `AppShell`.
 
 ```tsx
 "use client";
-
 import { usePageMetadata } from '@/contexts/page-metadata';
+import { AppShell } from '@/components/app/app-shell';
 
-export default function AIStudioPage() {
+export default function AgentDetailPage({ params }: { params: { slug: string } }) {
   usePageMetadata({
-    title: 'AI Studio',
-    description: 'Generate shorts with AI',
-    breadcrumbs: [
-      { label: 'Dashboard', href: '/dashboard' },
-      { label: 'AI Studio' }
-    ]
+    title: 'Agent Detail',
+    breadcrumbs: [{ label: 'Agents', href: '/agents' }, { label: 'Detail' }]
   });
 
-  return <AppShell>{/* content */}</AppShell>;
+  return (
+    <AppShell>
+      {/* Content */}
+    </AppShell>
+  );
 }
 ```
 
-Layouts (`src/app/(protected)/layout.tsx`) render headers automatically.
-
-### Component Structure
+### Generic Component
+Hooks first, memos/computed next, handlers last. Memoize lists/handlers.
 
 ```tsx
-interface ShortCardProps {
+interface Props {
   short: Short;
-  onRegenerate?: () => void;
 }
 
-export function ShortCard({ short, onRegenerate }: ShortCardProps) {
-  const { mutate: regenerate } = useRegenerateScript(short.id);
+export function ShortCard({ short }: Props) {
+  const { data: characters } = useShortCharacters({ shortId: short.id });
+  const regenerate = useRegenerateShort(short.id);
 
-  // Hooks first
-  const { data: scenes } = useQuery({ queryKey: ['scenes', short.id] });
+  const statusClass = useMemo(() => cn('badge', {
+    'bg-green-500': short.status === 'approved',
+    'bg-yellow-500': short.status === 'draft'
+  }), [short.status]);
 
-  // Computed/memos
-  const statusColor = useMemo(() => cn('badge', { 'bg-green': short.status === 'approved' }), [short.status]);
-
-  // Handlers
-  const handleRegenerate = useCallback(() => {
-    regenerate();
-    onRegenerate?.();
-  }, [regenerate, onRegenerate]);
+  const handleApprove = useCallback(async () => {
+    await approveScript(short.id);
+  }, [short.id]);
 
   return (
-    <div className={cn('card', statusColor)}>
+    <div className={statusClass}>
       <h3>{short.title}</h3>
-      <Button onClick={handleRegenerate}>Regenerate Script</Button>
+      <Button onClick={handleApprove}>Approve</Button>
     </div>
   );
 }
 ```
 
-**Props**: Specific unions/enums (e.g., `variant: 'primary' | 'destructive'`). No index signatures.
+**Optimizations**: `React.memo` for pure; `dynamic` for heavy (e.g., `AIStarter`).
 
-**Optimization**: `React.memo` for pure components; `useMemo`/`useCallback` for lists/handlers.
+## Data Fetching Rules
 
-## Data Access Patterns
+**No Client-Side Prisma**: Prevents hydration errors.
 
-**Critical Rule**: No Prisma (`@/lib/db`) in client components—"hydration mismatch" risk.
+| Context | Pattern | Examples |
+|---------|---------|----------|
+| **Client** | TanStack Query Hooks → apiClient | `const { data } = useShorts({ userId });` |
+| **Server Components** | Lib queries (e.g., `src/lib/*/queries.ts`) | `const shorts = await getUserShorts(userId);` |
+| **API Routes/Actions** | Direct lib/DB + Zod | `createShort(input)` |
 
-- **Client Components**: Use TanStack Query hooks (e.g., `useShorts`, `useCredits`) → `apiClient` → API routes/Server Actions.
-- **Server Components**: Import query functions from `src/lib/queries/` or domain libs (e.g., `src/lib/shorts/queries.ts`).
-- **API Routes/Actions**: Direct Prisma or lib functions.
-
+**Hooks Examples**:
 ```tsx
-// ✅ Client: Hook (wraps apiClient)
-const { data: shorts } = useShorts({ userId });
+// Shorts
+const shorts = useShorts({ userId });
+const create = useCreateShort();
 
-// ✅ Server Component: Lib query
-import { getUserShorts } from '@/lib/shorts/queries';
-const shorts = await getUserShorts(userId);
-
-// ❌ Client: Never do this
-import db from '@/lib/db'; // Error!
+// Agents
+const agents = useAgents();
+const execute = useAgentExecution(agentId);
 ```
 
-**Examples**:
-- Shorts: `useCreateShort`, `useGenerateScript`, `useAddScene`.
-- Credits: `useCredits`, `addUserCredits`.
-- Storage: `useStorage`, `useDeleteStorageItem`.
+**Query Keys**: `['shorts', userId]`, `staleTime: 5 * 60 * 1000`.
 
-## API Development
+## API Routes & Server Actions
 
-### Route Handlers
+Auth + Zod + Centralized errors.
 
 ```ts
-// src/app/api/shorts/route.ts
 import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
+import { validateUserAuthentication } from '@/lib/auth-utils';
 import { createShort } from '@/lib/shorts/pipeline';
+import { createErrorResponse } from '@/lib/api-auth';
 
-const schema = z.object({ title: z.string() });
+const schema = z.object({ title: z.string().min(1) });
 
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
-    validateUserAuthentication(userId); // From auth-utils.ts
+    if (!userId) throw new ApiError('Unauthorized');
+    validateUserAuthentication(userId);
 
-    const data = schema.parse(await req.json());
-    const short = await createShort({ ...data, userId: userId! });
+    const { title } = schema.parse(await req.json());
+    const short = await createShort({ title, userId });
 
-    return NextResponse.json(short, { status: 201 });
+    return Response.json(short, { status: 201 });
   } catch (error) {
-    return createErrorResponse(error); // Centralized handler
+    return createErrorResponse(error);
   }
 }
 ```
 
-**Auth**: `auth()` + `getUserFromClerkId` or `validateApiKey`.
-**Validation**: Zod schemas everywhere.
-**Errors**: `ApiError`, `InsufficientCreditsError`.
+**Admin**: Prefix `/api/admin/*`, use `requireAdmin`.
 
-**Admin Routes**: `requireAdmin` middleware.
+## Database (Prisma)
 
-## Database Guidelines (Prisma)
+Select minimal fields, transactions, indexes (`userId`, `status`).
 
 ```ts
-// ✅ Select only needed fields
+// Minimal select + relations
 const shorts = await db.short.findMany({
-  where: { userId },
+  where: { userId, status: { in: ['draft', 'approved'] } },
   select: {
     id: true,
     title: true,
     status: true,
-    scenes: {
-      select: { id: true, prompt: true }
-    }
+    scenes: { select: { id: true, prompt: true } },
+    _count: { select: { scenes: true } }
   },
   orderBy: { createdAt: 'desc' },
-  take: 10
+  take: 20
 });
 
-// ✅ Transactions
+// Transaction
 await db.$transaction(async (tx) => {
-  await tx.shortCredit.create({ data: { shortId, creditsUsed: 10 } });
-  await deductCredits(tx, userId, 10);
+  await tx.short.create({ data });
+  await deductCredits(tx, userId, 50); // From src/lib/credits/deduct.ts
 });
 ```
 
-**Relations**: Use `include` for 1:1/N:1 (e.g., `user: { select: { creditsRemaining: true } }`).
-**Pagination**: `take`/`skip` or cursor-based.
+**Pagination**: Cursor or `take`/`skip`.
 
-## AI & Feature-Specific Guidelines
+## Feature-Specific
 
-### Shorts Pipeline
-
-- Use `addScene`, `approveScript`, `generateMedia` from `src/lib/shorts/pipeline.ts`.
-- Characters: `combineCharactersForScene`, limits via `canAddCharacterToShort`.
-- Hooks: `useShorts`, `useGenerateScript`, `useRegenerateSceneImage`.
-
+### Shorts Pipeline (`src/lib/shorts/pipeline.ts`)
 ```ts
-const onGenerate = useGenerateScript(short.id);
+import { addScene, approveScript, generateMedia } from '@/lib/shorts/pipeline';
+// Hooks: useGenerateScript, useRegenerateShort, useAddScene
 ```
 
-### Credits System
+Limits: `canCreateCharacter`, `canAddCharacterToShort` (`src/lib/characters/limits.ts`).
 
-- Track: `trackUsage(operation: OperationType)`.
-- Deduct: `deductCredits(userId, amount)`.
-- Hooks: `useCredits()` → `CreditsResponse`.
+### AI/Agents
+- Providers: `FalAdapter`, `OpenRouterAdapter` (`src/lib/ai/providers/`).
+- Models: `useAvailableModels` → `AIModel[]`.
+- Execution: `AgentExecutionResult`.
 
-### Admin Tools
+### Credits
+- `useCredits()` → deduct via `OperationType` (e.g., `'generate_script'`).
+- Admin: `AdminSettingsPayload`, `useAdminPlans`.
 
-- `AdminChrome`, `AdminLayout`.
-- `useAdminSettings`, `useAdminPlans`.
-- Dev: `AdminDevModeProvider`.
+### Storage
+```ts
+const { data } = useStorage({ userId, type: 'images' });
+uploadImage(file, { provider: 'vercel' }); // VercelBlobStorage
+```
 
-## Security
+## Security & Validation
 
-- **Auth**: Clerk + `createAuthErrorResponse`.
-- **Validation**: Zod + `validateApiKey`.
-- **Rate Limits**: Credits system enforces.
-- **No Secrets**: Env vars only (e.g., `ASAAS_API_KEY`).
+- **Auth**: Clerk `auth()` + `getUserFromClerkId`/`validateApiKey`.
+- **Input**: Zod schemas.
+- **Rate Limits**: Credits-based.
+- **Secrets**: `.env` only (e.g., `FAL_KEY`, `ASAAS_API_KEY`). Validate `src/lib/env.ts`.
 
 ## Testing
 
-Use Vitest/Jest + `@testing-library/react`, MSW for API mocks.
+Vitest + RTL + MSW.
 
-```tsx
-// src/hooks/use-shorts.test.ts
+```ts
+// hook.test.ts
 import { renderHook } from '@testing-library/react';
 import { useShorts } from './use-shorts';
 
-test('fetches shorts', async () => {
-  // MSW mock apiClient
-  const { result } = renderHook(() => useShorts({ userId: 'test' }));
-  await waitFor(() => expect(result.current.data).toHaveLength(2));
+vi.mock('@/lib/api-client');
+
+test('loads shorts', async () => {
+  const { result } = renderHook(() => useShorts({ userId: 'user1' }));
+  await waitFor(() => expect(result.current.data).toHaveLength(3));
 });
 ```
 
-- **Unit**: Components, utils.
-- **Integration**: Hooks → API.
-- **E2E**: Playwright (TBD).
+Cover: Units (utils), Integration (hooks/API), Components.
 
-## Performance
+## Performance & Optimization
 
-- **Queries**: `queryKey: ['shorts', userId]`, staleTime: 5min.
-- **Bundles**: `dynamic` for heavy (e.g., AI chat).
-- **DB**: Indexes on `userId`, `status`; no N+1.
-- **Images**: Fal.ai/Flux optimized.
+- **Queries**: Structured keys, `staleTime`.
+- **Bundles**: `dynamic` imports (e.g., chat/video gen).
+- **DB**: No N+1; indexes.
+- **Cache**: `SimpleCache` (`src/lib/cache.ts`), `getCacheKey`.
+- **Images/Video**: Flux/Kling optimized inputs (`src/lib/fal/flux.ts`).
 
-## Git Workflow
+## Git & Workflow
 
-- **Commits**: Conventional (`feat:`, `fix:`, etc.).
-- **Branches**: `feature/shorts-pipeline`, `fix/credits-bug`.
-- **PRs**: Self-review, tests pass, no `console.log`.
+- **Commits**: Conventional ( `feat: shorts ui`, `fix: credits deduct` ).
+- **Branches**: `feat/add-agent-exec`, `fix/regen-bug`.
+- **PRs**: Lint, tests ✅, no `console.log`, self-review.
+- **Lint**: ESLint + Prettier enforced.
 
-## Environment & Deployment
+## Deployment & Env
 
 ```env
-DATABASE_URL="postgresql://..."
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_..."
-CLERK_SECRET_KEY="sk_..."
-ASAAS_API_KEY="..."
-FAL_KEY="..."
+DATABASE_URL=postgresql://...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+FAL_KEY=...
+OPENROUTER_API_KEY=...
+ASAAS_API_KEY=...
+STORAGE_PROVIDER=vercel # or replit
 ```
 
-Validate in `src/lib/env.ts`.
+- **Deploy**: Vercel (blobs auto), Replit fallback.
+- **Checks**: `src/lib/onboarding/env-check.ts` (`ClerkEnvKey`).
 
-**Deploy**: Vercel (blob storage auto), Replit fallback.
-
----
-
-For questions: Check symbols in IDE or run `analyzeSymbols`. Contribute via PRs!
+For symbols/search: Use IDE or tools like `analyzeSymbols src/lib/shorts/pipeline.ts`. Contribute via PRs!

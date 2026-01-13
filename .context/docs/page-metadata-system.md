@@ -2,139 +2,110 @@
 
 ## Visão Geral
 
-O sistema de metadados de página é um mecanismo centralizado e reativo para gerenciar títulos (`title`), descrições (`description`) e breadcrumbs em páginas protegidas da aplicação. Ele utiliza React Context (`src/contexts/page-metadata.tsx`) para propagar metadados de forma eficiente, evitando prop drilling e garantindo consistência visual.
+O sistema de metadados de página é um mecanismo centralizado baseado em React Context para gerenciar dinamicamente **títulos**, **descrições** e **breadcrumbs** em páginas protegidas da aplicação. Ele promove consistência visual, evita prop drilling e integra-se automaticamente ao layout principal via `AppShell`.
 
-**Localizações principais:**
-- **Contexto principal**: `src/contexts/page-metadata.tsx` (exporta `BreadcrumbItem`, provedor e hooks)
-- **Header de renderização**: `src/components/app/page-header.tsx` (renderiza automaticamente no layout protegido)
-- **Hooks utilitários**: `src/hooks/use-page-config.ts` (wrapper simplificado sobre `useSetPageMetadata`)
+**Arquitetura principal**:
+- **Contexto**: `src/contexts/page-metadata.tsx` – Gerencia estado reativo (`PageMetadataState`).
+- **Renderização**: `src/components/app/page-header.tsx` – Consome contexto e renderiza UI.
+- **Hook principal**: `src/hooks/use-page-config.ts` – API simplificada para configuração.
+- **Integração**: Ativado em `src/app/(protected)/layout.tsx` e `src/components/app/app-shell.tsx`.
 
-O sistema é ativado apenas em rotas protegidas (dentro de `AppShell` em `src/components/app/app-shell.tsx`), integrando-se perfeitamente com o layout principal.
+**Benefícios**:
+- Atualizações reativas sem re-renderizações globais (memoização).
+- Breadcrumbs automáticos baseados em `usePathname()` (Next.js).
+- Suporte a overrides customizados.
+- TypeScript rigoroso com `BreadcrumbItem`.
 
-## Componentes Principais
+## Tipos Principais
 
-### 1. `PageMetadataProvider`
-- **Propósito**: Provedor de contexto que gerencia o estado global dos metadados.
-- **Uso**: Envolve o layout protegido (`src/app/(protected)/layout.tsx`).
-- **Estado interno**:
-  ```tsx
-  interface PageMetadataState {
-    title?: string;
-    description?: string;
-    breadcrumbs?: BreadcrumbItem[];
-    showBreadcrumbs?: boolean;
-  }
-  ```
-- **Comportamento**:
-  - Merge de múltiplas chamadas de `useSetPageMetadata` (última prevalece).
-  - Geração automática de breadcrumbs se não fornecidos (baseado em `usePathname` do Next.js).
-  - Memoização para evitar re-renderizações desnecessárias.
-
-### 2. `PageHeader`
-- **Propósito**: Componente que consome o contexto e renderiza:
-  1. Breadcrumbs (usando `src/components/ui/breadcrumbs.tsx`).
-  2. Título (`<h1>`).
-  3. Descrição (`<p>`).
-- **Renderização condicional**:
-  | Condição | Renderiza |
-  |----------|-----------|
-  | Sem metadados | Nada |
-  | Apenas breadcrumbs | Apenas breadcrumbs |
-  | Título/descrição | Header completo |
-  | `showBreadcrumbs: false` | Sem breadcrumbs |
-- **Integração**: Incluído automaticamente em `src/app/(protected)/layout.tsx`.
-
-### 3. Tipos Exportados
 ```tsx
 // src/contexts/page-metadata.tsx
 export interface BreadcrumbItem {
   label: string;
   href?: string;
 }
+
+interface PageMetadataState {
+  title?: string;
+  description?: string;
+  breadcrumbs?: BreadcrumbItem[];
+  showBreadcrumbs?: boolean;
+}
 ```
 
-## API dos Hooks
+## Componentes e Provedores
 
-### `useSetPageMetadata`
-Hook de baixo nível para definir metadados completos.
+### `PageMetadataProvider`
+- **Uso**: Envolve layouts protegidos.
+  ```tsx
+  // src/app/(protected)/layout.tsx (exemplo implícito)
+  <PageMetadataProvider>
+    {children}
+    <PageHeader />
+  </PageMetadataProvider>
+  ```
+- **Comportamento**:
+  - Merge de atualizações (última chamada prevalece).
+  - Gera `breadcrumbs` automáticos se ausentes.
+  - Expõe `usePageMetadata` e `useSetPageMetadata`.
+
+### `PageHeader`
+- **Renderiza**:
+  1. Breadcrumbs (`src/components/ui/breadcrumbs.tsx`).
+  2. `<h1>{title}</h1>`.
+  3. `<p className="text-muted-foreground">{description}</p>`.
+- **Condicionais**:
+  | Estado | Renderização |
+  |--------|--------------|
+  | Sem metadados | Nada |
+  | `showBreadcrumbs: false` | Apenas título + descrição |
+  | Breadcrumbs custom | Prioridade sobre automáticos |
+
+## API Pública (Hooks)
+
+### `useSetPageMetadata` (Baixo Nível)
+Define metadados completos.
 
 ```tsx
 import { useSetPageMetadata } from "@/contexts/page-metadata";
 
 useSetPageMetadata({
-  title: "Meu Título",
-  description: "Descrição detalhada da página.",
+  title: "Dashboard",
+  description: "Visão geral da atividade.",
   breadcrumbs: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Relatórios" },
-    { label: "Vendas 2024", href: "/dashboard/reports/sales-2024" }
+    { label: "Início", href: "/dashboard" },
+    { label: "Relatórios" }
   ],
-  showBreadcrumbs: true // padrão: true
+  showBreadcrumbs: false // Opcional (default: true)
 });
 ```
 
-### `usePageConfig` (Recomendado)
-Wrapper simplificado com sobrecargas para DX otimizado.
+### `usePageConfig` (Recomendado – Alto Nível)
+Sobrecargas para DX superior.
 
 ```tsx
 import { usePageConfig } from "@/hooks/use-page-config";
 
-// 1. Simples (título + descrição auto)
-usePageConfig("Dashboard", "Visão geral da sua atividade");
+// 1. Título + descrição auto (breadcrumbs automáticos)
+usePageConfig("Dashboard", "Monitore sua atividade.");
 
-// 2. Com breadcrumbs
-usePageConfig("Relatórios", "Análises detalhadas", [
-  { label: "Início", href: "/dashboard" },
-  { label: "Relatórios" }
+// 2. Com breadcrumbs customizados
+usePageConfig("Short #123", "Gerencie seu short.", [
+  { label: "Shorts", href: "/dashboard/shorts" },
+  { label: "Short #123" }
 ]);
 
 // 3. Objeto completo
 usePageConfig({
-  title: "Configurações",
-  description: "Personalize sua conta",
-  showBreadcrumbs: false
+  title: "Configurações Admin",
+  description: "Gerencie planos e usuários.",
+  showBreadcrumbs: true
 });
 ```
 
-**Nota**: Chame no topo do componente da página (depois de `useEffect` se dependente de dados assíncronos).
+**Melhor prática**: Chame no corpo do componente ou em `useEffect` para dados assíncronos.
 
-## Recursos Avançados
-
-### Breadcrumbs Automáticos
-- **Como funciona**: Usa `usePathname()` para decompor a URL em breadcrumbs hierárquicos.
-- **Exemplo de saída automática** para `/dashboard/shorts/123`:
-  ```
-  Início → Shorts → Short #123
-  ```
-- **Customização**: Sobrescreva fornecendo `breadcrumbs` explícitos.
-
-### Geração Dinâmica
-Integre com dados carregados:
-```tsx
-export default function ShortPage({ params }: { params: { id: string } }) {
-  const { data: short } = useShort(params.id);
-  
-  useEffect(() => {
-    if (short) {
-      usePageConfig(
-        `Short: ${short.title}`,
-        `Status: ${short.status}`,
-        [{ label: "Shorts", href: "/dashboard/shorts" }, { label: short.title }]
-      );
-    }
-  }, [short]);
-  
-  return <ShortContent />;
-}
-```
-
-### Suporte a Internacionalização (i18n)
-- Labels de breadcrumbs são strings puras; integre com `next-intl` ou similar:
-  ```tsx
-  { label: t("dashboard.title") }
-  ```
-
-## Exemplos de Uso em Páginas Reais
+## Exemplos de Uso Real (do Codebase)
 
 ### Dashboard (`src/app/(protected)/dashboard/page.tsx`)
 ```tsx
@@ -143,12 +114,12 @@ import { useUser } from "@/hooks/use-user";
 import { usePageConfig } from "@/hooks/use-page-config";
 
 export default function DashboardPage() {
-  const { user } = useUser();
+  const { data: user } = useUser();
   usePageConfig(
-    `Olá, ${user?.firstName}!`,
-    "Monitore créditos, shorts e uso da IA."
+    `Olá, ${user?.firstName || "Usuário"}!`,
+    "Créditos, shorts e histórico de uso."
   );
-  // Conteúdo...
+  // ...
 }
 ```
 
@@ -156,77 +127,111 @@ export default function DashboardPage() {
 ```tsx
 usePageConfig({
   title: "AI Studio",
-  description: "Crie roteiros e vídeos com IA avançada",
+  description: "Gere roteiros e vídeos com IA.",
   breadcrumbs: [{ label: "Dashboard", href: "/dashboard" }, { label: "AI Studio" }]
 });
 ```
 
-### Admin Settings (`src/app/admin/settings/page.tsx`)
-Usa breadcrumbs automáticos para rotas aninhadas como `/admin/settings/plans`.
-
-## Migração de Páginas Existentes
-
-**Passos obrigatórios:**
-1. Adicione `"use client";` no topo.
-2. Remova `<BreadcrumbNav />`, `<h1>`, `<p className="text-muted-foreground">`.
-3. Importe e chame `usePageConfig`.
-4. Teste em modo dev (`showBreadcrumbs: false` para debug).
-
-**Exemplo Antes/Depois**:
+### Short Detalhe (`src/app/(protected)/shorts/[id]/page.tsx` – Inferido)
 ```tsx
-// ANTES (legado)
-<BreadcrumbNav items={[]} />
-<h1>Título Antigo</h1>
-<p>Descrição antiga...</p>
+const { data: short } = useShort(params.id);
 
-// DEPOIS
-"use client";
-import { usePageConfig } from "@/hooks/use-page-config";
-
-usePageConfig("Título Antigo", "Descrição antiga...");
+useEffect(() => {
+  if (short) {
+    usePageConfig(
+      short.title,
+      `Status: ${short.status}`,
+      [{ label: "Shorts", href: "/dashboard/shorts" }, { label: short.title }]
+    );
+  }
+}, [short]);
 ```
 
-**Páginas já migradas** (exemplos do codebase):
+### Admin Pages (`src/app/admin/settings/page.tsx`)
+Usa automáticos para `/admin/settings/plans` → `Admin > Settings > Plans`.
+
+## Funcionalidades Avançadas
+
+### Breadcrumbs Automáticos
+- Decompõe `pathname` em hierarquia legível.
+- Exemplo: `/dashboard/shorts/abc123` → `Início > Shorts > Short abc123`.
+- **Cross-ref**: Implementado em `src/contexts/page-metadata.tsx` com `generateBreadcrumbs(pathname)`.
+
+### Geração Dinâmica + Dados Assíncronos
+Sempre em `useEffect` para evitar loops:
+```tsx
+useEffect(() => {
+  if (data) usePageConfig(`Título Dinâmico: ${data.name}`, data.summary);
+}, [data]);
+```
+
+### i18n Suporte
+```tsx
+import { useTranslations } from "next-intl";
+const t = useTranslations("Page");
+
+{ label: t("dashboard.title"), href: "/dashboard" }
+```
+
+## Integrações e Dependências
+
+- **Layouts**: `src/app/(protected)/layout.tsx`, `src/app/admin/layout.tsx`.
+- **Utils**: `cn` (`src/lib/utils.ts`), `usePathname` (Next.js).
+- **UI**: `src/components/ui/breadcrumbs.tsx`.
+- **Usos no codebase** (via análise):
+  - 10+ páginas em `(protected)` e `admin`.
+  - Dependências: `use-agents.ts`, `use-shorts.ts`, `use-dashboard.ts`.
+
+## Migração de Páginas Legadas
+
+1. Adicione `"use client";`.
+2. Remova manual `<h1>`, `<p>`, `<BreadcrumbNav />`.
+3. Substitua por `usePageConfig`.
+4. Teste com `showBreadcrumbs: false`.
+
+**Antes/Depois**:
+```tsx
+// Antes
+<h1>Dashboard</h1>
+<p>Visão geral...</p>
+
+// Depois
+usePageConfig("Dashboard", "Visão geral...");
+```
+
+**Páginas migradas**:
 - `src/app/(protected)/dashboard/page.tsx`
-- `src/app/admin/settings/page.tsx`
 - `src/app/(protected)/ai-studio/page.tsx`
+- `src/app/admin/settings/page.tsx`
+- `src/app/(protected)/agents/[slug]/page.tsx`
 
 ## Troubleshooting
 
-| Problema | Causa Provável | Solução |
-|----------|----------------|---------|
-| Header não aparece | Página fora do layout protegido | Mova para `(protected)` ou adicione provedor manualmente. |
-| Breadcrumbs errados | URL complexa | Forneça `breadcrumbs` customizados. |
-| Re-renderizações excessivas | Chamada fora de `useEffect` | Use `useEffect` para dados assíncronos. |
-| Conflito com SEO `<title>` | Metadados de página vs. header | Use `generateMetadata` para `<head>`, este sistema é só UI. |
-| Não funciona em SSR | Hook client-side | Sempre `"use client";`. |
+| Problema | Causa | Solução |
+|----------|-------|---------|
+| Header invisível | Fora de `PageMetadataProvider` | Verifique layout `(protected)`. |
+| Breadcrumbs incorretos | Pathname complexo | Forneça `breadcrumbs` manual. |
+| Re-renders infinitos | Chamada fora `useEffect` | Mova para `useEffect`. |
+| Conflito SEO | UI vs `<head>` | Use `generateMetadata()` para SEO. |
+| SSR erro | Client-only | `"use client";` obrigatório. |
+| Admin não funciona | Sem provedor | Adicione em `src/app/admin/layout.tsx`. |
 
-## Implementação Interna (Para Contribuições)
+## Implementação Interna (Contribuições)
 
-1. **Contexto** (`page-metadata.tsx`):
-   ```tsx
-   const [metadata, setMetadata] = useState<PageMetadataState>({});
-   const updateMetadata = useCallback((newMeta: Partial<PageMetadataState>) => {
-     setMetadata(prev => ({ ...prev, ...newMeta }));
-   }, []);
-   ```
-2. **Automático**:
-   ```tsx
-   const pathname = usePathname();
-   const autoBreadcrumbs = useMemo(() => generateBreadcrumbs(pathname), [pathname]);
-   ```
-3. **PageHeader** usa `useContext(PageMetadataContext)`.
+- **Estado**: `useState<PageMetadataState>` + `useCallback` para updates.
+- **Automático**:
+  ```tsx
+  const autoBreadcrumbs = useMemo(() => {
+    // Lógica de split(pathname) + labels hardcoded/mappeds
+  }, [pathname]);
+  ```
+- **Extensões**:
+  - Ícones: `icon?: LucideIcon`.
+  - OpenGraph: Integre com `next-seo`.
 
-**Extensões sugeridas**:
-- Suporte a ícones por breadcrumb.
-- Open Graph integration.
+**Repo refs**:
+- [Contexto](src/contexts/page-metadata.tsx)
+- [Header](src/components/app/page-header.tsx)
+- [Hook](src/hooks/use-page-config.ts)
 
-## Benefícios
-
-- ✅ **Consistência**: UI uniforme sem duplicação.
-- ✅ **Manutenibilidade**: Altere `PageHeader` uma vez.
-- ✅ **Performance**: Memoizado, atualizações locais.
-- ✅ **Flexível**: Auto/custom, condicional.
-- ✅ **TypeScript**: Tipos rigorosos (`BreadcrumbItem`).
-
-Para issues ou melhorias, abra PR em `src/contexts/page-metadata.tsx`.
+Para feedback, edite este doc ou abra issue! 🚀

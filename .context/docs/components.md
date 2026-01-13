@@ -2,68 +2,49 @@
 
 ## Overview
 
-This documentation covers the React components in the `src/components/` directory of the Pedro AI application. The app follows a component-driven architecture using **Next.js 14 App Router**, **TypeScript**, **Tailwind CSS**, **Radix UI primitives**, and **shadcn/ui**-inspired patterns. Components are organized by feature and reusability:
+This documentation covers the React components in the `src/components/` directory of the Pedro AI application. Pedro AI is a Next.js 14 App Router app for AI-powered short video creation, scriptwriting, character management, and billing. Components follow a **component-driven architecture** using **TypeScript**, **Tailwind CSS**, **Radix UI primitives**, and **shadcn/ui** patterns.
+
+**Key Stats** (from codebase analysis):
+- **187+ components/symbols** (203 total, including sub-exports)
+- **Dependencies**: Models (31 symbols), Utils (183), Hooks (e.g., `useShorts`, `useCredits`, `useAgents`)
+- **Top Imported**: `ScriptWizard.tsx` (5 files), `pricing-card.tsx` (5), `plan-pricing-section.tsx` (4)
+- **Patterns**: Compound components, custom hooks for mutations/queries (TanStack Query), `cn()` for styling, `react-hook-form` + Zod for forms
+- **Styling**: `cn()` from `src/lib/utils.ts`
+- **Auth**: Clerk integration
+- **AI Integration**: Hooks like `useGenerateScript`, `useFalGeneration`
 
 ```
 src/components/
-├── ui/                    # Reusable UI primitives (Button, Dialog, Form, Autocomplete, etc.)
-├── app/                   # Global app layout (AppShell, CookieConsent, etc.)
-├── admin/                 # Admin dashboard (AdminChrome, AdminTopbar, etc.)
-├── ai-chat/               # AI chat interface (ChatInput, message-bubble.tsx)
-├── billing/               # Billing UI (CpfModal)
-├── characters/            # Character management (CharacterSelector)
-├── estilos/               # Style selectors (ContentTypeSelector, StyleForm)
-├── plans/                 # Pricing and plans (pricing-card.tsx, plan-pricing-section.tsx)
-├── roteirista/            # Script generation wizard (ScriptWizard)
-├── shorts/                # Short video pipeline (AddSceneDialog, CreateShortForm)
-└── marketing/             # Landing pages (AIStarter)
+├── ui/                      # Reusable primitives (Autocomplete, Button, Dialog, Form, etc.)
+├── app/                     # Global layouts (AppShell, CookieConsent)
+├── admin/                   # Admin UI (AdminChrome, AdminTopbar)
+├── ai-chat/                 # Chat UI (ChatInput, message-bubble.tsx)
+├── billing/                 # Billing modals (cpf-modal.tsx)
+├── characters/              # Character UI (CharacterSelector)
+├── estilos/                 # Style selectors (StyleForm, ContentTypeSelector)
+├── marketing/               # Landing (AIStarter)
+├── plans/                   # Pricing (pricing-card.tsx, plan-pricing-section.tsx, plan-tier-config.tsx)
+├── roteirista/              # Script wizard (ScriptWizard, steps/)
+└── shorts/                  # Video pipeline (CreateShortForm, AddSceneDialog)
 ```
 
-**Key Stats**:
-- 187 components/symbols
-- Dependencies: Primarily on Models (29 symbols), Utils (171), Hooks (e.g., `use-shorts`, `use-credits`)
-- Patterns: Compound components, render props, hooks for data fetching/mutations
-- Styling: `cn()` utility from `src/lib/utils.ts` for class merging
+Components integrate with **Prisma models** via hooks and **apiClient** for mutations.
 
-Components integrate with **TanStack Query** via custom hooks (e.g., `useShorts`, `useCredits`) and **Clerk** for auth.
+See [Hooks Documentation](../hooks/hooks.md) for data-fetching details. [Utils](../utils.md) for shared logic.
 
-## UI Components (`src/components/ui/`)
+## UI Primitives (`src/components/ui/`)
 
-Low-level, reusable primitives based on Radix UI + Tailwind. Follow shadcn/ui conventions.
+shadcn/ui-inspired, Radix-based. Highly reusable, accessible.
 
-### Autocomplete (`src/components/ui/autocomplete.tsx`)
+| Component | Exports | Purpose | Key Props/Usage |
+|-----------|---------|---------|-----------------|
+| `autocomplete.tsx` | `AutocompleteItem` (type) | Typeahead dropdown | `items: AutocompleteItem[]`, `onSelect: (value: string) => void`<br>```tsx<br><Autocomplete items={options} onSelect={setValue} /><br>``` |
+| `button.tsx` | `Button` | Versatile button | Variants: `default`, `destructive`, `outline`; Sizes: `sm`, `lg`, `icon`; `asChild` |
+| `dialog.tsx` | `Dialog`, `DialogContent`, `DialogTrigger`, `DialogOverlay` | Modal dialogs | Animated backdrop; Use with `DialogClose` |
+| `form.tsx` | `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage` | Form with `react-hook-form` + Zod | `resolver: zodResolver(schema)`<br>See example below |
+| `input.tsx` | `Input` | Text inputs | Standard + variants (ghost, destructive) |
 
-**Purpose**: Accessible autocomplete/dropdown for typeahead input.
-
-**Exports**:
-- `AutocompleteItem` (type)
-
-**Usage** (inferred from patterns):
-```tsx
-import { AutocompleteItem } from "@/components/ui/autocomplete";
-
-const items: AutocompleteItem[] = [
-  { value: "shorts", label: "Shorts" },
-  { value: "characters", label: "Characters" }
-];
-
-// Integrated with Combobox primitive
-<Autocomplete items={items} onSelect={handleSelect} />
-```
-
-**Props** (common):
-- `items: AutocompleteItem[]`
-- `onSelect: (value: string) => void`
-- Supports filtering, keyboard nav.
-
-### Button, Dialog, Form (shadcn/ui standards)
-
-Standard implementations:
-- **Button**: Variants (`default`, `destructive`, `outline`), sizes (`default`, `sm`, `lg`, `icon`). Uses `Slot` for `asChild`.
-- **Dialog**: `Dialog`, `DialogTrigger`, `DialogContent`, `DialogOverlay`. Animated backdrop.
-- **Form**: Integrates `react-hook-form` + Zod. Uses `FormField`, `FormItem`, `FormControl`, `FormLabel`, `FormMessage`.
-
-**Example** (Form + Dialog):
+**Form + Dialog Example**:
 ```tsx
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -75,22 +56,26 @@ import * as z from "zod";
 
 const schema = z.object({ name: z.string().min(1) });
 
-function AddItemDialog() {
-  const form = useForm({ resolver: zodResolver(schema) });
+export function ExampleDialog() {
+  const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
   return (
     <Dialog>
-      <DialogTrigger asChild><Button>Add Item</Button></DialogTrigger>
+      <DialogTrigger asChild>
+        <Button>Add</Button>
+      </DialogTrigger>
       <DialogContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Enter name" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -104,163 +89,155 @@ function AddItemDialog() {
 }
 ```
 
-**Related**: `cn()` from `src/lib/utils.ts` for conditional classes.
+**Cross-refs**: `cn()` (`src/lib/utils.ts`), `useToast` for feedback.
 
-## App Layout Components (`src/components/app/`)
+## App Layout (`src/components/app/`)
 
-Global wrappers and shells.
+Global wrappers.
 
-### AppShell (`src/components/app/app-shell.tsx`)
+| Component | Exports | Purpose | Usage |
+|-----------|---------|---------|-------|
+| `app-shell.tsx` | `AppShell` | Sidebar + topbar + main layout | ```<AppShell><Sidebar /><main>{children}</main></AppShell>``` |
+| `cookie-consent.tsx` | `CookieConsent` | GDPR banner | Configurable accept/reject |
 
-**Purpose**: Main layout wrapper with sidebar, topbar, and main content.
+**Related**: Integrates with `AdminChrome` for admin routes.
 
-**Exports**: `AppShell`
+## Admin UI (`src/components/admin/`)
 
-**Usage**:
+Dashboard components. Depend on `useAdminSettings` (`AdminSettings` type).
+
+| Component | Exports | Purpose | Key Hooks/Pages |
+|-----------|---------|---------|-----------------|
+| `admin-chrome.tsx` | `AdminChrome` | Full admin shell (sidebar/content) | `useAdminSettings` |
+| `admin-topbar.tsx` | `AdminTopbar` | Nav header | Used in `AdminChrome` |
+| `plans/types.ts` | `BillingPlan`, `PlanFeatureForm`, `SyncPreview` | Plan types | `useAdminPlans` |
+
+**Usage Example**:
 ```tsx
-// In root layout or page
-<AppShell>
-  <Sidebar />
-  <main>{children}</main>
-</AppShell>
+import { AdminChrome } from "@/components/admin/admin-chrome";
+import { AdminTopbar } from "@/components/admin/admin-topbar";
+import { useAdminSettings } from "@/hooks/use-admin-settings";
+
+export default function AdminPage() {
+  const { data: settings } = useAdminSettings();
+
+  return (
+    <AdminChrome>
+      <AdminTopbar />
+      <div>Admin content using {settings?.plan}</div>
+    </AdminChrome>
+  );
+}
 ```
 
-**Cross-refs**: Integrates `AdminChrome` for admin routes.
+**Pages**: `src/app/admin/[id]/page.tsx` (`AdminAgentEditPage`), `src/app/admin/settings/page.tsx` (`AdminSettingsPage`), `src/app/admin/onboarding/page.tsx` (`AdminOnboardingPage`).
 
-### CookieConsent (`src/components/app/cookie-consent.tsx`)
+**Provider**: `AdminDevModeProvider` (`src/contexts/admin-dev-mode.tsx`).
 
-**Purpose**: GDPR-compliant cookie banner.
-
-**Props**:
-- Configurable accept/reject actions.
-
-## Admin Components (`src/components/admin/`)
-
-Dashboard for admins.
-
-### AdminChrome (`src/components/admin/admin-chrome.tsx`)
-
-**Purpose**: Full admin layout (sidebar + content).
-
-**Exports**: `AdminChrome` (line 8)
-
-**Dependencies**: `use-admin-settings`, Models.
-
-### AdminTopbar (`src/components/admin/admin-topbar.tsx`)
-
-**Purpose**: Admin navigation header.
-
-**Usage** (with `AdminChrome`):
-```tsx
-<AdminChrome>
-  <AdminTopbar />
-  <AdminContent>Dashboard</AdminContent>
-</AdminChrome>
-```
-
-**Related Pages**:
-- `src/app/admin/layout.tsx` (`AdminLayout`)
-- `src/app/admin/settings/page.tsx` (`AdminSettingsPage`)
-- `src/app/admin/onboarding/page.tsx` (`AdminOnboardingPage`)
-
-**Hooks**: `useAdminSettings` returns `AdminSettings`.
-
-## Feature-Specific Components
+## Feature Components
 
 ### Shorts Pipeline (`src/components/shorts/`)
+Video creation workflow. Uses `useShorts` hook (`Short`, `ShortScene` types).
 
-Video short creation workflow.
+| Component | Exports | Purpose | Hooks |
+|-----------|---------|---------|-------|
+| `AddSceneDialog.tsx` | `AddSceneDialog` | Add/edit scenes modal | `useAddScene`, `useShorts` |
+| `CreateShortForm.tsx` | `CreateShortForm` | New short form | `useCreateShort`, `useGenerateScript` |
 
-- **AddSceneDialog** (`src/components/shorts/AddSceneDialog.tsx`): Modal for adding scenes. Uses `useAddScene` hook.
-- **CreateShortForm** (`src/components/shorts/CreateShortForm.tsx`): Form for new shorts. Depends on `useCreateShort`, `useGenerateScript`.
-
-**Workflow** (cross-ref `src/hooks/use-shorts.ts`):
-1. Create short (`CreateShortInput`)
-2. Generate script (`useGenerateScript`)
-3. Add scenes (`ShortScene`)
-4. Generate media (`useGenerateMedia`)
+**Workflow**:
+1. `useCreateShort({ ...CreateShortInput })`
+2. `useGenerateScript(shortId)`
+3. `useAddScene`, `useGenerateMedia`
+4. `useApproveScript`
 
 **Example**:
 ```tsx
-import { useCreateShort } from "@/hooks/use-shorts";
 import { CreateShortForm } from "@/components/shorts/CreateShortForm";
 import { AddSceneDialog } from "@/components/shorts/AddSceneDialog";
+import { useShorts } from "@/hooks/use-shorts";
 
-function ShortsDashboard() {
-  const createShort = useCreateShort();
+export default function ShortsPage() {
+  const { data: shorts } = useShorts();
 
   return (
     <>
-      <CreateShortForm onSuccess={short => console.log(short)} />
-      <AddSceneDialog shortId="123" />
+      <CreateShortForm />
+      {shorts?.map(short => (
+        <AddSceneDialog key={short.id} shortId={short.id} />
+      ))}
     </>
   );
 }
 ```
 
-**Types**: `Short`, `ShortScene`, `ShortStatus`.
+**Limits**: `canAddCharacterToShort`, `canCreateCharacter` (`src/lib/characters/limits.ts`).
 
-### Roteirista Script Wizard (`src/components/roteirista/`)
+### Roteirista (`src/components/roteirista/`)
+AI script wizard. Top-imported (`ScriptWizard.tsx` by 5 files).
 
-AI script generation.
+| Component | Exports | Purpose | Types/Hooks |
+|-----------|---------|---------|-------------|
+| `ScriptWizard.tsx` | `ScriptWizard` | Multi-step script gen | `WizardStep`, `AIAction` (`src/lib/roteirista/types.ts`) |
+| `steps/ConceptStep.tsx` | - | Step 1: Concept | `useGenerateScript` |
 
-- **ScriptWizard** (`src/components/roteirista/ScriptWizard.tsx`): Multi-step wizard. Imported by 5 files.
-- Depends on `src/lib/roteirista/types.ts`: `ScriptFormData`, `SceneData`, `GenerateScenesRequest`.
+**Related**: `src/lib/agents/scriptwriter.ts`, `useApproveScript`.
 
-**Hooks**: `useGenerateScript`, `useApproveScript`.
+### Plans & Billing (`src/components/plans/`, `src/components/billing/`)
+Pricing + payments.
 
-### Plans & Billing (`src/components/plans/` & `src/components/billing/`)
+| Component | Exports | Purpose | Utils/Types |
+|-----------|---------|---------|-------------|
+| `pricing-card.tsx` | - | Pricing card | `buildPlanTiers` |
+| `plan-pricing-section.tsx` | - | Pricing grid | Imported by 4+ files |
+| `plan-tier-config.tsx` | `buildPlanTiers` | Tier builder | `BillingPeriod`, `PlanDisplay` |
+| `billing/cpf-modal.tsx` | `BillingType` | CPF input modal | Brazilian billing |
 
-Pricing tables and modals.
-
-- **pricing-card.tsx**, **plan-pricing-section.tsx**: Responsive pricing grids. Imported by 5+ files.
-- **CpfModal** (`src/components/billing/cpf-modal.tsx`): Brazilian CPF input modal. Exports `BillingType`.
-
-**Types**: `BillingPeriod`, `BillingPlan`, `PublicPlan` (from `usePublicPlans`).
-
-**Utils**: `buildPlanTiers` from `src/components/plans/plan-tier-config.tsx`.
+**Hooks**: `usePublicPlans` (`PublicPlan`), `useAdminPlans` (`ClerkPlan`).
 
 ### Characters (`src/components/characters/`)
-
-- **CharacterSelector** (`src/components/characters/CharacterSelector.tsx`): Dropdown for selecting characters in shorts.
-
-**Hooks**: `useCharacters`, `CreateCharacterInput`.
-
-**Limits**: `canCreateCharacter`, `canAddCharacterToShort` from `src/lib/characters/limits.ts`.
+| Component | Exports | Purpose | Hooks |
+|-----------|---------|---------|-------|
+| `CharacterSelector.tsx` | - | Character dropdown | `useCharacters`, `useShortCharacters` (`ShortCharacterWithDetails`) |
 
 ### Estilos (Styles) (`src/components/estilos/`)
+| Component | Exports | Purpose | Hooks/Types |
+|-----------|---------|---------|-------------|
+| `StyleForm.tsx` | - | Style CRUD form | `useStyles`, `useCreateStyle` (`Style` type) |
+| - | `ContentType`, `DiscourseArchitecture`, etc. | Enums | `src/types/style.ts` |
 
-Visual style selection.
-
-- **ContentTypeSelector** (`src/components/estilos/ContentTypeSelector.tsx`): Toggles content types. Exports `ContentType`.
-- **StyleForm** (`src/components/estilos/StyleForm.tsx`): CRUD for styles.
-
-**Hooks**: `useStyles`, `useCreateStyle`, `Style`.
+**Hooks**: `useStyles`, `useTone` (`Tone`).
 
 ### AI Chat (`src/components/ai-chat/`)
+| Component | Exports | Purpose |
+|-----------|---------|---------|
+| `ChatInput.tsx` | - | Send input |
+| `message-bubble.tsx` | `ChatMessage` | Message UI |
 
-- **ChatInput** (`src/components/ai-chat/ChatInput.tsx`): Composable input with send/submit.
-- **message-bubble.tsx**: Exports `ChatMessage`.
+**Related**: `AIStarter` (`src/components/marketing/ai-starter.tsx`).
 
-**Related**: `src/components/marketing/ai-starter.tsx` (`AIStarter`).
+### Marketing (`src/components/marketing/`)
+| Component | Exports | Purpose |
+|-----------|---------|---------|
+| `ai-starter.tsx` | `AIStarter` | Landing AI demo |
 
 ## Contexts & Providers
-
-- **AdminDevModeProvider** (`src/contexts/admin-dev-mode.tsx`): Toggles dev mode.
-- **Page Metadata** (`src/contexts/page-metadata.tsx`): Exports `BreadcrumbItem`.
+- `page-metadata.tsx`: `BreadcrumbItem` type
+- Admin providers in `src/contexts/`
 
 ## Patterns & Best Practices
+- **Data Flow**: Custom TanStack Query hooks (e.g., `useShorts` → `{ data, mutate }`)
+- **Mutations**: Optimistic updates (e.g., `useCreateShort`)
+- **Errors**: `ApiError` (`src/lib/api-client.ts`), `InsufficientCreditsError`
+- **Loading**: `<Skeleton />` components (ui/skeleton.tsx)
+- **Accessibility**: Radix ARIA, `aria-label`, keyboard nav
+- **Performance**: `React.memo` on lists, `useMemo` for derived state
+- **Testing**: `@testing-library/react`, MSW for API
+- **Adding Components**: Follow shadcn/ui CLI: `npx shadcn-ui@latest add button`
 
-1. **Hooks Integration**: All data components use TanStack Query hooks (e.g., `useShorts` returns `{ data: Short[] }`).
-2. **Error Handling**: `ApiError` from `src/lib/api-client.ts`. Graceful fallbacks.
-3. **Loading States**: Skeleton loaders via `isLoading` from hooks.
-4. **Accessibility**: Radix ARIA, semantic elements, keyboard nav.
-5. **Performance**: `React.memo`, `useMemo` for lists (e.g., scenes).
-6. **Testing**: Unit tests for UI (RTL + Jest), integration via MSW for API mocks.
+**Quick Search**: Use `rg "import.*components"` or IDE "Find Usages".
 
 **Cross-References**:
-- **Hooks**: See `docs/hooks.md` (e.g., `useCredits` → `CreditStatus`).
-- **Utils**: `cn()`, `apiClient`.
-- **Models**: Prisma types underpin all data components.
-
-For source code, search via `grep` or IDE. Contribute new components following shadcn/ui addition workflow.
+- [Hooks](../hooks/hooks.md): `useShorts`, `useCredits`
+- [Models](../models.md): Prisma types
+- [Utils](../utils.md): `cn()`, `apiClient`
+- Public Exports: `AppShell`, `AdminChrome`, `AddSceneDialog`, etc. (see codebase public API)

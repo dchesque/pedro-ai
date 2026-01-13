@@ -2,199 +2,215 @@
 
 ## Overview
 
-This is a production-ready Next.js SaaS application for AI-powered short video generation (e.g., TikTok/Reels-style content). It features script generation via Roteirista AI agents, character creation, scene management, image/video synthesis using providers like Fal.ai (Flux, Kling), OpenRouter LLMs, and monetization via credit-based plans with Asaas billing.
+This is a production-ready Next.js SaaS application for AI-powered short video generation (e.g., TikTok/Reels-style content). It leverages Roteirista AI agents for script generation, character creation with image prompting, scene management, and media synthesis using Fal.ai (Flux for images, Kling for videos) and OpenRouter LLMs. Monetization uses credit-based consumption with Asaas billing integration.
 
 ### Key Metrics
-- **Files**: 366 total (188 `.ts`, 156 `.tsx`, 16 `.js`, 6 `.mjs`)
-- **Symbols**: 840 total (171 Utils, 163 Controllers, 191 Components, 31 Models, 8 Repositories, 3 Config)
-- **Core Flows**: Shorts pipeline (`src/lib/shorts/pipeline.ts`), AI agents (`src/hooks/use-agents.ts`), credits tracking (`src/lib/credits/`), storage (`src/lib/storage/`)
+- **Files**: 406 total (210 `.ts`, 170 `.tsx`, 20 `.js`, 6 `.mjs`)
+- **Symbols**: 911 total (184 Utils, 178 Controllers, 203 Components, 31 Models, 8 Repositories, 3 Config)
+- **Core Flows**: Shorts pipeline ([`src/lib/shorts/pipeline.ts`](src/lib/shorts/pipeline.ts)), AI agents ([`src/hooks/use-agents.ts`](src/hooks/use-agents.ts)), credits ([`src/lib/credits/`](src/lib/credits/)), storage ([`src/lib/storage/`](src/lib/storage/))
+- **Public API**: 400+ exports (e.g., `useShorts`, `addScene`, `approveScript`, `Short`, `Agent`)
 
-Dependencies follow a clear hierarchy: Utils → Controllers/Models, Components → Models.
-
-Public API exposes 400+ symbols, including hooks (`useShorts`, `useCredits`), lib functions (`addScene`, `approveScript`), and types (`Short`, `CharacterPromptData`).
+Dependencies follow: Utils → Controllers/Models → Components. Top imports:
+- [`components/roteirista/ScriptWizard.tsx`](src/components/roteirista/ScriptWizard.tsx) (5 importers)
+- [`components/plans/pricing-card.tsx`](src/components/plans/pricing-card.tsx) (5)
+- [`lib/agents/scriptwriter.ts`](src/lib/agents/scriptwriter.ts) (3)
 
 ## Core Architecture Principles
 
 ### 1. Separation of Concerns
-- **Presentation**: React/TSX components (`src/components/`)
-- **Logic**: Server Actions, API routes (`src/app/api/`), hooks (`src/hooks/`)
-- **Data**: Prisma ORM (`src/lib/db.ts`) over PostgreSQL
-- **Auth**: Clerk (JWT sessions)
+| Layer | Responsibility | Key Files |
+|-------|----------------|-----------|
+| **Presentation** | React/TSX UI | `src/components/` (203 symbols, e.g., `AddSceneDialog`, `CharacterSelector`) |
+| **Logic** | Hooks, Server Actions, APIs | `src/hooks/` (500+ fns, e.g., `useShorts`), `src/app/api/` |
+| **Data** | ORM & Models | `src/lib/db.ts` (Prisma, 31 models: `Short`, `Character`, `Style`, `Usage`) |
+| **Auth** | Sessions & RBAC | Clerk (e.g., `validateUserAuthentication`) |
 
 ### 2. Type Safety
-- Full TypeScript with Prisma-generated types
-- Zod for validation (forms, APIs)
-- React Query types for server state
+- TypeScript everywhere with Prisma-generated types
+- Zod validation (forms/APIs)
+- React Query typed queries/mutations (e.g., `useShorts()` → `Short[]`)
 
-### 3. Performance First
-- Server Components default
-- React Query (TanStack Query) for caching/stale-while-revalidate
-- Optimistic mutations (e.g., script approval)
-- Edge runtime for APIs where possible
+### 3. Performance
+- Default Server Components (static rendering)
+- React Query: Caching (staleTime: 5m), optimistic updates (e.g., script approval)
+- Edge runtime APIs
+- SimpleCache (`src/lib/cache.ts`)
 
 ## Application Layers
 
 ### Frontend
 ```
-Next.js App Router (src/app/)
-├── Server Components (static rendering)
-├── Client Components ('use client'; interactive)
-├── React Query (queries/mutations)
-└── UI: Radix UI + Tailwind + shadcn/ui (src/components/ui/)
+Next.js 15 App Router (src/app/)
+├── Server Components: Static pages (e.g., /dashboard)
+├── Client Components: 'use client' (interactive, e.g., ScriptWizard)
+├── React Query: Data fetching/mutations
+└── UI Primitives: shadcn/ui + Tailwind + Radix (AutocompleteItem, etc.)
 ```
 
 ### Backend
 ```
 API Routes (src/app/api/)
-├── Auth Middleware (Clerk)
-├── Business Logic (lib/, hooks/)
-├── Prisma (Models: User, Short, Character, Style, Usage, etc.)
-└── PostgreSQL + External: Clerk, Asaas, Fal.ai, OpenRouter, Vercel Blob
+├── Middleware: Clerk auth, admin checks (requireAdmin)
+├── Logic: lib/ utils (cn, generateApiKey), hooks/
+├── DB: Prisma → PostgreSQL
+└── Externals: Clerk, Asaas (AsaasClient), Fal.ai, OpenRouter, Vercel Blob
 ```
 
 ## Directory Structure
 
 ```
 src/
-├── app/                  # App Router pages/routes
-│   ├── (public)/         # Marketing, auth (no auth req.)
-│   ├── (protected)/      # Dashboard, AI Studio, Shorts (auth req.)
-│   ├── admin/            # Admin dashboard
-│   └── api/              # REST APIs (e.g., /api/shorts, /api/credits)
-├── components/           # UI (191 symbols)
-│   ├── ui/               # shadcn primitives (AutocompleteItem, etc.)
-│   ├── app/              # Shells, modals (AppShell, AddSceneDialog)
-│   ├── shorts/           # Short-specific (CreateShortForm)
-│   ├── characters/       # CharacterSelector
-│   ├── roteirista/       # ScriptWizard, steps/
-│   └── admin/            # Plan edit drawers, chrome
-├── hooks/                # React Query wrappers (500+ fns)
-│   └── use-*.ts          # e.g., useShorts, useCredits, useAgents
-├── lib/                  # Utils (171 symbols)
-│   ├── shorts/           # pipeline.ts (addScene, approveScript)
-│   ├── credits/          # deduct.ts, validate-credits.ts
-│   ├── ai/               # providers/ (FalAdapter, OpenRouterAdapter)
-│   ├── characters/       # prompt-generator.ts
-│   ├── storage/          # vercel-blob.ts, types.ts
-│   ├── roteirista/       # types.ts (AIAction, SceneData)
-│   └── utils.ts          # cn(), generateApiKey()
-├── prisma/               # Schema (31 models: Short, Character, etc.)
-└── types/                # Shared (e.g., UploadResult)
+├── app/                    # Pages & Routes
+│   ├── (public)/           # Marketing (/), auth (/sign-in)
+│   ├── (protected)/        # Dashboard (/dashboard), AI Studio (/ai-studio)
+│   ├── admin/              # Admin (/admin/settings, /admin/agents/[id])
+│   └── api/                # /api/shorts, /api/credits/deduct
+├── components/             # 203 symbols
+│   ├── ui/                 # Primitives (AutocompleteItem)
+│   ├── app/                # Shells (AppShell, AdminChrome)
+│   ├── shorts/             # CreateShortForm, AddSceneDialog
+│   ├── characters/         # CharacterSelector
+│   ├── roteirista/         # ScriptWizard, steps/ (ConceptStep)
+│   └── admin/              # AdminTopbar
+├── hooks/                  # React Query (e.g., useShorts, useCredits)
+├── lib/                    # 184 symbols
+│   ├── shorts/             # pipeline.ts (addScene, approveScript)
+│   ├── credits/            # deduct.ts, validate-credits.ts (addUserCredits)
+│   ├── ai/                 # providers/ (FalAdapter, OpenRouterAdapter, registry.ts)
+│   ├── characters/         # prompt-generator.ts (analyzeCharacterImage)
+│   ├── storage/            # vercel-blob.ts (VercelBlobStorage), types.ts
+│   ├── roteirista/         # types.ts (AIAction, ShortStatus)
+│   └── utils.ts            # cn(), apiClient, logger (createLogger)
+├── prisma/                 # schema.prisma (31 models)
+└── types/                  # Shared (StyleFormData, UploadResult)
 ```
-
-Key files by import popularity:
-- `components/roteirista/ScriptWizard.tsx` (5 importers)
-- `components/plans/pricing-card.tsx` (5)
-- `lib/agents/scriptwriter.ts` (3)
 
 ## Route Groups
 
-| Group | Path Prefix | Auth | Examples |
-|-------|-------------|------|----------|
-| `(public)` | `/` | No | Landing, sign-in (`/sign-in`), pricing |
-| `(protected)` | `/dashboard`, `/ai-studio` | Yes (Clerk) | Shorts list, character mgmt |
-| `admin` | `/admin/*` | Admin RBAC | Settings (`/admin/settings`), plans |
-| `api` | `/api/*` | API keys/JWT | `/api/shorts`, `/api/credits/deduct` |
+| Group | Path Prefix | Auth Required | Examples |
+|-------|-------------|---------------|----------|
+| `(public)` | `/` | No | `/pricing`, `/sign-in` |
+| `(protected)` | `/dashboard`, `/ai-studio` | Clerk User | `/agents/[slug]`, `/shorts` |
+| `admin` | `/admin/*` | Admin RBAC | `/admin/settings`, `/admin/agents/[id]` |
+| `api` | `/api/*` | API Key/JWT | `/api/shorts`, `/api/credits` |
 
-## Data Flow
+## Data Flow Examples
 
-### Read (e.g., List Shorts)
-1. Client hook: `useShorts()` → React Query `queryFn`
-2. API route: Auth → Prisma `prisma.short.findMany()`
-3. Cache: React Query (staleTime: 5m)
+### Read: List Shorts
+```tsx
+// Client: src/hooks/use-shorts.ts
+const { data: shorts } = useShorts({ userId });
 
-### Write (e.g., Generate Script)
-1. Mutation: `useGenerateScript(input)` (optimistic)
-2. Zod validate → Server Action/API
-3. Pipeline: Roteirista agents → LLM call → `deductCredits`
-4. Invalidate queries → UI sync
+// Fetches /api/shorts → prisma.short.findMany({ where: { userId } })
+// React Query caches (staleTime: 5m)
+```
 
-**Example: Shorts Pipeline**
+### Write: Generate Script (Optimistic)
+```tsx
+// src/hooks/use-shorts.ts
+const { mutate: generateScript } = useGenerateScript();
+generateScript({ shortId, input }, {
+  onOptimisticUpdate: (cache) => { /* UI sync */ }
+});
+
+// Server: deductCredits → roteiristaAgent → prisma.update → invalidateQueries
+```
+
+**Shorts Pipeline** (`src/lib/shorts/pipeline.ts`):
 ```ts
-// src/lib/shorts/pipeline.ts
-export async function generateScript(shortId: string, input: CreateShortInput) {
-  await deductCredits('script_generation');
-  const script = await roteiristaAgent.generateScenes(input);
-  await prisma.short.update({ where: { id: shortId }, data: { script } });
+export async function addScene(shortId: string, scene: ShortScene) {
+  // Validates limits (canAddCharacterToShort)
+  await prisma.shortScene.create({ data: { shortId, ...scene } });
 }
 ```
 
-### Credits & Billing
-- **Settings**: Admin `PUT /api/admin/settings` → `AdminSettings` table (FeatureKey costs)
-- **Deduction**: Pre-call `deductCredits(feature)` → `Usage` record
-- **Plans**: `/api/admin/plans` CRUD → `BillingPlan` (Clerk sync optional)
-- **Refunds**: Provider fail → `refundCreditsForFeature()` (negative usage)
-- **UI**: `useCredits()` reads `/api/credits/settings`
+## Credits & Billing
 
-### AI Pipeline
-- Agents: `Agent` enum (scriptwriter, prompt-engineer)
-- Providers: Registry (`src/lib/ai/providers/registry.ts`) → FalAdapter, OpenRouter
-- Models: `useAvailableModels()` → `AIModel[]`
-- Gen: `useFalGeneration()` → Flux/Kling inputs/outputs
+- **Config**: `AdminSettingsPayload` (FeatureKey costs, e.g., `script_generation: 10`)
+- **Track**: `deductCredits(feature)` → `Usage` record (OperationType)
+- **Hooks**: `useCredits()` → `CreditsResponse`, `useUsageHistory()`
+- **Admin**: `useAdminPlans()` → `ClerkPlansResponse`, `BillingPlan[]`
+- **Refunds**: Negative usage on failure
+
+**Example**:
+```ts
+// src/lib/credits/deduct.ts
+await deductCredits('image_gen'); // Throws InsufficientCreditsError if low
+```
+
+## AI Pipeline
+
+- **Agents**: `Agent` types (scriptwriter, prompt-engineer) via `useAgents()`
+- **Providers**: Registry → `FalAdapter.generateImage(FluxInput)`, `OpenRouterAdapter`
+- **Models**: `useAvailableModels()` → `AIModel[]`, `useOpenRouterModels()`
+- **Gen Hooks**: `useFalGeneration()` → `GenerateImageOutput`
+
+**Character Prompt**:
+```ts
+// src/lib/characters/prompt-generator.ts
+const prompt = analyzeCharacterImage(imageUrl, traits: CharacterTraits);
+```
 
 ## State Management
 
 | Scope | Tool | Examples |
 |-------|------|----------|
-| Local | `useState`, React Hook Form | Forms (StyleForm) |
-| Server | React Query | `useShorts`, `useUsageHistory` |
-| Global | Clerk, Contexts | Auth (`useUser`), AdminDevModeProvider |
+| Local | `useState`, React Hook Form | `StyleForm` (src/components/estilos/) |
+| Server/Client | React Query | `useShorts()`, `useStorage()` (VercelBlobStorage) |
+| Global | Clerk + Contexts | `useUser()`, `AdminDevModeProvider`, `useToast()` |
 
 ## Security
 
-- **Auth**: Clerk middleware → `validateUserAuthentication()`
-- **Admin**: `requireAdmin()` middleware
-- **API**: `apiClient` with keys, `ApiError`
-- **Validation**: Zod everywhere, ownership checks (e.g., `getUserFromClerkId`)
-- **Rate Limits**: Implicit via credits
+- **Auth**: `getUserFromClerkId()`, `createAuthErrorResponse`
+- **Admin**: `isAdmin()`, `requireAdmin()`
+- **API**: `ApiError`, `validateApiKey()`, Zod
+- **Ownership**: User-scoped queries (e.g., `where: { userId }`)
+- **Limits**: Credits gate (e.g., `canCreateCharacter()`)
 
 ## Performance & Scalability
 
-- **Caching**: React Query + SimpleCache (`src/lib/cache.ts`)
-- **Storage**: Vercel Blob/Replit (`StorageProvider`)
-- **Optimizations**: Dynamic imports, Next Image, edge APIs
-- **Scale**: Stateless, Prisma Accelerate (pooling), Clerk external sessions
+- **Cache**: React Query + `SimpleCache.getCacheKey()`
+- **Storage**: `useStorage()` → `StorageProviderType` (VercelBlobStorage, ReplitAppStorage)
+- **Edge**: APIs (no heavy deps)
+- **Scale**: Prisma pooling, stateless, external auth/billing
 
 ## Key Modules
 
-### Shorts (Core Product)
-- Hooks: `useShorts`, `useCreateShort`, `useAddScene`
-- Pipeline: Script → Scenes → Images → Video
-- Limits: `canAddCharacterToShort()`
-
-### Credits
-- Track: `trackUsage(operationType)`
-- Features: `FeatureKey` (script_gen, image_gen)
-
-### AI Integrations
-- Providers: Fal (`fal.ai`), OpenRouter
-- Adapters: `FalAdapter.generateVideo(KlingInput)`
-
-### Admin
-- `useAdminSettings()` → `AdminSettingsPayload`
-- Plans: `useAdminPlans()` → Sync with Clerk?
+| Module | Hooks/Utils | Types | Notes |
+|--------|-------------|--------|-------|
+| **Shorts** | `useShorts`, `useGenerateScript` | `Short`, `ShortScene` | Pipeline: Script → Scenes → Media |
+| **Characters** | `useCharacters` | `CharacterPromptData`, `CharacterTraits` | Image analysis, limits |
+| **Styles** | `useStyles`, `useCreateStyle` | `Style`, `ContentType` | Form: `StyleFormData` |
+| **Agents** | `useAgents` | `Agent`, `AgentQuestion` | Roteirista flows |
+| **Credits** | `useCredits` | `CreditData` | Deduct/track/refund |
 
 ## Development Workflow
 
 1. `pnpm install`
-2. `cp .env.example .env.local` (Clerk, DB_URL, Asaas)
-3. `pnpm db:push` (Prisma)
+2. Copy `.env.example` → `.env.local` (Clerk keys, `DB_URL`, Asaas, Fal/OpenRouter)
+3. `pnpm db:push` (Prisma migrate)
 4. `pnpm dev`
-5. Test: `pnpm test` (units on utils, E2E on flows)
+5. **Debug**: Enable `AdminDevModeProvider`, `createLogger('debug')`
+6. **Test**: `pnpm test` (utils, E2E flows)
+7. **Seed**: `pnpm db:seed` (styles via `lib/scripts/seed-styles.ts`)
 
-**Debug**: `useAdminDevModeProvider`, logger (`createLogger`).
+**Common Extensions**:
+- New Hook: `hooks/use-new-feature.ts` → `/api/new-feature`
+- Provider: `lib/ai/providers/new-adapter.ts` → registry
+- Model: `prisma/schema.prisma` → `pnpm db:push`
 
 ## Technology Stack
 
-| Category | Tech |
-|----------|------|
-| Framework | Next.js 15 (App Router) |
-| UI | React 18, Tailwind, shadcn/ui, Radix |
-| Data | Prisma, PostgreSQL |
-| State | TanStack Query |
-| Auth | Clerk |
-| Payments | Asaas |
-| AI | Fal.ai, OpenRouter |
-| Utils | Zod, TRPC-like hooks |
+| Category | Technologies |
+|----------|--------------|
+| **Framework** | Next.js 15 (App Router, Server Components) |
+| **UI** | React 18, Tailwind CSS, shadcn/ui, Radix UI |
+| **Data** | Prisma ORM, PostgreSQL |
+| **State** | TanStack Query (React Query) |
+| **Auth** | Clerk (JWT, RBAC) |
+| **Payments** | Asaas (AsaasClient) |
+| **AI/ML** | Fal.ai (Flux/Kling), OpenRouter LLMs |
+| **Storage** | Vercel Blob |
+| **Utils** | Zod, class-variance-authority (cn) |
 
-For deeper dives: [API Reference](api.md), [Models](prisma/schema.prisma).
+See [API Reference](api.md), [Database Models](prisma/schema.prisma), [Hooks Index](hooks.md).

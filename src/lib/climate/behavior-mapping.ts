@@ -2,8 +2,6 @@ import {
     EmotionalState,
     RevelationDynamic,
     NarrativePressure,
-    HookType,
-    ClosingType,
     Climate
 } from '../../../prisma/generated/client_final'
 

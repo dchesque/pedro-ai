@@ -11,12 +11,13 @@ The credits system manages user credit balances as the **server source of truth*
 - **UsageHistory**: Auditable log of all transactions (deductions, refunds, grants).
 
 **Cross-references**:
-- [Feature config](src/lib/credits/feature-config.ts)
-- [Settings utils](src/lib/credits/settings.ts)
-- [Deduction logic](src/lib/credits/deduct.ts)
-- [Validation](src/lib/credits/validate-credits.ts)
-- [Errors](src/lib/credits/errors.ts)
-- [Prisma types](src/lib/prisma-types.ts)
+- [`Feature config`](src/lib/credits/feature-config.ts)
+- [`Settings utils`](src/lib/credits/settings.ts)
+- [`Deduction logic`](src/lib/credits/deduct.ts)
+- [`Validation`](src/lib/credits/validate-credits.ts)
+- [`Errors`](src/lib/credits/errors.ts)
+- [`Prisma types`](src/lib/prisma-types.ts)
+- [`Track usage`](src/lib/credits/track-usage.ts)
 
 ## Reading Balance
 
@@ -80,11 +81,11 @@ try {
 - **Static defaults**: `FEATURE_CREDIT_COSTS` in `src/lib/credits/feature-config.ts`.
 - **Dynamic overrides**: `AdminSettings.featureCosts` via `getFeatureCost(feature)` (`src/lib/credits/settings.ts`).
 
-| Feature | Default Cost | OperationType |
-|---------|--------------|---------------|
-| `ai_text_chat` | 1 | `AI_TEXT_CHAT` |
-| `ai_image_generation` | 10 | `AI_IMAGE_GENERATION` |
-| `ai_video_generation` | 50 | `AI_VIDEO_GENERATION` |
+| Feature                  | Default Cost | OperationType          |
+|--------------------------|--------------|------------------------|
+| `ai_text_chat`           | 1            | `AI_TEXT_CHAT`         |
+| `ai_image_generation`    | 10           | `AI_IMAGE_GENERATION`  |
+| `ai_video_generation`    | 50           | `AI_VIDEO_GENERATION`  |
 
 **Public endpoint**: `GET /api/credits/settings` (read-only feature costs).
 
@@ -108,7 +109,7 @@ Configure via `/admin/settings` (`AdminSettingsPage`):
 
 **Server utils**:
 - `addUserCredits(userId, amount)`: Manual grants (logs `UsageHistory`).
-- Asaas/Clerk webhooks auto-grant on payments/sync.
+- Asaas/Clerk webhooks auto-grant on payments/sync (`src/lib/asaas/client.ts`).
 
 ## Client-Side UI Integration
 
@@ -139,28 +140,31 @@ Automatic on provider failures **after deduction**:
 
 ## Usage History & Analytics
 
-- **Hook**: `useUsageHistory()` fetches paginated `UsageRecord[]`.
-- **Dashboard**: `useDashboard()` aggregates stats (e.g., total spent).
-- **Admin**: Manual adjustments create history entries.
+- **Hook**: `useUsageHistory()` fetches paginated `UsageRecord[]` (`src/hooks/use-usage-history.ts`).
+- **Dashboard**: `useDashboard()` aggregates stats (e.g., total spent) (`src/hooks/use-dashboard.ts`).
+- **Admin**: Manual adjustments create history entries (`src/hooks/admin/use-admin-users.ts`).
 
 ## Health & Debugging
 
 - **Admin check**: `GET /api/admin/health/credits-enum` verifies enum mappings.
 - **Sync users**: `POST /api/admin/users/sync` (Clerk webhook fallback).
-- **Logs**: All ops via `createLogger('credits')`.
+- **Logs**: All ops via `createLogger('credits')` (`src/lib/logger.ts`).
 
 ## Related Components & Hooks
 
 | Path | Purpose |
 |------|---------|
-| `src/hooks/use-credits.ts` | Balance + cost checks |
-| `src/hooks/use-usage.ts` | Real-time usage |
-| `src/hooks/use-usage-history.ts` | Transaction history |
-| `src/components/admin/settings/page.tsx` | Admin config UI |
-| `src/app/admin/plans/...` | Plan management |
-| `src/lib/asaas/client.ts` | Payment webhooks |
+| `src/hooks/use-credits.ts` | Balance + cost checks (`CreditData`, `CreditsResponse`) |
+| `src/hooks/use-usage.ts` | Real-time usage (`UsageData`) |
+| `src/hooks/use-usage-history.ts` | Transaction history (`UsageRecord`, `UsageHistoryResponse`) |
+| `src/components/admin/settings/page.tsx` | Admin config UI (`AdminSettingsPage`) |
+| `src/app/admin/plans/...` | Plan management (`useAdminPlans`) |
+| `src/lib/asaas/client.ts` | Payment webhooks (`AsaasClient`) |
+| `src/hooks/use-subscription.ts` | Subscription status |
+| `src/hooks/admin/use-admin-settings.ts` | Admin settings (`AdminSettings`) |
 
 ## Migration Notes
 
 - Uses custom Prisma client (`prisma/generated/client`) to match runtime enums.
 - Re-export `OperationType` from `src/lib/prisma-types.ts`.
+- **Dependencies**: Relies on Clerk for user IDs, React Query for caching.

@@ -1,220 +1,185 @@
-# Pedro AI Documentation
+# Pedro AI
 
-Welcome to the **Pedro AI** documentation. This guide covers the production-ready Next.js application for AI-powered short video creation, featuring script generation, character management, scene pipelines, image/video synthesis, credits-based billing, and admin tools.
+[![Next.js](https://img.shields.io/badge/Next.js-15.3.5-black?logo=next.js)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://typescriptlang.org)
+[![Prisma](https://img.shields.io/badge/Prisma-5-green?logo=prisma)](https://prisma.io)
 
-## Quick Start
+**Pedro AI** is a production-ready Next.js application for AI-powered short video creation. Generate scripts, manage characters, build scenes, synthesize images/videos, track credits, and administer via a full-featured dashboard. Built for Brazilian creators with Asaas billing integration.
 
-New to the project? Follow this order:
+**Stats**: 400 files, 896 symbols across TS/TSX/JS. Core layers: Components (198 symbols), Utils/Lib (183), Controllers (178), Hooks (50+), Models (31).
 
-1. **[Architecture Overview](./architecture.md)** - Core design, layers (Components → Hooks → Lib → API)
-2. **[Development Guidelines](./development-guidelines.md)** - Coding standards, hooks patterns, and workflows
-3. **[Authentication](./authentication.md)** - Clerk setup and protected routes
-4. **[Database](./database.md)** - Prisma schema, models (29 symbols), and migrations
-5. **[Shorts Pipeline](./shorts-pipeline.md)** - Core feature: script-to-video workflow ([src/lib/shorts/pipeline.ts](src/lib/shorts/pipeline.ts))
+## 🚀 Quick Start
 
-## Documentation Structure
+1. **Clone & Install**
+   ```bash
+   git clone <repo> pedro-ai
+   cd pedro-ai
+   npm install
+   cp .env.example .env.local
+   ```
 
-### Core Architecture
-- **[Architecture](./architecture.md)** - Layers: Components (179 symbols), Hooks (e.g., `useShorts`), Lib/Utils (171 symbols), API routes
-- **[Database](./database.md)** - Prisma models, relations (Shorts, Characters, Scenes, Credits, Users)
-- **[Authentication](./authentication.md)** - Clerk + middleware, `getUserFromClerkId`, admin checks
-- **[Page Metadata](./page-metadata-system.md)** - Breadcrumbs (`BreadcrumbItem`), SEO via contexts
+2. **Configure Env** (edit `.env.local`)
+   ```
+   DATABASE_URL="postgresql://..."
+   CLERK_PUBLISHABLE_KEY=...
+   CLERK_SECRET_KEY=...
+   ASAAS_API_KEY=...  # Sandbox for dev
+   FAL_KEY=...
+   OPENROUTER_API_KEY=...
+   ```
 
-### Development Guides
-- **[Frontend](./frontend.md)** - TSX components (148 files), Tailwind v4, Radix UI, React Query hooks
-- **[Backend](./backend.md)** - API routes, `apiClient`, auth utils (`validateUserAuthentication`)
-- **[Components](./components.md)** - UI primitives (`src/components/ui/`), app components (Shorts, Characters, Admin)
-- **[API Reference](./api.md)** - Endpoints for shorts, credits, storage (e.g., `/api/shorts`, `/api/credits`)
-- **[AI Features](./ai-features.md)** 
-  - Roteirista script wizard (`src/lib/roteirista/`)
-  - Image/Video gen (`use-fal-generation`, FAL Kling/Flux)
-  - Models/providers (`src/lib/ai/providers/`, OpenRouter adapter)
-  - Credits: Text (1), Image (5), enforced via `deduct.ts`
-- **[Shorts Pipeline](./shorts-pipeline.md)** - `useShorts()` hook family (create, generateScript, addScene, regenerateMedia)
+3. **Database Setup**
+   ```bash
+   npm run db:push  # Push schema
+   npm run db:seed  # Optional: styles, tones
+   npm run db:studio  # Prisma UI
+   ```
 
-### Billing & Credits
-- **[Asaas Integration](./asaas.md)** - Subscriptions, CPF modals, `AsaasClient`
-- **[Asaas Webhooks](./asaas-webhooks.md)** - Payment events, local tunneling
-- **[Credits System](./credits.md)** - `useCredits()`, `track-usage.ts`, features (`FeatureKey`), deduction (`deduct.ts`)
+4. **Run Dev Server**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) → Sign up → Create AI shorts!
 
-### Utils & Tools
-- **[Hooks](./hooks.md)** - 50+ custom hooks (e.g., `useShorts`, `useCharacters`, `useAdminSettings`)
-- **[Storage](./storage.md)** - Vercel Blob/Replit, `useStorage()`, `UploadResult`
-- **[Logging](./logging.md)** - `createLogger`, API log levels
+## 🏗️ Architecture Overview
 
-## Technology Stack
+Monolithic Next.js App Router app with clear layers:
 
-### Core
-- **Next.js 15.3.5** (App Router)
-- **React 19** + **TypeScript** (331 TS/TSX files)
-- **Tailwind CSS v4** + **Radix UI** + **Lucide Icons**
+```
+Components (198 symbols, 166 TSX) → Hooks (50+, e.g. useShorts) → Lib/Utils (183 symbols) → API Routes (178 controllers)
+                                                                 ↓
+                                                           Prisma Models (31) + PostgreSQL
+```
 
-### Data & Auth
-- **Prisma ORM** + **PostgreSQL** (29 models)
-- **Clerk** (users, webhooks, plans)
+- **Dependencies**: Controllers depend on Models; Utils on Controllers/Models; Components on Models.
+- **Public API Highlights** (selected exports):
+  | Symbol | File | Purpose |
+  |--------|------|---------|
+  | `useShorts` | `src/hooks/use-shorts.ts` | Core short CRUD + pipeline (create, generateScript, addScene) |
+  | `apiClient` | `src/lib/api-client.ts` | tRPC-like typed client |
+  | `AsaasClient` | `src/lib/asaas/client.ts` | BR payments |
+  | `pipeline.ts` | `src/lib/shorts/pipeline.ts` | `addScene`, `approveScript` |
+  | `AdminChrome` | `src/components/admin/admin-chrome.tsx` | Admin layout |
+  | `useCredits` | `src/hooks/use-credits.ts` | Balance + deduction |
 
-### AI/ML
-- **Vercel AI SDK** (chat/studio)
-- **FAL.ai** (Flux images, Kling videos)
-- **OpenRouter** (LLMs, adapters)
+Cross-refs: [Hooks](./hooks.md), [Shorts Pipeline](./shorts-pipeline.md), [API](./api.md).
 
-### Billing/State
-- **Asaas** (BR payments)
-- **React Query** (usage, shorts, credits hooks)
-- **Zod** + **React Hook Form**
-- **tRPC-like apiClient**
+## ✨ Key Features
 
-**Stats**: 353 files, 812 symbols, 157 controllers, 179 components.
-
-## Key Features
-
-### 🎬 Shorts Creation Pipeline
-Full lifecycle for AI shorts:
+### 🎬 Shorts Pipeline (Core)
+End-to-end script-to-video:
 ```tsx
-// src/hooks/use-shorts.ts
-const { mutate: createShort } = useCreateShort();
-const { mutate: generateScript } = useGenerateScript(shortId);
-const { mutate: addScene } = useAddScene(shortId, sceneData);
-const { mutate: generateMedia } = useGenerateMedia(sceneId);
+// Example: src/app/shorts/page.tsx
+const { data: shorts } = useShorts();
+const createShort = useCreateShort();
+const generateScript = useGenerateScript(shortId);
+
+const handleNewShort = async () => {
+  const short = await createShort.mutateAsync({ title: 'Meu Short', prompt: '...' });
+  await generateScript.mutateAsync();  // Triggers Roteirista agents
+  // Then: useAddScene, useGenerateMedia (Kling/Flux)
+};
 ```
-- Script gen: `GenerateScenesResponse` via Roteirista agents
-- Scenes: `ShortScene`, reorder/regenerate
-- Cross-refs: [pipeline.ts](src/lib/shorts/pipeline.ts), [ScriptWizard.tsx](src/components/roteirista/ScriptWizard.tsx)
+- **Flow**: `CreateShortInput` → Script (AI agents) → Scenes (`ShortScene`) → Media gen → Export.
+- **Hooks**: `useShorts`, `useShort`, `useGenerateScript`, `useAddScene`, `useGenerateMedia`.
+- Details: [src/lib/shorts/pipeline.ts](src/lib/shorts/pipeline.ts), [ScriptWizard.tsx](src/components/roteirista/ScriptWizard.tsx).
 
-### 🎭 Characters
-- Traits (`CharacterTraits`), prompts (`analyzeCharacterImage`)
-- Limits: `canCreateCharacter`, `canAddCharacterToShort`
-- Hooks: `useCharacters`, `useShortCharacters`
-- Ex: `combineCharactersForScene` for multi-char scenes
+### 🎭 Characters & Scenes
+- Traits: `CharacterTraits`, image analysis (`analyzeCharacterImage`).
+- Limits: `canCreateCharacter()`, `canAddCharacterToShort()`.
+- Multi-char scenes: `combineCharactersForScene`.
+- Hooks: `useCharacters`, `useShortCharacters`.
 
-### 💰 Credits & Billing
-- Track usage: `useUsage()`, `OperationType` (e.g., script-gen, image)
-- Admin: `useAdminPlans`, `AdminSettingsPayload`
-- Deduction: Auto via `deduct.ts`
-- Plans: `PublicPlan`, Asaas sync
+### 🤖 AI Generation
+- **Providers**: `OpenRouterAdapter`, `FalAdapter` (Flux images, Kling videos), registry (`src/lib/ai/providers/registry.ts`).
+- **Hooks**:
+  ```tsx
+  const { mutateAsync: generateImage } = useAiImage();
+  await generateImage({ prompt: '...', model: 'flux' });  // GenerateImageResponse
+  ```
+- Models: `useAvailableModels()` → `AIModel[]`.
+- Credits: Auto-deduct via `deduct.ts` (e.g., Image:5, Video:10).
 
-### 🛠️ Admin & Analytics
-- Dashboard: `useDashboard()` → `DashboardStats`
-- Plans/Models: Edit tiers, LLM configs (`LLMFeatureKey`)
-- Components: `AdminChrome`, `AdminTopbar`
+### 💰 Billing & Credits
+- **Usage**: `useUsage()`, `useCredits()` → `CreditData`.
+- **Plans**: `usePublicPlans()` → `PublicPlan[]`, admin edits (`useAdminPlans`).
+- **Asaas**: Subscriptions, webhooks (`/api/asaas/webhooks`), CPF modals.
+- **Track**: `OperationType` (script=1, image=5), `track-usage.ts`.
 
-### 🤖 AI Studio/Chat
-- `AIStudioPage`, agents (`useAgents`)
-- Providers: Registry, `OpenRouterAdapter`, `FalAdapter`
-- Ex: `useAiImage()` for `GenerateImageParams`
+### 🛠️ Admin Dashboard
+- Layout: `AdminLayout`, `AdminChrome`, `AdminTopbar`.
+- Pages: Plans (`AdminSettingsPage`), Models, Onboarding.
+- Hooks: `useAdminSettings()` → `AdminSettingsPayload`, `useDashboard()` → `DashboardStats`.
 
-## Getting Started
+### 💬 AI Studio & Chat
+- `AIStudioPage`, `useAgents()` → `Agent[]` (scriptwriter, prompt-engineer).
+- Chat: `ChatMessage`, agents with `AgentQuestion`/`AgentOutputField`.
 
-### Prerequisites
-- Node.js 22+
-- PostgreSQL (e.g., Supabase/Railway)
-- Clerk account
-- Asaas (sandbox for dev)
+## 📁 Project Structure
 
-### Installation
-```bash
-git clone <repo>
-cd pedro-ai
-npm install
-cp .env.example .env.local  # Edit: DB, Clerk, Asaas, FAL keys
-npm run db:push
-npm run dev
-```
-Open [localhost:3000](http://localhost:3000) → Auth → Create shorts!
-
-### Scripts
-```bash
-npm run dev          # Dev server
-npm run typecheck    # TS check
-npm run lint         # ESLint
-npm run db:studio    # Prisma UI
-npm run build        # Prod build
-```
-
-## Project Structure
 ```
 pedro-ai/
-├── prisma/              # Schema (Short, Character, Scene, CreditUsage...)
+├── prisma/                 # schema.prisma (Short, Character, Scene, CreditUsage, 29 models total)
 ├── src/
-│   ├── app/
-│   │   ├── (protected)/   # ai-studio/, shorts/
-│   │   ├── admin/         # Layout, settings, onboarding
-│   │   └── api/           # /shorts, /credits, /asaas/webhooks
-│   ├── components/
-│   │   ├── shorts/        # CreateShortForm, AddSceneDialog
-│   │   ├── characters/    # CharacterSelector
-│   │   ├── roteirista/    # ScriptWizard
-│   │   ├── admin/         # AdminChrome, PlanEditDrawer
-│   │   └── ui/            # Autocomplete, Toasts
-│   ├── hooks/             # useShorts (20+ funcs), useCredits...
-│   ├── lib/
-│   │   ├── shorts/        # pipeline.ts (addScene, approveScript)
-│   │   ├── credits/       # deduct.ts, validate-credits.ts
-│   │   ├── ai/            # providers/ (fal-adapter.ts)
-│   │   ├── asaas/         # client.ts
-│   │   └── storage/       # vercel-blob.ts
-│   └── contexts/          # page-metadata.tsx
-├── docs/                 # This documentation
+│   ├── app/                # Pages: (protected)/shorts, admin/, api/shorts, api/credits
+│   ├── components/         # ui/ (Autocomplete, Toasts), shorts/, characters/, roteirista/, admin/
+│   ├── hooks/              # useShorts (10+ funcs), useCredits, useStorage, useAgents...
+│   ├── lib/                # shorts/pipeline.ts, credits/deduct.ts, ai/providers/, asaas/client.ts, storage/
+│   └── contexts/           # page-metadata.tsx (Breadcrumbs)
+├── docs/                   # architecture.md, hooks.md, shorts-pipeline.md...
+├── public/                 # Assets
 └── package.json
 ```
 
-## Common Tasks
+Key deps: `pricing-card.tsx` (5 imports), `ScriptWizard.tsx` (5), `pipeline.ts` (multi).
 
-### Create a Short (Example)
-```tsx
-// In a component
-const shortsQuery = useShorts();
-const create = useCreateShort();
+## ⚙️ Scripts
 
-const handleCreate = async () => {
-  const newShort = await create.mutateAsync({
-    title: "Meu Short",
-    prompt: "Um esquete engraçado com dois personagens."
-  });
-  await useGenerateScript(newShort.id).mutateAsync();
-};
-```
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server (3000) |
+| `npm run build` | Prod build |
+| `npm run start` | Prod server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TS strict |
+| `npm run db:push` | Prisma push (dev) |
+| `npm run db:migrate` | Prod migrations |
+| `npm run db:seed` | Seed styles/tones |
+| `npm test` | Unit tests (expand) |
 
-### Generate Scene Media
-```tsx
-const generateMedia = useGenerateMedia(sceneId);
-await generateMedia.mutateAsync({ type: 'video', model: 'kling' });
-```
+## 🚀 Deployment
 
-### Admin: Update Plans
-```tsx
-const { data: plans } = useAdminPlans();
-const settings = useAdminSettings();  // AdminSettingsPayload
-```
+- **Vercel** (recommended): Blob storage auto-config.
+- Env vars: `DATABASE_URL`, `CLERK_*` (6 keys), `ASAAS_*`, `FAL_KEY`, `OPENROUTER_*`.
+- Webhooks: Clerk (`/api/clerk/webhooks`), Asaas (`/api/asaas/webhooks`) → Use ngrok for local testing.
 
-### DB Changes
-```bash
-# Edit prisma/schema.prisma
-npx prisma db push  # Dev
-npx prisma migrate dev --name add_scenes  # Prod
-npx prisma generate
-```
+## 🔧 Troubleshooting
 
-## Troubleshooting
-- **Credits not deducting**: Check `CLERK_WEBHOOK_SECRET`, `useCredits`
-- **AI Gen fails**: Verify FAL/OpenRouter keys, model configs (`src/lib/ai/models-config.ts`)
-- **Asaas errors**: Use sandbox, test webhooks with ngrok
-- **Types errors**: `npm run typecheck`, regen Prisma
+| Issue | Fix |
+|-------|-----|
+| No credits deduct | Verify `CLERK_WEBHOOK_SECRET`, `useCredits` mutation |
+| AI fails | Check keys, `src/lib/ai/models-config.ts`, quotas |
+| Asaas errors | Sandbox mode, ngrok for webhooks |
+| Auth issues | `validateUserAuthentication`, Clerk dashboard |
+| DB errors | `npx prisma generate`, `db:push` |
+| Types mismatch | `npm run typecheck` |
 
-## Deployment
-- **Vercel** (recommended): Auto-deploys, Blob storage
-- Env vars: `DATABASE_URL`, `CLERK_*`, `ASAAS_API_KEY`, `FAL_KEY`, `OPENROUTER_API_KEY`
-- Webhooks: Clerk/Asaas → Vercel endpoints
+## 🤝 Contributing
 
-## Contributing
-- Follow [Guidelines](./development-guidelines.md): Hooks-first, Zod validation, tests
-- PRs: Feature branches, update docs/hooks
-- Tests: `npm test` (add for new hooks/pipelines)
+1. Fork → Branch (`feat/add-hook`).
+2. Follow [Guidelines](./development-guidelines.md): Hooks-first, Zod, logger (`createLogger`).
+3. Add tests, update docs.
+4. PR: Lint clean, types pass.
 
-## Next Steps
-1. Explore `/admin` after auth
-2. Create a short via `/shorts`
-3. Read [Shorts Pipeline](./shorts-pipeline.md) for deep dive
-4. Customize AI providers in `lib/ai/`
+## 📚 Full Docs
 
-Happy building AI shorts! 🚀
+- [Architecture](./architecture.md)
+- [Hooks](./hooks.md) (50+)
+- [Shorts Pipeline](./shorts-pipeline.md)
+- [Credits](./credits.md)
+- [AI Providers](./ai-features.md)
+- [Asaas](./asaas.md)
+- [Deployment](./deployment.md)
+
+Happy short-making! 🎥🚀

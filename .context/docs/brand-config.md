@@ -1,20 +1,27 @@
 # Brand Configuration
 
-Centralized brand settings are defined in [`src/lib/brand-config.ts`](https://github.com/your-org/pedro-ai/blob/main/src/lib/brand-config.ts). This file exports a `site` configuration object and an `AnalyticsConfig` type, allowing you to customize your app's name, metadata, assets, social links, and analytics in one place. Changes here propagate across the app without manual updates elsewhere.
+Centralized brand settings are defined in [`src/lib/brand-config.ts`](../src/lib/brand-config.ts). This module exports a `site` configuration object and an `AnalyticsConfig` type, enabling easy customization of the app's name, metadata, assets, social links, and analytics. Updates here automatically propagate throughout the application.
+
+## Exports
+
+| Symbol | Type | Description |
+|--------|------|-------------|
+| `site` | `const object` | Core brand configuration object with name, logos, socials, etc. |
+| `LogoPaths` | `interface` | `{ light: string; dark: string }` – Paths to light/dark mode logos. |
+| `IconPaths` | `interface` | `{ favicon: string; apple: string }` – Favicon and Apple touch icon paths. |
+| `AnalyticsConfig` | `type` | `{ gtmId?: string; gaId?: string; facebookPixelId?: string; }` – Optional analytics tracking IDs. |
 
 ## Configuration Structure
 
-The primary export is a `site` object with the following structure:
-
 ```typescript
-// src/lib/brand-config.ts (inferred structure from exports)
+// src/lib/brand-config.ts
 export const site = {
-  name: 'Your App Name',
-  shortName: 'App',
-  description: 'App description for SEO.',
-  keywords: 'keyword1, keyword2',
-  author: 'Your Name/Company',
-  url: process.env.NEXT_PUBLIC_APP_URL || 'https://yourapp.com',
+  name: 'Pedro AI',
+  shortName: 'Pedro',
+  description: 'AI-powered short video creation platform.',
+  keywords: 'ai, video, shorts, characters, scripts',
+  author: 'Pedro AI Team',
+  url: process.env.NEXT_PUBLIC_APP_URL || 'https://pedro.ai',
   logo: {
     light: '/logo-light.svg',
     dark: '/logo-dark.svg',
@@ -25,121 +32,156 @@ export const site = {
   } as IconPaths,
   ogImage: '/og-image.png',
   socials: {
-    twitter: 'https://twitter.com/yourhandle',
-    linkedin: 'https://linkedin.com/company/yourcompany',
+    twitter: 'https://twitter.com/pedroai',
+    linkedin: 'https://linkedin.com/company/pedro-ai',
   },
   support: {
-    email: 'support@yourapp.com',
-    url: 'https://yourapp.com/support',
+    email: 'support@pedro.ai',
+    url: 'https://pedro.ai/support',
   },
 } as const;
-
-export type AnalyticsConfig = {
-  gtmId?: string;
-  gaId?: string;
-  facebookPixelId?: string;
-};
 ```
-
-- **LogoPaths**: `{ light: string; dark: string }` – Paths to light/dark mode logos in `/public`.
-- **IconPaths**: `{ favicon: string; apple: string }` – Favicon and Apple touch icon paths.
-- **AnalyticsConfig**: Optional IDs for Google Tag Manager (GTM), Google Analytics 4 (GA4), and Meta Pixel.
 
 ## Environment Variables
 
-Configure these in `.env.local` (see `.env.example` for format):
+Set these in `.env.local` (reference `.env.example`):
 
 ```env
-NEXT_PUBLIC_APP_URL=https://yourapp.com
-NEXT_PUBLIC_GTM_ID=GTM-XXXXXX  # Optional: Google Tag Manager
-NEXT_PUBLIC_GA_ID=G-XXXXXX     # Optional: GA4 Measurement ID
+NEXT_PUBLIC_APP_URL=https://pedro.ai
+NEXT_PUBLIC_GTM_ID=GTM-XXXXXX    # Optional: Google Tag Manager
+NEXT_PUBLIC_GA_ID=G-XXXXXX       # Optional: Google Analytics 4
 NEXT_PUBLIC_FACEBOOK_PIXEL_ID=123456789012345  # Optional: Meta Pixel
 ```
 
-These are injected at build time and used in `analytics` config.
+These are referenced in `brand-config.ts` and injected at build time.
 
-## Usage Locations
+## Usage Examples
 
-The config is consumed in key areas for consistency:
-
-| Location | Usage | Example |
-|----------|--------|---------|
-| [`src/app/layout.tsx`](src/app/layout.tsx) | Root `<title>`, `<meta>` tags, OpenGraph | `title: site.name`, `description: site.description`, `openGraph.images: [site.ogImage]` |
-| Header/Footer Components | Branding display | `<h1>{site.name}</h1>`, `<img src={site.logo.light} />` |
-| Metadata Contexts | Page SEO (`src/contexts/page-metadata.tsx`) | `BreadcrumbItem` uses `site.name` |
-| Analytics | Global tracking (`AnalyticsPixels` or similar) | Loads GTM/GA4/Pixel scripts via `analytics.gtmId` etc. |
-
-**Import Example**:
+### Importing and Using Config
 ```tsx
-// Anywhere in the app
-import { site, analytics } from '@/lib/brand-config';
+// Example: src/components/app/Header.tsx or similar
+import { site } from '@/lib/brand-config';
 
-export default function Header() {
+export function Header() {
   return (
-    <header>
-      <img src={site.logo.dark} alt={site.name} />
-      <h1>{site.shortName}</h1>
+    <header className="flex items-center gap-4">
+      <img 
+        src={site.logo.dark} 
+        alt={`${site.name} logo`} 
+        className="h-8 w-auto"
+      />
+      <h1 className="text-2xl font-bold">{site.name}</h1>
     </header>
   );
 }
 ```
 
-## Asset Management
+### In Layout/Metadata
+```tsx
+// src/app/layout.tsx (inferred usage)
+export const metadata = {
+  title: {
+    default: site.name,
+    template: `%s | ${site.name}`,
+  },
+  description: site.description,
+  keywords: site.keywords,
+  authors: [{ name: site.author }],
+  openGraph: {
+    images: [site.ogImage],
+    type: 'website',
+  },
+};
+```
 
-Place static assets in `/public/` and reference them relatively:
+### Analytics Integration
+Analytics scripts (GTM, GA4, Pixel) are typically loaded via `AnalyticsConfig` in a provider or layout component (e.g., `src/contexts/analytics.tsx` or `src/app/layout.tsx`).
+
+```tsx
+// Hypothetical analytics setup
+import { analytics } from '@/lib/brand-config'; // if exported separately
+
+if (analytics.gtmId) {
+  // Load GTM script
+}
+```
+
+## Asset Locations
+
+Static assets are served from `/public/`:
 
 ```
 /public
-├── logo-light.svg
-├── logo-dark.svg
+├── logo-light.svg      (light mode logo)
+├── logo-dark.svg       (dark mode logo)
 ├── favicon.ico
-├── apple-touch-icon.png
-└── og-image.png (1200x630px recommended)
+├── apple-touch-icon.png (180x180px)
+└── og-image.png        (1200x630px recommended for OpenGraph)
 ```
 
-Update paths in `brand-config.ts`. Assets are served at root URL (e.g., `https://yourapp.com/logo-light.svg`).
+Reference relatively: `/logo-light.svg` → `https://pedro.ai/logo-light.svg`.
 
-## Customization Guide
+## Customization Steps
 
-1. **Rebrand Quickly**:
-   - Update `name`, `shortName`, `description`, `keywords`.
-   - Swap logos/icons/ogImage paths.
-   - Add social/support links.
+1. **Update Branding**:
+   - Edit `name`, `shortName`, `description`, `keywords`, `author`.
+   - Replace asset paths in `logo`, `icons`, `ogImage`.
 
-2. **Extend the Config**:
+2. **Add Social/Support Links**:
    ```typescript
-   // Add to site object
-   pricing: {
-     monthly: '$29',
-     yearly: '$290',
-   },
-   legal: {
-     privacy: '/privacy',
-     terms: '/terms',
+   socials: {
+     twitter: 'https://x.com/newhandle',
+     instagram: 'https://instagram.com/newaccount', // Extend as needed
    },
    ```
-   Consume: `site.pricing.monthly`.
 
-3. **Analytics Setup**:
-   - Enable via env vars.
-   - Config auto-injects `<script>` tags in `<head>`.
+3. **Extend Config** (non-breaking):
+   ```typescript
+   // Add custom properties
+   features: {
+     aiStudio: true,
+     shorts: true,
+   },
+   colors: {
+     primary: '#3B82F6',
+   },
+   ```
+   Update TypeScript types accordingly.
 
-4. **SEO Best Practices**:
-   - Keep `description` < 160 chars.
-   - Use unique `ogImage` per major page if needed (override in page metadata).
+4. **Analytics**:
+   - Add env vars.
+   - Verify scripts in browser dev tools (`<head>`).
 
-## Related Files & Symbols
+## Known Usages in Codebase
 
-- **Exports**:
-  - `AnalyticsConfig` (type) – Analytics IDs.
-- **Dependencies**: Minimal; uses `process.env`.
-- **Search Results**: Imported in layout, metadata, header/footer (use `grep -r "brand-config"` or IDE search).
-- **Tests/Examples**: No dedicated tests; verify via app preview.
+- **Layout/Metadata**: `src/app/layout.tsx`, `src/contexts/page-metadata.tsx` (titles, OG tags, breadcrumbs).
+- **UI Components**: Headers, footers, marketing pages (e.g., `src/components/app/app-shell.tsx`, `src/components/marketing/ai-starter.tsx`).
+- **Admin Pages**: `src/app/admin/layout.tsx`, `src/components/admin/admin-chrome.tsx`.
+- **Search Pattern**: Imported ~10-15 times (e.g., `grep -r "from.*brand-config" src/`).
+
+No direct tests found; validate via local dev server (`pnpm dev`) and Lighthouse audits.
+
+## Best Practices
+
+- **SEO**: `<160 chars` for `description`; unique OG images per page.
+- **Performance**: Optimize SVGs (<10KB); use Next.js `<Image>` for logos.
+- **Consistency**: Always import from `brand-config.ts` – no hard-coded strings.
+- **Dark Mode**: Test logo switching with `prefers-color-scheme`.
 
 ## Troubleshooting
 
-- **Logo not showing?** Check `/public` paths and browser dev tools network tab.
-- **Analytics not firing?** Inspect `<head>` for script tags; ensure env vars prefixed `NEXT_PUBLIC_`.
-- **SEO issues?** Run Lighthouse audit; validate OpenGraph with [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/).
+| Issue | Solution |
+|-------|----------|
+| Logos missing | Verify `/public/` paths; check Network tab. |
+| Analytics not tracking | Confirm `NEXT_PUBLIC_*` env vars; inspect `<head>`. |
+| SEO validation fails | Use [Facebook Debugger](https://developers.facebook.com/tools/debug/), [Google Rich Results](https://search.google.com/test/rich-results). |
+| Build errors | Restart dev server after env/logo changes. |
 
-For production deploys (Vercel/Netlify), set env vars in dashboard. Changes require rebuild.
+## Related Files
+
+- [`src/app/layout.tsx`](../src/app/layout.tsx) – Root metadata consumer.
+- [`src/contexts/page-metadata.tsx`](../src/contexts/page-metadata.tsx) – Dynamic page SEO.
+- [`.env.example`](../.env.example) – Env var template.
+- [Public assets](../public/) – Logos, icons, OG image.
+
+For deploys (Vercel, etc.), set env vars in platform dashboard. Rebuild required for changes.

@@ -106,33 +106,7 @@ Baseado nas respostas acima, gere a configuração no formato JSON especificado.
 
         // 6. Aplicar validações cruzadas e ajustes automáticos pós-IA
         if (validationRules) {
-            // Exemplo: Limite de cenas baseado na pressão narrativa
-            if (output.suggestedScenes && output.narrativePressure) {
-                const pressure = output.narrativePressure;
-                let maxScenes = 15; // default
 
-                if (pressure === 'FAST' && validationRules.maxScenesForFastPressure) {
-                    maxScenes = validationRules.maxScenesForFastPressure;
-                } else if (pressure === 'FLUID' && validationRules.maxScenesForFluidPressure) {
-                    maxScenes = validationRules.maxScenesForFluidPressure;
-                } else if (pressure === 'SLOW' && validationRules.maxScenesForSlowPressure) {
-                    maxScenes = validationRules.maxScenesForSlowPressure;
-                }
-
-                if (output.suggestedScenes > maxScenes) {
-                    const oldVal = output.suggestedScenes;
-                    output.suggestedScenes = maxScenes;
-                    adjustments.push(`Número de cenas reduzido para ${maxScenes} (máximo para pressão ${pressure.toLowerCase()}).`);
-                }
-            }
-
-            // Aplicar sentenceMaxWords baseado na pressão
-            if (output.narrativePressure && validationRules.sentenceMaxWords) {
-                const pressure = output.narrativePressure;
-                if (validationRules.sentenceMaxWords[pressure]) {
-                    output.sentenceMaxWords = validationRules.sentenceMaxWords[pressure];
-                }
-            }
         }
 
         return {

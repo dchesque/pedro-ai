@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.0.0] - 2026-01-13
+
+### Changed
+- **Arquitetura de Estilos e Climas (v2.0)**: Refatoração completa para separar identidade estrutural (Estilo) de comportamento emocional (Clima), permitindo maior flexibilidade e controle.
+- **Database Schema**:
+    - **Style**: Adicionados campos para `hookType`, `ctaType`, `scriptFunction`, `narratorPosture`, `contentComplexity` e `compatibleClimates`. Removidos campos legados de ritmo.
+    - **Climate**: Removidos campos obsoletos (`hookType`, `closingType`, `maxScenes`).
+    - **Enums**: Criados `StyleHookType` e `StyleCtaType`.
+- **UI de Criação de Estilos**:
+    - Interface totalmente renovada com "Blocos Guiados" para Função, Postura e Complexidade.
+    - **Hook e CTA Estruturados**: Seleção granular de tipo de abertura e fechamento com exemplos opcionais.
+    - **Sugestões Inteligentes**: Botões "✨ Sugerir com IA" para preencher automaticamente tipos de Hooks/CTAs adequados.
+    - **Refinamento Visual**: Funcionalidade "Refinar com IA" para prompts visuais, comparando original vs refinado em um Dialog.
+    - **Afinidades de Clima**: Sistema de "Climas Compatíveis" com seleção múltipla e destaque visual para sugestões naturais.
+- **API**:
+    - Novos endpoints `/api/styles/ai/suggest` e `/api/styles/ai/refine-visual` para suporte criativo.
+    - Atualização da rota `/api/styles` para suportar o novo payload.
+
+## [1.13.3] - 2026-01-13
+
+### Changed
+- **Limpeza de Schema**: Removidos campos legados do modelo `Climate` (`hookType`, `closingType`, `sentenceMaxWords`, `maxScenes`) e seus respectivos enums e tipagens, simplificando a API e o modal de criação.
+
 ## [1.13.2] - 2026-01-13
 
 ### Changed

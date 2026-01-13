@@ -1,56 +1,40 @@
 import {
     EmotionalState,
     RevelationDynamic,
-    NarrativePressure,
-    HookType,
-    ClosingType
+    NarrativePressure
 } from '../../../prisma/generated/client_final'
 
 export interface ClimateConfig {
     emotionalState: EmotionalState
     revelationDynamic: RevelationDynamic
     narrativePressure: NarrativePressure
-    hookType?: HookType
-    closingType?: ClosingType
 }
 
 export interface GuardRailRules {
     allowedRevelations: RevelationDynamic[]
     allowedPressures: NarrativePressure[]
-    forcedHook: HookType | null
-    forcedClosing: ClosingType | null
 }
 
 export const VALID_COMBINATIONS: Record<EmotionalState, GuardRailRules> = {
     CURIOSITY: {
         allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.FRAGMENTS],
-        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID],
-        forcedHook: null,
-        forcedClosing: null
+        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID]
     },
     THREAT: {
         allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.HIDDEN],
-        allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST],
-        forcedHook: HookType.SHOCK,
-        forcedClosing: ClosingType.CTA_DIRECT
+        allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST]
     },
     FASCINATION: {
         allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.FRAGMENTS, RevelationDynamic.EARLY],
-        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID],
-        forcedHook: HookType.MYSTERY,
-        forcedClosing: null
+        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID]
     },
     CONFRONTATION: {
         allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.EARLY],
-        allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST],
-        forcedHook: HookType.CHALLENGE,
-        forcedClosing: ClosingType.CHALLENGE
+        allowedPressures: [NarrativePressure.FLUID, NarrativePressure.FAST]
     },
     DARK_INSPIRATION: {
         allowedRevelations: [RevelationDynamic.PROGRESSIVE, RevelationDynamic.HIDDEN],
-        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID],
-        forcedHook: HookType.STATEMENT,
-        forcedClosing: ClosingType.REVELATION
+        allowedPressures: [NarrativePressure.SLOW, NarrativePressure.FLUID]
     }
 }
 
@@ -86,8 +70,6 @@ export function getCorrectedConfig(config: Partial<ClimateConfig>): ClimateConfi
             : rules.allowedRevelations[0],
         narrativePressure: config.narrativePressure && rules.allowedPressures.includes(config.narrativePressure)
             ? config.narrativePressure
-            : rules.allowedPressures[0],
-        hookType: rules.forcedHook || config.hookType || HookType.QUESTION,
-        closingType: rules.forcedClosing || config.closingType || ClosingType.CTA_DIRECT
+            : rules.allowedPressures[0]
     }
 }

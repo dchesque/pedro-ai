@@ -8,8 +8,6 @@ interface ImproveClimateTextRequest {
         emotionalState: string;
         revelationDynamic: string;
         narrativePressure: string;
-        hookType: string;
-        closingType: string;
         description?: string;
         instructions?: string;
     };

@@ -85,10 +85,6 @@ export async function POST(request: NextRequest) {
                 emotionalState: agentOutput.emotionalState,
                 revelationDynamic: agentOutput.revelationDynamic,
                 narrativePressure: agentOutput.narrativePressure,
-                hookType: agentOutput.hookType,
-                closingType: agentOutput.closingType,
-                sentenceMaxWords: agentOutput.sentenceMaxWords || 15,
-                maxScenes: agentOutput.suggestedScenes || 15,
                 isSystem: false,
                 userId: user.id
             }
@@ -126,8 +122,6 @@ export async function POST(request: NextRequest) {
                 emotionalState: corrected.emotionalState,
                 revelationDynamic: corrected.revelationDynamic,
                 narrativePressure: finalNarrativePressure,
-                hookType: corrected.hookType,
-                closingType: corrected.closingType,
                 promptFragment,
                 behaviorPreview,
                 isSystem: false,

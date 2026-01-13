@@ -111,8 +111,6 @@ export async function PUT(
                 emotionalState: corrected.emotionalState,
                 revelationDynamic: corrected.revelationDynamic, // We still enforce this if relevant, but frontend blocks incompatible ones
                 narrativePressure: finalNarrativePressure,
-                hookType: corrected.hookType,
-                closingType: corrected.closingType,
                 promptFragment: promptFragment !== undefined ? promptFragment : existing.promptFragment,
                 behaviorPreview: behaviorPreview !== undefined ? behaviorPreview : existing.behaviorPreview,
             },

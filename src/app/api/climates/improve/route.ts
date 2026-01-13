@@ -14,10 +14,6 @@ interface ImproveClimateTextRequest {
         revelationDynamic: string;   // RevelationDynamic enum
         narrativePressure: string;   // NarrativePressure enum
 
-        // Dados do Step 2
-        hookType: string;            // HookType enum
-        closingType: string;         // ClosingType enum
-
         // Dados do Step 3 (campos já preenchidos)
         description?: string;
         instructions?: string;
@@ -156,8 +152,6 @@ CONTEXTO DO CLIMA:
 - Estado Emocional: ${ctx.emotionalState}
 - Dinâmica de Revelação: ${ctx.revelationDynamic}
 - Pressão Narrativa: ${ctx.narrativePressure}
-- Tipo de Hook: ${ctx.hookType}
-- Tipo de Fechamento: ${ctx.closingType}
 - Descrição: ${ctx.description || 'Não definida'}
 - Instruções: ${ctx.instructions || 'Não definidas'}
 

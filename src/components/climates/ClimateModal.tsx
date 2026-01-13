@@ -16,9 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
     EmotionalState,
     RevelationDynamic,
-    NarrativePressure,
-    HookType,
-    ClosingType
+    NarrativePressure
 } from '../../../prisma/generated/client_final'
 import {
     EMOTIONAL_STATE_PROMPTS,
@@ -67,8 +65,6 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
         emotionalState: EmotionalState.CURIOSITY,
         revelationDynamic: RevelationDynamic.PROGRESSIVE,
         narrativePressure: NarrativePressure.FLUID,
-        hookType: HookType.QUESTION,
-        closingType: ClosingType.CTA_DIRECT,
         promptFragment: '',
         behaviorPreview: '',
     })
@@ -93,8 +89,6 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                 emotionalState: EmotionalState.CURIOSITY,
                 revelationDynamic: RevelationDynamic.PROGRESSIVE,
                 narrativePressure: NarrativePressure.FLUID,
-                hookType: HookType.QUESTION,
-                closingType: ClosingType.CTA_DIRECT,
                 promptFragment: '',
                 behaviorPreview: '',
             })
@@ -158,8 +152,6 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
                 emotionalState: formData.emotionalState!,
                 revelationDynamic: formData.revelationDynamic!,
                 narrativePressure: formData.narrativePressure!,
-                hookType: formData.hookType!,
-                closingType: formData.closingType!,
                 description: formData.description || undefined,
                 instructions: formData.promptFragment || undefined,
             }
@@ -203,9 +195,7 @@ export function ClimateModal({ open, onOpenChange, climate }: ClimateModalProps)
             ...prev,
             emotionalState: state,
             revelationDynamic: corrected.revelationDynamic,
-            narrativePressure: corrected.narrativePressure,
-            hookType: corrected.hookType,
-            closingType: corrected.closingType
+            narrativePressure: corrected.narrativePressure
         }))
     }
 

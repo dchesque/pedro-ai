@@ -1,143 +1,142 @@
 # Feature Developer Agent Playbook
 
-This playbook equips you to develop new features in this Next.js 15 (App Router) + TypeScript + Tailwind + Prisma + Clerk + React Query codebase. Focus on user-facing features like Shorts creation/editing, Roteirista script generation, Estilos management, AI integrations (chat, image/video gen), billing/credits, and admin tools. Always align with existing patterns: Zod validation, credit-aware APIs, Clerk auth, and optimistic UI updates via React Query.
+This playbook guides development of new features in this Next.js 15 (App Router) + TypeScript + Tailwind + Prisma + Clerk + React Query codebase. Focus on AI-powered user features (Shorts creation/editing with scenes/script/media gen, Roteirista AI scriptwriting, Estilos/Styles management, Characters, AI chat/image/video via Fal/OpenRouter, billing/credits, agents) and admin tools (users/plans/credits/models/providers). Adhere to patterns: Zod validation, Clerk auth (`userId`), credit deduction, optimistic UI (React Query), shadcn/ui components, `withApiLogging`, typed `apiClient`.
 
 ## Core Focus Areas
 
-### 1. **API Routes (Controllers) - src/app/api/**
-   - **Purpose**: Handle all backend logic, auth, validation, DB ops, AI calls, webhooks. Every feature needs 1+ routes.
-   - **Key Subdirs**:
-     | Directory | Purpose | Example Routes |
-     |-----------|---------|----------------|
-     | `src/app/api/shorts/[id]` | CRUD for Shorts (generate script/media, scenes reorder/regenerate) | `generate-script`, `scenes/[sceneId]/regenerate-image`, `approve-script` |
-     | `src/app/api/roteirista/ai` | AI-assisted scriptwriting | `suggest-titles`, `generate-scenes`, `assist` |
-     | `src/app/api/estilos` | Style management | `[id]`, `available`, user-owned styles |
-     | `src/app/api/characters/[id]` | Character prompts/media gen | `generate-prompt` |
-     | `src/app/api/ai` | Core AI (chat, image/video via Fal/OpenRouter) | `chat`, `image`, `fal/video` |
-     | `src/app/api/admin` | Admin CRUD (users, plans, credits, models) | `users/[id]/credits`, `plans/[clerkId]`, `providers/[provider]/models` |
-     | `src/app/api/user` | User-specific (styles, agents) | `styles/[id]`, `agents` |
-     | `src/app/api/credits` | Credit checks/burns | `me`, `settings` |
-     | `src/app/api/subscription` | Billing (status, cancel) | `status`, `cancel` |
-   - **Files to Prioritize**: Match feature (e.g., new Short scene action → `src/app/api/shorts/[id]/scenes/[sceneId]/new-action/route.ts`).
+### 1. **API Routes (Controllers) - `src/app/api/`**
+   - **Purpose**: All backend: auth, Zod validation, Prisma CRUD, AI providers (OpenRouter/Fal), webhooks (Clerk/Asaas), credits burns. New features require 1+ dynamic/static routes.
+   - **Key Patterns**: `validateApiKey(req)` → `userId`; Zod `schema.parse(await req.json())`; `withApiLogging(async () => {...})`; `createSuccessResponse({data})` / `createErrorResponse`.
+   - **Directories & Examples**:
+     | Directory/Path | Purpose | Key Routes/Symbols |
+     |----------------|---------|--------------------|
+     | `src/app/api/shorts/[id]` | Shorts CRUD (script/media gen, scenes reorder/regenerate/approve) | `generate-script`, `scenes/[sceneId]/regenerate-image`, `regenerate`, `generate-media`, `characters` |
+     | `src/app/api/roteirista/ai` | AI script assist | `suggest-titles`, `generate-visual-prompt`, `generate-scenes`, `assist` |
+     | `src/app/api/styles/[id]` / `user/styles` | Styles CRUD/available | `[id]`, `available`, `user/styles/[id]` |
+     | `src/app/api/characters/[id]` | Character prompts/media | `generate-prompt` |
+     | `src/app/api/ai` | Core AI (chat/models/image/video) | `chat`, `image`, `fal/video`, `fal/image`, `openrouter/models` |
+     | `src/app/api/agents/[slug]` | Agent execution | `execute` |
+     | `src/app/api/admin` | Admin CRUD/dashboards | `users/[id]/credits`, `plans/[clerkId]`, `providers/[provider]/models`, `system-agents/[type]`, `storage/[id]`, `backfill-credits` |
+     | `src/app/api/credits` / `subscription` | Credits/billing | `me`, `settings`, `status`, `cancel` |
+     | `src/app/api/webhooks` | Clerk/Asaas sync | `clerk`, `asaas/[debug/test]` |
+   - **Files to Reference/Create**: Mirror structure, e.g., new Shorts scene action → `src/app/api/shorts/[id]/scenes/[sceneId]/new-action/route.ts`. Use `ApiError`, `apiClient`.
 
-### 2. **UI Components & Pages - src/components & src/app/(protected)/ & src/app/admin/**
-   - **Purpose**: React components with shadcn/ui base, Tailwind, React Query hooks. Pages use App Router layouts.
-   - **Key Subdirs**:
-     | Directory | Purpose | Key Components |
-     |-----------|---------|----------------|
-     | `src/components/shorts` | Short editing (scenes, script gen, media) | `SortableSceneList`, `SceneCard`, `RegenerateSceneDialog`, `CreateShortForm`, `AIModelSelector` |
-     | `src/components/roteirista` | Script wizard/AI assist | `ScriptWizard`, `SceneEditor`, `AITextAssistant`, `StylePreviewCard` |
-     | `src/components/estilos` | Style creation/listing | `StyleForm`, `StyleCard`, `IconPicker` |
-     | `src/components/characters` | Character mgmt | `CharacterSelector`, `CharacterDialog` |
-     | `src/components/ui` | Reusable primitives | `data-table`, `button`, `textarea`, `glowing-effect` |
-     | `src/components/admin` | Admin dashboards | Plans, users, credits tables |
-     | `src/app/(protected)` | Protected pages | `shorts/[id]/edit`, `roteirista/novo`, `estilos/novo` |
-   - **Pages**: Extend `(protected)` or `admin` layouts. Use `usePageConfig` hook for metadata.
+### 2. **UI Components & Pages - `src/components/` & `src/app/(protected)/` & `src/app/admin/`**
+   - **Purpose**: shadcn/ui + Tailwind React components; App Router pages with layouts. Optimistic updates via React Query mutations.
+   - **Key Patterns**: `forwardRef`, `cn()` utils, `react-hook-form` + `zodResolver`, `useForm`; props interfaces (e.g., `ShortCardProps`); `glowing-effect` animations; responsive/mobile-first.
+   - **Directories & Examples**:
+     | Directory/Path | Purpose | Key Components/Pages |
+     |----------------|---------|----------------------|
+     | `src/components/shorts` | Shorts UI (forms, scenes, media) | `SortableSceneList` (`SortableSceneListProps`), `ShortCard` (`ShortCardProps`), `SceneCard` (`SceneCardProps`), `RegenerateSceneDialog` (`RegenerateSceneDialogProps`), `EditSceneDialog` (`EditSceneDialogProps`), `CreateShortForm` (`CreateShortFormProps`), `CreditEstimate` (`CreditEstimateProps`), `AIModelSelector` (`AIModelSelectorProps`), `AddSceneDialog` (`AddSceneDialogProps`) |
+     | `src/components/roteirista` | Script wizard/AI steps | `StylePreviewCard` (`StylePreviewCardProps`), `ScriptWizard` (`ScriptWizardProps`), `ScriptPreview` (`ScriptPreviewProps`), `SceneEditor` (`SceneEditorProps`), `AITextAssistant` (`AITextAssistantProps`), `steps/` |
+     | `src/components/styles` / `estilos` | Styles/Climates/Tones | `GuidedSelectGroup` (`GuidedSelectGroupProps`), `GuidedSelectCard` (`GuidedSelectCardProps`), `ClimateAffinities` (`ClimateAffinitiesProps`, `Climate`), `AdvancedInstructions` (`AdvancedInstructionsProps`), `StyleForm` (`StyleFormProps`), `StyleCard` (`StyleCardProps`) |
+     | `src/components/ui` | Primitives | `glowing-effect` (`GlowingEffectProps`), `data-table` (`DataTableProps`, `Column`), `button` (`ButtonProps`), `component` (`ExpandableProps`, `AnimationProps`) |
+     | `src/components/tones` | Tone selection | `ToneDialog` (`ToneDialogProps`), `ToneCard` (`ToneCardProps`) |
+     | `src/app/(protected)/shorts/[id]` | Protected Shorts pages | `edit/page.tsx` |
+     | `src/app/(protected)/roteirista/[id]` / `novo` | Roteirista pages | Novo/edit wizards |
+     | `src/app/admin/*` | Admin views | `users/[id]`, `plans`, `credits`, `agents/[id]`, `usage`, `storage`, `settings` (plans/features) |
+   - **Pages**: Use `(protected)` layout for user features, `admin` for admins. `usePageConfig` for metadata.
 
-### 3. **Lib & Hooks - src/lib & src/hooks/**
-   - **Utilities**: `api-client.ts` (typed fetch), `api-auth.ts` (responses/errors), `ai/models.ts` (AIModels), `logging/api.ts` (withApiLogging).
-   - **Hooks**: `useAvailableModels`, `useOpenRouterModels`, `use-ai-models.ts` for AI selection.
+### 3. **Lib, Hooks & Models - `src/lib/` & `src/hooks/`**
+   - **Lib**: `api-client.ts` (`apiClient`, `ApiError`), `api-auth.ts` (responses), `ai/models.ts` (`AIModel`, `getDefaultModel`, `getModelCredits`), `ai/providers`, `logging/api.ts` (`withApiLogging`).
+   - **Hooks**: AI models (`useAvailableModels`/`AIModel`, `useAIModels`, `useDefaultModel`, `useAdminModels`/`useSaveAdminModels`, `useOpenRouterModels`/`OpenRouterModel`); `usePageConfig`.
+   - **Prisma**: `prisma/schema.prisma` (User/Short/Scene/Style/Character/Plan/CreditTransaction). Tenant-scope: `where: { userId }`.
 
-### 4. **Prisma & DB - prisma/schema.prisma**
-   - Models: User, Short, Scene, Style, Character, Plan, CreditTransaction. Always scope queries tenant/user via Clerk `userId`.
-
-### 5. **Tests & Config**
-   - **No dedicated tests visible**; add Vitest/Jest for new features (mimic `src/__tests__` if exists).
-   - **Config**: `next.config.js`, `tailwind.config.js`, `tsconfig.json`. Run `npm run lint`, `typecheck`, `build`.
+### 4. **Config & Tests**
+   - **No explicit tests**; add Vitest in `src/__tests__/` mimicking component/API patterns.
+   - **Config**: `next.config.js`, `tailwind.config.js`, `tsconfig.json`. Enforce: `npm run lint`, `typecheck`, `build`.
 
 ## Key Files & Purposes
 
-| File/Path | Purpose |
-|-----------|---------|
-| `src/lib/api-client.ts` | Typed API client (`apiClient`, `ApiError`). Use for all frontend API calls. |
-| `src/lib/api-auth.ts` | Auth helpers (`validateApiKey`, `createSuccessResponse/Error`). Wrap all routes. |
-| `src/lib/ai/models.ts` | `AIModel`, `getDefaultModel`. Central AI model registry. |
-| `src/components/ui/data-table.tsx` | Reusable tables (`DataTableProps`, `Column`). Use for lists/admins. |
-| `src/components/shorts/SortableSceneList.tsx` | Draggable scenes (`SortableSceneListProps`). Extend for Short edits. |
-| `src/components/roteirista/ScriptWizard.tsx` | Multi-step script gen (`ScriptWizardProps`). |
-| `src/hooks/use-ai-models.ts` | Model selection (`useAIModels`, `useDefaultModel`). |
-| `src/app/api/shorts/[id]/generate/route.ts` | Example full feature flow: script → scenes → media. |
-| `prisma/schema.prisma` | DB models; add migrations for new fields. |
+| File/Path | Purpose | Key Exports/Props |
+|-----------|---------|-------------------|
+| `src/lib/api-client.ts` | Typed fetch for frontend APIs | `apiClient`, `ApiError` |
+| `src/lib/api-auth.ts` | Auth/response helpers | `validateApiKey`, `createUnauthorizedResponse`, `createSuccessResponse`, `createErrorResponse` |
+| `src/lib/ai/models.ts` | AI model registry | `AIModel`, `getDefaultModel`, `getModelById`, `getModelCredits` |
+| `src/lib/logging/api.ts` | Route logging | `withApiLogging` |
+| `src/hooks/use-ai-models.ts` / `use-available-models.ts` / `use-openrouter-models.ts` / `use-admin-models.ts` | Model selection | `useAIModels`, `useDefaultModel`, `useAvailableModels`, `useAdminModels`, `useSaveAdminModels` |
+| `src/components/ui/data-table.tsx` | Reusable tables | `DataTableProps`, `Column` |
+| `src/components/ui/glowing-effect.tsx` / `button.tsx` | UI effects/primitives | `GlowingEffectProps`, `ButtonProps` |
+| `src/components/shorts/SortableSceneList.tsx` | Draggable scenes | `SortableSceneListProps` |
+| `src/components/roteirista/ScriptWizard.tsx` | Multi-step script gen | `ScriptWizardProps` |
+| `src/app/api/shorts/[id]/generate/route.ts` | Full Shorts flow example | Script → scenes → media |
+| `prisma/schema.prisma` | DB schema/migrations | Add fields → `npx prisma migrate dev` |
 
 ## Workflows for Common Tasks
 
-### 1. **New Feature: User-Facing (e.g., Add Scene Reorder to Shorts)**
-   1. **Plan**: Reference `architecture-planning.md`. Define: Goals, User flow, Data models, APIs (Zod schemas), Credits cost, Security (Clerk scopes).
-   2. **DB (if needed)**: Update `prisma/schema.prisma` (e.g., `order` field on Scene). `npx prisma migrate dev`.
-   3. **API**:
-      - Create `src/app/api/shorts/[id]/scenes/reorder/route.ts`.
-      - Structure:
-        ```ts
-        import { NextRequest } from 'next/server';
-        import { z } from 'zod';
-        import { validateApiKey, createSuccessResponse } from '@/lib/api-auth';
-        import { withApiLogging } from '@/lib/logging/api';
-        import prisma from '@/lib/prisma'; // Assume exists
+### 1. **New User Feature (e.g., Shorts Scene Reorder)**
+   1. **Plan**: Goals, user flow, Zod schemas, credits cost, Clerk scopes.
+   2. **DB**: Update `prisma/schema.prisma` (e.g., `order: Int @unique` on Scene). `npx prisma migrate dev --name add-scene-order`.
+   3. **API** (`src/app/api/shorts/[id]/scenes/reorder/route.ts`):
+      ```ts
+      import { NextRequest } from 'next/server';
+      import { z } from 'zod';
+      import { validateApiKey, createSuccessResponse, createErrorResponse } from '@/lib/api-auth';
+      import { withApiLogging } from '@/lib/logging/api';
+      import { prisma } from '@/lib/prisma'; // Assume
 
-        const schema = z.object({ sceneIds: z.array(z.string()) });
-        export async function POST(req: NextRequest) {
-          return withApiLogging(async () => {
-            const { userId } = await validateApiKey(req);
-            const { sceneIds } = schema.parse(await req.json());
-            // Business logic: Update Short scenes order
-            await prisma.scene.updateMany({ /* tenant-scoped */ });
-            return createSuccessResponse({ success: true });
+      const schema = z.object({ sceneIds: z.array(z.string().uuid()) });
+      export async function POST(req: NextRequest) {
+        return withApiLogging(async () => {
+          const { userId } = await validateApiKey(req);
+          const { sceneIds } = schema.parse(await req.json());
+          await prisma.$transaction(async (tx) => {
+            const short = await tx.short.findUnique({ where: { id: params.id, userId } });
+            if (!short) throw new Error('Not found');
+            for (let i = 0; i < sceneIds.length; i++) {
+              await tx.scene.update({ where: { id: sceneIds[i] }, data: { order: i } });
+            }
           });
-        }
-        ```
-      - Integrate credits if AI/DB heavy.
-   4. **Frontend**:
-      - Add React Query mutation: `useReorderScenes` hook.
-      - Update `SortableSceneList.tsx`: optimistic updates + invalidate queries.
-      - Page: `src/app/(protected)/shorts/[id]/edit/page.tsx`.
-   5. **Test**: `npm run lint && typecheck && build`.
-   6. **PR**: Link `frontend-development.md` + `backend-development.md`. Paste deliverables.
+          return createSuccessResponse({ success: true });
+        }, 'reorder-scenes');
+      }
+      ```
+   4. **UI/Hooks**: New `useReorderScenes` mutation in `src/hooks/use-shorts.ts`. Update `SortableSceneList.tsx`: `useMutation({ mutationFn: apiClient.POST('/api/shorts/[id]/scenes/reorder'), onMutate: optimisticUpdate })`.
+   5. **Page**: Integrate in `src/app/(protected)/shorts/[id]/edit/page.tsx`.
+   6. **Validate**: `npm run lint && typecheck && build`.
 
-### 2. **AI-Integrated Feature (e.g., New Roteirista Prompt Gen)**
-   1. Update `src/lib/ai/models.ts` if new model.
-   2. API: `src/app/api/roteirista/ai/new-action/route.ts`. Use `ai/providers` (OpenRouter/Fal).
-   3. UI: Extend `AITextAssistant` or `ScriptWizard`. Use `useAvailableModels`.
-   4. Credits: Call `/api/credits/me` pre/post; deduct via admin endpoint if needed.
+### 2. **AI Feature (e.g., New Roteirista Title Suggester)**
+   1. **API** (`src/app/api/roteirista/ai/suggest-titles/route.ts`): Use `src/lib/ai/providers`, select `getDefaultModel()`. Check/burn credits via `/api/credits/me`.
+   2. **Hook**: `useSuggestTitles` with `useMutation`, integrate `useAvailableModels`.
+   3. **UI**: Extend `AITextAssistant.tsx` or `ScriptWizard.tsx`; `AIModelSelector`.
+   4. **Credits**: Pre-check estimate (`CreditEstimate`); post-deduct.
 
-### 3. **Admin Feature (e.g., New User Credits View)**
-   1. API: `src/app/api/admin/users/[id]/credits/route.ts` (admin-only auth).
-   2. Component: `DataTable` in `src/app/admin/users/[id]/page.tsx`.
-   3. Hook: `useAdminModels` pattern.
+### 3. **Admin Feature (e.g., Style Management Table)**
+   1. **API** (`src/app/api/admin/styles/[id]/route.ts`): Admin auth variant of `validateApiKey`.
+   2. **UI**: `data-table` in `src/app/admin/styles/page.tsx` or `[id]/page.tsx`.
+   3. **Hook**: `useAdminStyles` like `useAdminModels`.
 
-### 4. **UI-Only Feature (e.g., New Dialog)**
-   1. `src/components/ui/NewDialog.tsx` (shadcn pattern: props, forwardRef).
-   2. Use `react-hook-form` + Zod for forms.
-   3. Integrate `glowing-effect` for animations.
+### 4. **UI Component (e.g., New Dialog)**
+   1. `src/components/ui/NewDialog.tsx`: `interface NewDialogProps { open: boolean; onOpenChange: (open: boolean) => void; ... }`.
+   2. Form: `useForm({ resolver: zodResolver(z.object({...})) })`.
+   3. Animate: Wrap in `glowing-effect`.
 
 ## Best Practices & Code Patterns
 
-### **API Routes**
-- **Auth**: Always `validateApiKey(req)` → `userId`.
-- **Validation**: Zod parse `req.json()`. Errors → `createErrorResponse`.
-- **Responses**: `{ data: T | null, error?: string }`. Use `createSuccessResponse`.
-- **Logging**: Wrap in `withApiLogging`.
-- **Prisma**: Scope `where: { userId, ... }`. Transactions for multi-ops.
-- **Credits**: Check `/credits/me` or inline burn logic.
-- **AI Calls**: Use `src/lib/ai/providers`; fallback models.
+### **API**
+- **Structure**: `POST/PUT` for mutations; JSON responses `{ data: T, error?: string }`.
+- **Auth/Scope**: `userId` from Clerk; admin checks.
+- **Errors**: Zod → `createErrorResponse({ error: e.message, status: 400 })`.
+- **Tx/Prisma**: `$transaction` for multi-ops; `include: { user: true }`.
+- **AI**: Fallback `getDefaultModel()`; `OpenRouterModelsResponse`.
+- **Credits**: Inline burn or `/api/credits/settings`.
 
 ### **Frontend**
-- **Queries/Mutations**: React Query (`useMutation({ onSuccess: queryClient.invalidateQueries() })`).
-- **Forms**: `useForm({ resolver: zodResolver(schema) })`.
-- **Hooks**: Prefix `useFeatureName` (e.g., `useReorderScenes`).
-- **Components**: `forwardRef`, `cn()` Tailwind utils, a11y (aria-*).
-- **State**: Zustand/Zod for complex forms; optimistic updates.
-- **Metadata**: `usePageConfig` for titles/descriptions.
+- **RQ**: `useQuery({ queryKey: ['shorts', id] })`; `useMutation({ onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shorts'] }) })`.
+- **Forms**: Zod + `react-hook-form`; `Controller` for custom inputs.
+- **Hooks**: `use*` prefix, return `{ data, mutate, isPending }`.
+- **Components**: `^cn` classes, `aria-label`, `forwardRef<"div", Props>`.
+- **Optimistic**: `onMutate: (vars) => queryClient.setQueryData(optimisticData)`.
 
 ### **General**
-- **Types**: Full TS; export interfaces (e.g., `ShortCardProps`).
-- **Conventions**: PascalCase components, camelCase hooks/functions. No `any`.
-- **Security**: Reference `security-check.md` pre-PR (no raw SQL, input sanitization).
-- **Performance**: Infinite queries for lists; debounce inputs.
-- **Edge Cases**: Loading/error states, mobile responsiveness.
+- **TS**: No `any`; export all types/interfaces (e.g., `ClimateAffinitiesProps`).
+- **Naming**: PascalCase components, camelCase hooks/fns.
+- **Perf/Sec**: Debounce (100ms), infinite queries, `security-check.md`.
+- **Mobile**: Tailwind responsive (`md:`, `sm:`); test Figma if designs exist.
 
 ## Quality Gates
-- **Checks**: `npm run lint`, `npm run typecheck`, `npm run build`.
-- **PR Checklist**: Link guides, screenshots/GIFs, credits impact, migration if DB change.
-- **Rollout**: Feature flags via DB/env for big changes.
+- **Local**: Lint/typecheck/build/deploy preview.
+- **PR**: Screenshots/GIFs, credits impact, migration SQL, links to `frontend-development.md`/`backend-development.md`.
+- **Flags**: DB `enabled: Boolean` for phased rollout.
 
-Follow this for 90% of features. For DB-heavy, see `database-development.md`. Query tools for unknowns.
+Use tools (`readFile`, `searchCode`) for unknowns. Align 100% with patterns for seamless merges.

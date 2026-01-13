@@ -24,6 +24,7 @@ export interface Style {
         name: string
         icon?: string
     }
+    compatibleClimates?: string[]
     // Fields removed from UI/Schema but might exist in DB (deprecated)
     // targetDuration?
     // suggestedSceneCount?

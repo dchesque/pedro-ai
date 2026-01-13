@@ -9,8 +9,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Climate } from '@/hooks/use-climates'
+import { Edit2, Trash2 } from 'lucide-react'
 import {
     EMOTIONAL_STATE_PROMPTS,
     REVELATION_DYNAMIC_PROMPTS,
@@ -23,9 +25,11 @@ interface ClimateDetailsModalProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     climate: Climate | null
+    onEdit?: (climate: Climate) => void
+    onDelete?: (id: string) => void
 }
 
-export function ClimateDetailsModal({ open, onOpenChange, climate }: ClimateDetailsModalProps) {
+export function ClimateDetailsModal({ open, onOpenChange, climate, onEdit, onDelete }: ClimateDetailsModalProps) {
     if (!climate) return null
 
     const emotional = EMOTIONAL_STATE_PROMPTS[climate.emotionalState]
@@ -37,7 +41,7 @@ export function ClimateDetailsModal({ open, onOpenChange, climate }: ClimateDeta
             <DialogContent className="sm:max-w-5xl bg-background border-border text-foreground p-0 gap-0 overflow-hidden">
                 <div className="p-6 border-b border-border bg-muted/10">
                     <DialogHeader className="space-y-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-start justify-between">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-3">
                                     <DialogTitle className="text-2xl font-bold text-foreground tracking-tight">
@@ -53,6 +57,33 @@ export function ClimateDetailsModal({ open, onOpenChange, climate }: ClimateDeta
                                     {climate.description}
                                 </DialogDescription>
                             </div>
+
+                            {!climate.isSystem && (
+                                <div className="flex items-center gap-2">
+                                    {onEdit && (
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => onEdit(climate)}
+                                            title="Editar Clima"
+                                        >
+                                            <Edit2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    {onDelete && (
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                                            onClick={() => onDelete(climate.id)}
+                                            title="Excluir Clima"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </DialogHeader>
                 </div>
@@ -146,32 +177,11 @@ export function ClimateDetailsModal({ open, onOpenChange, climate }: ClimateDeta
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <span className="text-xs text-muted-foreground">Tipo de Gancho</span>
-                                    <div className="font-medium text-sm bg-muted/30 p-2 rounded border border-border">
-                                        {climate.hookType || "Não definido"}
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-xs text-muted-foreground">Tipo de Fechamento</span>
-                                    <div className="font-medium text-sm bg-muted/30 p-2 rounded border border-border">
-                                        {climate.closingType || "Não definido"}
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-xs text-muted-foreground">Palavras por Frase</span>
-                                    <div className="font-medium text-sm bg-muted/30 p-2 rounded border border-border">{climate.sentenceMaxWords || 15} palavras</div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-xs text-muted-foreground">Máximo de Cenas</span>
-                                    <div className="font-medium text-sm bg-muted/30 p-2 rounded border border-border">{climate.maxScenes || 15} cenas</div>
-                                </div>
-                            </div>
                         </div>
                     </div>
+
                 </ScrollArea>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     )
 }

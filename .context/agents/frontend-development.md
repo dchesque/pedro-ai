@@ -2,150 +2,186 @@
 
 ## Overview
 
-This playbook guides the development of new features or modifications in the Pedro-AI Next.js application. The app is a TypeScript/React frontend with Tailwind CSS, Clerk authentication, TanStack Query for data management, and Vercel AI SDK for AI interactions. Focus on protected/public routes under `src/app`, UI components in `src/components`, and API integrations via `src/lib/api-client`.
+This playbook equips the feature-developer agent to implement new features, enhancements, or modifications in the Pedro-AI Next.js application. The codebase is a TypeScript/React app (406 files: 210 `.ts`, 170 `.tsx`, 20 `.js`, 6 `.mjs`; 911 symbols) built with Tailwind CSS, Clerk auth, TanStack Query, Vercel AI SDK, and Prisma backend integrations. Core domains include AI-powered shorts/video creation (`shorts`), scriptwriting (`roteirista`), styles/estilos, characters, climates, AI chat/studio, admin panels (users, credits, plans, agents), and billing.
 
 **Primary Focus Areas**:
-- **UI/UX Features**: Shorts creation/editing (`src/components/shorts`), Roteirista script wizard (`src/components/roteirista`), Estilos/styles (`src/components/estilos`), Characters (`src/components/characters`), AI Chat/Studio (`src/components/ai-chat`, `src/components/ai-studio`).
-- **Admin Panels**: User/credit/plan management (`src/app/admin/*`, `src/components/admin/*`).
+- **User Features**: Shorts editing/generation (`src/components/shorts/*`, `src/app/(protected)/shorts/[id]`), Roteirista wizard (`src/components/roteirista/*`), Estilos (`src/components/estilos/*`, `src/components/styles/*`), Characters/Climates (`src/components/characters/*`, `src/components/climates/*`), AI Chat/Studio (`src/components/ai-chat/*`, `src/components/ai-studio/*`).
+- **API Routes (Controllers)**: `src/app/api/*` (178 symbols: e.g., `/shorts/[id]/generate`, `/roteirista/ai/generate-scenes`, `/admin/users/[id]/credits`, `/ai/image`, webhooks). Handle CRUD, AI tasks (script/media gen), auth (`validateApiKey`), logging (`withApiLogging`), responses (`createSuccessResponse`, `ApiError`).
+- **Admin Features**: Dashboards/tables (`src/app/admin/*`, `src/components/admin/*`, `src/components/charts/*`).
 - **Core Layers**:
   | Layer       | Directories/Files | Purpose |
   |-------------|-------------------|---------|
-  | **Controllers** | `src/app/api/*` (e.g., `/shorts/[id]`, `/roteirista/ai/*`, `/admin/*`) | API routes for CRUD, AI generation (scripts, images, videos), webhooks (Clerk, Asaas). Use `withApiLogging`, `ApiError`, auth guards like `validateApiKey`. |
-  | **Components** | `src/components/ui/*` (primitives: `Button`, `DataTable`, `Dialog`), `src/components/shorts/*`, `src/components/roteirista/*`, `src/components/estilos/*` | Reusable UI: `SceneCard`, `ScriptWizard`, `StyleForm`, `AIModelSelector`. Compose with `cn` utility. |
-  | **Models/Hooks** | `src/hooks/*` (e.g., `useOpenRouterModels`, `useCredits`), `src/lib/ai/models.ts` | Data types (`AIModel`, `SceneCardProps`), query hooks (`useAdminUsers`, `useGenerateImage`). |
+  | **Controllers** | `src/app/api/{shorts,roteirista,admin,ai,agents,credits,webhooks}/*` (e.g., `/shorts/[id]/scenes/[sceneId]/regenerate-image`, `/agents/[slug]/execute`) | RESTful routes for AI gen (text/image/video via OpenRouter/Fal.ai), billing (Asaas/Clerk), admin ops. Auth via Clerk/headers; deduct credits; stream responses. |
+  | **Components** | `src/components/{ui,shorts,roteirista,estilos,styles,characters,climates,tones,charts,admin}/*`, `src/app/{(protected),(public),admin}/*` (203 symbols) | UI primitives (`Button`, `DataTable`, `Dialog`), domain-specific (`SortableSceneList`, `ScriptWizard`, `StyleForm`, `ToneDialog`). Pages use `usePageConfig`. |
+  | **Models/Hooks** | `src/hooks/*` (e.g., `useOpenRouterModels`, `useAvailableModels`, `useAIModels`), `src/lib/ai/models.ts`, `src/lib/api-client.ts` (31 symbols) | Typed data (`AIModel`, `OpenRouterModel`), queries/mutations (`useDefaultModel`, `getModelCredits`). |
 
-**Key Metrics**: 366 files, primarily `.ts`/`.tsx`. 840 symbols, emphasizing typed props (e.g., `CreateShortFormProps`, `SortableSceneListProps`).
+**Conventions**: Strict typing (props like `ShortCardProps`), structured query keys `['resource', id]`, Tailwind utilities + `cn`, no direct `fetch` (use `apiClient`), credit checks everywhere.
 
 ## Key Files and Purposes
 
 | File/Path | Purpose | Key Exports/Symbols |
 |-----------|---------|---------------------|
-| `src/components/shorts/SortableSceneList.tsx` | Drag-and-drop scene reordering for shorts editor. | `SortableSceneListProps` |
-| `src/components/shorts/ShortCard.tsx` | Card display for short videos/projects. | `ShortCardProps` |
-| `src/components/shorts/SceneCard.tsx` | Individual scene preview/edit. | `SceneCardProps` |
-| `src/components/shorts/RegenerateSceneDialog.tsx` | Dialog for AI-regenerating scene media/script. | `RegenerateSceneDialogProps` |
-| `src/components/shorts/CreateShortForm.tsx` | Form for initiating new shorts with AI model/credit estimates. | `CreateShortFormProps`, integrates `AIModelSelector` |
-| `src/components/roteirista/ScriptWizard.tsx` | Multi-step script generation wizard. | `ScriptWizardProps` |
-| `src/components/roteirista/SceneEditor.tsx` | Editable scene text with AI assist. | `SceneEditorProps`, `AITextAssistantProps` |
-| `src/components/estilos/StyleForm.tsx` | CRUD form for custom styles. | `StyleFormProps`, `IconPickerProps` |
-| `src/components/ui/data-table.tsx` | Paginated, searchable tables for admin lists. | `DataTableProps`, `Column` |
+| `src/components/shorts/SortableSceneList.tsx` | Drag-drop reordering of scenes in shorts editor. | `SortableSceneListProps` |
+| `src/components/shorts/ShortCard.tsx` | Displays short project with previews/actions. | `ShortCardProps` |
+| `src/components/shorts/SceneCard.tsx` | Scene preview/edit/regenerate UI. | `SceneCardProps` |
+| `src/components/shorts/RegenerateSceneDialog.tsx` | Modal for regenerating scene script/image/media. | `RegenerateSceneDialogProps` |
+| `src/components/shorts/EditSceneDialog.tsx` | Inline scene editing dialog. | `EditSceneDialogProps` |
+| `src/components/shorts/CreateShortForm.tsx` | New shorts form with model selector/credit estimate. | `CreateShortFormProps` |
+| `src/components/shorts/AIModelSelector.tsx` | Dropdown for AI models filtered by capability. | `AIModelSelectorProps` |
+| `src/components/shorts/AddSceneDialog.tsx` | Add new scene to short. | `AddSceneDialogProps` |
+| `src/components/shorts/CreditEstimate.tsx` | Displays estimated credits for generation. | `CreditEstimateProps` |
+| `src/components/roteirista/ScriptWizard.tsx` | Multi-step AI script generator. | `ScriptWizardProps` |
+| `src/components/roteirista/SceneEditor.tsx` | Editable scenes with AI text assist. | `SceneEditorProps` |
+| `src/components/roteirista/AITextAssistant.tsx` | Inline AI suggestions for text. | `AITextAssistantProps` |
+| `src/components/estilos/StyleForm.tsx` | CRUD form for custom styles/climates. | `StyleFormProps` |
+| `src/components/styles/guided-select-group.tsx` | Guided style selection UI. | `GuidedSelectGroupProps`, `GuidedSelectCardProps` |
+| `src/components/styles/climate-affinities.tsx` | Climate/style affinity picker. | `Climate`, `ClimateAffinitiesProps` |
+| `src/components/styles/advanced-instructions.tsx` | Custom AI prompt instructions. | `AdvancedInstructionsProps` |
+| `src/components/tones/ToneDialog.tsx` | Tone selection dialog. | `ToneDialogProps` |
+| `src/components/tones/ToneCard.tsx` | Tone preview cards. | `ToneCardProps` |
+| `src/components/ui/data-table.tsx` | Server/client paginated tables (admin lists). | `DataTableProps`, `Column` |
 | `src/components/ui/button.tsx` | Accessible button primitive. | `ButtonProps` |
-| `src/hooks/use-page-config.ts` | Sets page metadata (title, breadcrumbs) for layouts. | `usePageConfig` |
-| `src/lib/api-client.ts` | Typed Axios client for all API calls. | `apiClient`, `ApiError` |
-| `src/lib/api-auth.ts` | Auth responses and guards. | `createUnauthorizedResponse`, `validateApiKey` |
-| `src/hooks/use-openrouter-models.ts` | Fetches AI models by capability (text/image). | `useOpenRouterModels` |
-| `src/lib/ai/models.ts` | Model registry and utils. | `AIModel`, `getDefaultModel` |
+| `src/components/ui/glowing-effect.tsx` | Animated glow for highlights. | `GlowingEffectProps` |
+| `src/hooks/use-page-config.ts` | Page metadata/breadcrumbs. | `usePageConfig` |
+| `src/lib/api-client.ts` | Typed API client (Axios). | `apiClient`, `ApiError` |
+| `src/lib/api-auth.ts` | Auth guards/responses. | `validateApiKey`, `createUnauthorizedResponse`, `createSuccessResponse` |
+| `src/hooks/use-openrouter-models.ts` | Fetches/filter OpenRouter models. | `OpenRouterModel`, `useOpenRouterModels` |
+| `src/lib/ai/models.ts` | Model registry/utils. | `AIModel`, `getDefaultModel`, `getModelCredits` |
+| `src/hooks/use-available-models.ts` | Capability-filtered models. | `AIModel`, `useAvailableModels` |
 
 ## Core Workflows
 
-### 1. Adding a New Feature Page (e.g., Protected Route)
-1. Determine route: `(protected)/feature-name/page.tsx` or `(public)/feature-name/page.tsx`.
-2. Create `page.tsx`:
+### 1. New Feature Page/Route (e.g., `/shorts/[id]/new-feature`)
+1. Create `src/app/(protected)/shorts/[id]/new-feature/page.tsx`:
    ```tsx
+   'use client';
    import { usePageConfig } from '@/hooks/use-page-config';
-   import FeatureComponent from '@/components/feature/FeatureComponent';
+   import NewFeatureComponent from '@/components/shorts/NewFeature';
 
-   export default function FeaturePage() {
-     usePageConfig({ title: 'Feature', breadcrumbs: [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Feature' }] });
-     return <FeatureComponent />;
+   export default function NewFeaturePage({ params }: { params: { id: string } }) {
+     usePageConfig({ title: 'New Feature', breadcrumbs: [{ label: 'Shorts', href: '/shorts' }, { label: 'Edit', href: `/shorts/${params.id}` }, { label: 'New Feature' }] });
+     return <NewFeatureComponent shortId={params.id} />;
    }
    ```
-3. Add to layout if needed (`src/app/(protected)/layout.tsx`).
-4. Fetch data via Server Component props or client hooks.
+2. Add nav link in parent layout/sidebar (`src/components/navigation/*`).
+3. Use Server Components for initial data; client for interactivity.
 
-### 2. Creating/Modifying Components
-1. Use primitives: `Button`, `Card`, `Dialog`, `Form` from `src/components/ui`.
-2. Type props strictly (e.g., extend `ButtonProps`).
-3. Styling: Tailwind + `cn` from `@/lib/utils`. Match patterns like `className="flex flex-col space-y-4"`.
-4. Example new dialog:
+### 2. New/Modify Component (e.g., Extend Shorts Editor)
+1. Locate domain: `src/components/shorts/NewFeature.tsx`.
+2. Compose primitives:
    ```tsx
-   import { Dialog, DialogContent } from '@/components/ui/dialog';
    import { Button } from '@/components/ui/button';
+   import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+   import { Card, CardContent } from '@/components/ui/card';
+   import { cn } from '@/lib/utils';
 
-   interface NewDialogProps { open: boolean; onOpenChange: (open: boolean) => void; }
-   export function NewDialog({ open, onOpenChange }: NewDialogProps) {
+   interface NewFeatureProps { shortId: string; className?: string; }
+   export function NewFeature({ shortId, className }: NewFeatureProps) {
      return (
-       <Dialog open={open} onOpenChange={onOpenChange}>
-         <DialogContent>
-           <Button>Action</Button>
-         </DialogContent>
-       </Dialog>
+       <Card className={cn('p-6', className)}>
+         <Dialog>
+           <DialogTrigger asChild><Button>New Feature</Button></DialogTrigger>
+           <DialogContent>
+             <Button onClick={() => api.POST(`/api/shorts/${shortId}/new-feature`)}>Generate</Button>
+           </DialogContent>
+         </Dialog>
+       </Card>
      );
    }
    ```
-5. Place in domain folder: `src/components/shorts/NewDialog.tsx`.
+3. Export default component; type all props (PascalCase interfaces).
+4. Add glowing/animations: Wrap with `<GlowingEffect />`.
 
-### 3. Data Fetching and Mutations (TanStack Query)
-- **Never** use `fetch` or `useQuery` directly. Always custom hooks in `src/hooks`.
-1. Query hook (`src/hooks/use-new-feature.ts`):
+### 3. Data Fetching/Mutations (TanStack Query Hooks)
+1. New hook `src/hooks/use-new-feature.ts`:
    ```tsx
-   import { useQuery } from '@tanstack/react-query';
-   import { api } from '@/lib/api-client';
+   import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+   import { apiClient } from '@/lib/api-client';
+   import { useToast } from '@/components/ui/use-toast';
+   import type { AIModel } from '@/lib/ai/models';
 
-   export function useNewFeature(id: string) {
+   export function useNewFeature(shortId: string) {
      return useQuery({
-       queryKey: ['new-feature', id],
-       queryFn: () => api.GET(`/api/new-feature/${id}`).then(res => res.data),
-       staleTime: 5 * 60_000,
+       queryKey: ['shorts', shortId, 'new-feature'],
+       queryFn: () => apiClient.GET(`/api/shorts/${shortId}/new-feature`).then(res => res.data),
+       staleTime: 5 * 60 * 1000,
      });
    }
-   ```
-2. Mutation hook:
-   ```tsx
-   import { useMutation, useQueryClient } from '@tanstack/react-query';
-   import { useToast } from '@/components/ui/use-toast';
 
-   export function useCreateNewFeature() {
+   export function useCreateNewFeature(shortId: string) {
      const queryClient = useQueryClient();
      const { toast } = useToast();
      return useMutation({
-       mutationFn: (data: FormData) => api.POST('/api/new-feature', data),
+       mutationFn: (data: { model: AIModel; prompt: string }) => apiClient.POST(`/api/shorts/${shortId}/new-feature`, data),
        onSuccess: () => {
-         toast({ title: 'Created!' });
-         queryClient.invalidateQueries({ queryKey: ['new-features'] });
+         toast({ title: 'Feature created!' });
+         queryClient.invalidateQueries({ queryKey: ['shorts', shortId] });
        },
+       onError: (err: ApiError) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
      });
    }
    ```
-3. Component integration: Load states, errors via `isLoading`, `error`. Disable buttons on `isPending`.
+2. Integrate: `<Button disabled={isPending || !hasEnoughCredits} onClick={() => mutate({ model, prompt })} />`.
+3. Invalidate parent lists (e.g., `['shorts']`).
 
-**Available Hooks**: `useCredits`, `useAdminUsers`, `useGenerateImage`, `useOpenRouterModels`. Invalidate via structured keys `['domain', 'resource']`.
+### 4. Forms/Validation (react-hook-form + Zod)
+1. Schema: `const schema = z.object({ prompt: z.string().min(10) });`.
+2. Form:
+   ```tsx
+   const form = useForm({ resolver: zodResolver(schema), defaultValues: { prompt: '' } });
+   const { mutate } = useCreateNewFeature(shortId);
+   const onSubmit = (data: z.infer<typeof schema>) => mutate(data);
+   ```
+3. Credit check: `const { data: credits } = useCredits(); form.setError if insufficient.
+4. File uploads: `FormData` for images/videos.
 
-### 4. Forms and Validation
-1. `react-hook-form` + Zod: `useForm({ resolver: zodResolver(schema) })`.
-2. Server errors: Display via `form.setError`.
-3. Credit-aware: Check `useCredits()` before submit; disable if insufficient.
-4. Example: Integrate with `CreateShortFormProps`, estimate credits via backend.
+### 5. AI Generation Integrations
+1. Models: `<AIModelSelector models={useAvailableModels('text')} />`.
+2. Chat/Stream: Extend `useChat` from Vercel AI; POST to `/api/ai/chat` or domain-specific (e.g., `/shorts/[id]/generate-script`).
+3. Image/Video: `mutate({ prompt })` → `/api/ai/fal/image` or `/api/ai/fal/video`; display progress via `onProgress`.
+4. Scenes/Scripts: Sequence calls: generate → approve → regenerate; use `SortableSceneList`.
 
-### 5. AI Integrations (Chat/Image/Generation)
-1. Chat: Extend `src/app/(protected)/ai-chat/page.tsx` pattern with `useChat`.
-2. Models: Use `useOpenRouterModels('text')` or `useAvailableModels`.
-3. Image Gen: `useGenerateImage` → POST `/api/ai/image` or `/api/ai/fal/image`.
-4. Shorts/Roteirista: Call `/api/shorts/[id]/generate`, `/api/roteirista/ai/generate-scenes`. Stream responses, update UI incrementally.
-5. Credits: Pre-check via `/api/credits/me`; deduct on success.
+### 6. API Route (New Endpoint, e.g., `/api/shorts/[id]/new-feature`)
+1. `src/app/api/shorts/[id]/new-feature/route.ts`:
+   ```ts
+   import { NextRequest } from 'next/server';
+   import { validateApiKey, createSuccessResponse } from '@/lib/api-auth';
+   import { withApiLogging } from '@/lib/logging/api';
+   import { deductCredits } from '@/lib/credits'; // Assume exists
 
-### 6. Admin Features
-1. Tables: `DataTable` with pagination/search (`useAdminUsers({ page, search })`).
-2. Forms: `useUpdatePlan`, `useAdminSettings`.
-3. Sync: Buttons for `useClerkPlans`, `useAdminInvitations`.
+   export const POST = withApiLogging(async (req: NextRequest, { params }: { params: { id: string } }) => {
+     validateApiKey(req);
+     const data = await req.json();
+     await deductCredits(req, 'new-feature', 10); // Dynamic cost
+     // AI logic: OpenRouter/Fal.ai
+     return createSuccessResponse({ result: 'generated' });
+   });
+   ```
+2. Auth: Clerk user ID from headers; rate-limit heavy AI.
 
-## Best Practices from Codebase
+### 7. Admin Table/Form (e.g., New Admin Tab)
+1. Table: `<DataTable columns={columns} data={useAdminNewFeatures({ page, search })} />`.
+2. Forms: Similar to user flow; use `useAdminModels`, `useSaveAdminModels`.
 
-- **Routing**: App Router only. Metadata via `usePageConfig`. No direct Prisma in client/server components—use `/lib/queries`.
-- **Auth**: Clerk middleware protects `(protected)`. API: `validateApiKey`.
-- **Accessibility**: ARIA labels, `role`, keyboard nav. No `dangerouslySetInnerHTML`.
-- **Performance**: Server Components first. `staleTime: 5min`, structured query keys. Avoid layout shift (fixed heights).
-- **Styling**: Utility-first Tailwind. Glowing effects (`GlowingEffectProps`), themes (`ThemeProvider`).
-- **Error Handling**: `ApiError`, toasts for UX. Global error boundaries.
-- **Credits/Billing**: Never hardcode costs. Use endpoints like `/api/credits/settings`, `useCredits`.
-- **Testing Patterns**: No explicit tests listed; validate via `npm run lint`, `build`. UI: Screenshots in PRs.
+## Best Practices and Code Patterns
+
+- **Typing**: All props/interfaces PascalCase (e.g., `ClimateAffinitiesProps`). Extend primitives (e.g., `interface X extends ButtonProps {}`).
+- **Styling**: `cn('base', className)`; responsive `grid-cols-1 md:grid-cols-2`; themes via `ThemeProvider`.
+- **Auth/Guards**: Client: Clerk hooks; API: `validateApiKey`. Protected routes auto-guarded.
+- **Errors/UX**: `ApiError` typed; toasts for all states; skeletons for loading (`isPending`).
+- **Performance**: `staleTime: 5min`; suspense boundaries; `react-window` for long lists.
+- **Credits/Billing**: Always pre-check `/api/credits/me`; estimate via `CreditEstimate`; deduct post-success.
+- **AI Patterns**: Filter models by cap (`text`/`image`); stream `useChat`; fallback `getDefaultModel`.
+- **Accessibility**: `aria-label`, `role="dialog"`, keyboard-focusable buttons.
 - **Conventions**:
-  - Exports: Default for components, named for hooks/utils.
-  - Props: PascalCase interfaces (e.g., `SceneCardProps`).
-  - API Paths: RESTful (e.g., `/api/shorts/[id]/scenes/[sceneId]/regenerate`).
+  - Files: Domain-grouped (`shorts/*.tsx`).
+  - Hooks: `usePascalName`, prefix `useAdmin*` for admin.
+  - Queries: `['domain', 'action', id]`.
+  - No `console.log`; use logging wrappers.
+- **Testing/Validation**: Lint (`npm run lint --fix`), typecheck, build. Manual: credits=0, errors, mobile, AI mocks.
 
-## Quality Gates and Deployment
-1. Run: `npm run dev` (hot reload), `npm run lint --fix`, `npm run typecheck`, `npm run build`.
-2. Verify: No TS errors, responsive UI, credit flows, AI streaming.
-3. PR: Code + description, screenshots/GIFs, steps to test. Note new hooks/props.
-4. Edge Cases: Zero credits, loading states, errors, mobile.
+## Quality Gates
+1. **Local**: `npm run dev/build/lint/typecheck`.
+2. **Verify**: Full flows (create → gen → edit → credits deduct), responsive, no hydration errors.
+3. **PR**: Screenshots/GIFs, "Added X with Y credits cost", new symbols/hooks listed.
+4. **Edge**: Low credits, invalid inputs, network fail, long prompts.

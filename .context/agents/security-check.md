@@ -2,167 +2,154 @@
 
 ## Overview
 
-This playbook guides the development of new features in the Pedro-AI codebase, a Next.js 14 App Router application with TypeScript, React 18, Tailwind CSS, Prisma/Postgres, Clerk authentication, TanStack Query, and AI integrations (OpenAI, OpenRouter, Fal.ai). Core features include AI-powered shorts generation (`/shorts`), scriptwriting (`/roteirista`), styles (`/estilos`), characters, credits/billing, and admin tools.
+This playbook equips the feature-developer agent to build new features in Pedro-AI, a Next.js 14 App Router app with TypeScript (.ts/.tsx dominant), React 18, Tailwind CSS, Shadcn/UI, Prisma/Postgres, Clerk auth, TanStack Query, and AI providers (OpenAI, OpenRouter, Fal.ai). The codebase has 406 files, 911 symbols, focusing on AI-driven content: shorts generation (`/shorts`), scriptwriting (`/roteirista`), styles (`/estilos`), characters, climates, agents, credits/billing, and admin dashboards.
 
-**Primary Focus Areas**:
-- **Protected Routes**: `src/app/(protected)/` (user-facing features like shorts, roteirista).
-- **Public Routes**: `src/app/(public)/` (landing, auth).
-- **Admin Routes**: `src/app/admin/` (management dashboards).
-- **API Routes**: `src/app/api/` (feature-specific endpoints under `user/`, `admin/`, `ai/`, `shorts/[id]/`, etc.).
-- **UI Components**: `src/components/` (reusable UI in `ui/`, feature-specific like `shorts/`, `roteirista/`).
-- **Lib & Hooks**: `src/lib/` (utils, auth, credits, AI), `src/hooks/` (data fetching, models).
-- **Database**: Prisma schema in `prisma/schema.prisma`; migrations via `prisma migrate`.
+**Core Focus Areas**:
+- **API Controllers** (`src/app/api/`): Feature-specific routes (e.g., `shorts/[id]/generate`, `roteirista/ai/*`, `admin/*`). Always auth/credits-wrapped.
+- **UI Components** (`src/components/`): Reusables in `ui/` (data-table, button); feature-specific (shorts/, roteirista/, estilos/, tones/, climates/).
+- **Protected Pages** (`src/app/(protected)/`): User features (shorts/[id], roteirista/[id], estilos/[id], agents/[slug]).
+- **Admin Pages** (`src/app/admin/`): Dashboards (users/[id], plans, credits, usage).
+- **Public Pages** (`src/app/(public)/`): Auth/landing.
+- **Lib & Hooks** (`src/lib/`, `src/hooks/`): AI models, credits, auth, logging, page config.
+- **Data/Models**: Prisma-driven; AI models via `src/lib/ai/models.ts`.
 
-**Key Principles**:
-- Server-first: Validate/deduct credits server-side; client optimistic UI only.
-- AuthZ: All protected APIs use `getUserFromClerk` or `validateApiKey`.
-- Credits: Every AI call deducts via `deductCreditsForFeature` with feature keys (e.g., `ai_text_chat`, `ai_image_generation`).
-- Type-Safe: Zod schemas for all inputs; TypeScript everywhere.
+**Principles**:
+- Server-centric: Auth (`validateApiKey`), credits (`deductCreditsForFeature`), validation (Zod) on APIs.
+- Client-optimized: TanStack Query hooks, optimistic UI, React Hook Form.
+- AI-safe: Provider-specific endpoints, model validation, credit pre-deduction.
+- Secure: Clerk + API keys; transactional DB + credits.
 
-## Key Files and Their Purposes
+## Key Files and Purposes
 
-| Category | File/Path | Purpose |
-|----------|-----------|---------|
-| **API Auth** | `src/lib/api-auth.ts` | Centralized auth: `validateApiKey`, `createUnauthorizedResponse`, `createSuccessResponse`. Use in all API handlers. |
-| **API Client** | `src/lib/api-client.ts` | Client-side fetch wrapper: `apiClient`; handles auth, errors. |
-| **Credits** | `src/lib/credits/*` (e.g., `feature-config.ts`, `deductCreditsForFeature`) | Credit deduction/validation: Always wrap AI calls. Logs `UsageHistory`. |
-| **AI Models** | `src/lib/ai/models.ts`, `src/hooks/use-ai-models.ts` | Model management: `AIModel`, `getDefaultModel`. Fetch via `/api/ai/models`. |
-| **UI Primitives** | `src/components/ui/*` (button.tsx, data-table.tsx, textarea.tsx) | Reusable: Shadcn/UI patterns. Extend for features. |
-| **Shorts** | `src/components/shorts/*` (CreateShortForm.tsx, SortableSceneList.tsx) | Shorts workflow: Forms, scene editing, credit estimates. |
-| **Roteirista** | `src/components/roteirista/*` (ScriptWizard.tsx, AITextAssistant.tsx) | Script generation: Wizards, previews, AI assists. |
-| **Estilos** | `src/components/estilos/*` (StyleForm.tsx, StyleCard.tsx) | Style creation: Forms, previews, icon pickers. |
-| **Characters** | `src/components/characters/*` (CharacterSelector.tsx) | Character management: Dialogs, cards. |
-| **Admin** | `src/components/admin/*`, `src/app/admin/*` | Dashboards: Users, plans, credits, usage charts. |
-| **Hooks** | `src/hooks/use-available-models.ts`, `use-page-config.ts` | Data fetching: TanStack Query patterns for models, config. |
-| **Logging** | `src/lib/logging/api.ts` | `withApiLogging`: Wrap handlers for traces. |
+| Category | Key Files/Paths | Purpose |
+|----------|-----------------|---------|
+| **API Utils** | `src/lib/api-auth.ts` | `validateApiKey`, `createUnauthorizedResponse`, `createSuccessResponse`, `createErrorResponse`. Mandate for all APIs. |
+| | `src/lib/api-client.ts` | Client `apiClient` for fetch/auth/errors. |
+| | `src/lib/logging/api.ts` | `withApiLogging` wrapper for traces. |
+| **Credits** | `src/lib/credits/*` (feature-config.ts) | `deductCreditsForFeature(userId, 'key')`; transactional with Prisma. |
+| **AI/Models** | `src/lib/ai/models.ts` | `AIModel`, `getDefaultModel`, `getModelById`, `getModelCredits`. |
+| | `src/hooks/use-ai-models.ts`, `use-available-models.ts`, `use-openrouter-models.ts` | Query hooks for models. |
+| **UI Primitives** | `src/components/ui/button.tsx`, `data-table.tsx`, `textarea.tsx`, `glowing-effect.tsx`, `dropdown-trigger-button.tsx` | Shadcn base; extend for tables, forms, effects. |
+| **Shorts** | `src/components/shorts/CreateShortForm.tsx`, `SortableSceneList.tsx`, `SceneCard.tsx`, `RegenerateSceneDialog.tsx`, `CreditEstimate.tsx`, `AIModelSelector.tsx` | Forms, scene mgmt, estimates, regenerations. APIs: `shorts/[id]/generate`, `scenes/[sceneId]/regenerate`. |
+| **Roteirista** | `src/components/roteirista/ScriptWizard.tsx`, `AITextAssistant.tsx`, `StylePreviewCard.tsx` | Wizards, AI assists, previews. APIs: `roteirista/ai/*` (suggest-titles, generate-scenes). |
+| **Styles/Estilos** | `src/components/styles/guided-select-group.tsx`, `climate-affinities.tsx`, `advanced-instructions.tsx`; `src/components/estilos/StyleForm.tsx`, `StyleCard.tsx` | Guided selectors, affinities, forms. APIs: `styles/[id]`, `user/styles`. |
+| **Tones/Climates** | `src/components/tones/ToneDialog.tsx`, `ToneCard.tsx`; `src/components/styles/climate-affinities.tsx` | Dialogs/cards for tones/climates. |
+| **Admin** | `src/components/admin/*`, `src/app/admin/*` (users/[id], plans, credits) | Tables, charts, CRUD. APIs: `admin/users/[id]/credits`, `admin/plans`. |
+| **Other** | `src/hooks/use-page-config.ts` | Page metadata/config. |
+| **Pages** | `src/app/(protected)/shorts/[id]/edit/page.tsx`, `roteirista/[id]/page.tsx` | Feature hubs. |
 
-## Code Conventions and Best Practices
+**Relevant Symbols** (Selected):
+- APIs: `ApiError`, `apiClient`.
+- Hooks: `useOpenRouterModels`, `useAvailableModels`.
+- UI Props: `DataTableProps`, `ButtonProps`, `SortableSceneListProps`, `CreateShortFormProps`, `StyleFormProps`.
+- Models: `AIModel`, `Climate`.
 
-### Structure
-```
-src/app/(protected)/[feature]/[id]/page.tsx  # Feature page
-src/app/api/[feature]/[id]/[action]/route.ts # API handler
-src/components/[feature]/*.tsx               # Feature components
-src/hooks/use-[feature]-*.ts                 # Custom hooks
-```
+## Code Conventions & Best Practices
 
-- **Naming**: Kebab-case routes/files; PascalCase components/exports.
-- **TypeScript**: Infer types; use `z.infer<typeof Schema>` for Zod.
-- **Styling**: Tailwind classes; shadcn/ui components. Theme-aware via `ThemeProvider`.
-- **Queries/Mutations**: TanStack Query v5; infinite queries for lists; optimistic updates with rollback.
-- **Forms**: React Hook Form + Zod resolver.
-- **Error Handling**: `ApiError` class; generic client toasts ("Update failed").
-- **AI Calls**: Use `@ai-sdk/openai` or providers; validate model/provider.
-- **Prisma**: Scoped queries (`where: { userId }`); transactions for credits + DB ops.
+- **File Structure**:
+  ```
+  src/app/api/[feature]/[id]/[action]/route.ts  # POST/GET handlers
+  src/app/(protected)/[feature]/[id]/page.tsx   # Client pages
+  src/components/[feature]/[Component].tsx      # Feature UI
+  src/hooks/use-[feature]-data.ts               # Queries/mutations
+  ```
+- **Naming**: Kebab-case paths; PascalCase components; camelCase hooks/functions.
+- **Types**: Zod `z.infer`; interfaces for props (e.g., `CreateShortFormProps`).
+- **Styling**: Tailwind + shadcn; `cn()` utility; theme via `ThemeProvider`.
+- **Data Fetching**: TanStack Query (`useQuery`, `useMutation`); infinite for lists; `enabled: !!userId`.
+- **Forms**: `useForm({ resolver: zodResolver(schema) })`.
+- **Errors**: Throw `ApiError`; client: `toast.error`.
+- **Prisma**: `prisma.$transaction(async tx => { await deductCredits(tx); await dbOp(tx); })`; user-scoped `where: { userId }`.
+- **AI**: Server-only; `streamText({ model })`; credits first.
+- **Deps**: `pnpm add -D`; `pnpm lint:typecheck:build`.
 
 **Patterns**:
 ```typescript
-// API Handler (route.ts)
-import { validateApiKey, createErrorResponse } from '@/lib/api-auth';
+// API Route (route.ts)
+import { NextRequest } from 'next/server';
+import { validateApiKey, createSuccessResponse } from '@/lib/api-auth';
+import { withApiLogging } from '@/lib/logging/api';
 import { deductCreditsForFeature } from '@/lib/credits';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 
-export async function POST(req: Request) {
-  const user = await validateApiKey(req);
-  const data = z.object({ model: z.string() }).parse(await req.json());
-  
-  await deductCreditsForFeature(user.id, 'ai_text_chat');
-  // AI call + DB ops
-  return NextResponse.json({ success: true });
-}
-
-// Client Hook
-import { apiClient } from '@/lib/api-client';
-export const useCreateShort = () => useMutation({
-  mutationFn: (data) => apiClient.post('/api/shorts', { body: data }),
-});
-```
-
-### Security Best Practices (Mandatory)
-- **Auth**: `protected` layout uses Clerk middleware; APIs call `validateApiKey`.
-- **Validation**: Zod on all inputs; `safeParse` for optionals.
-- **Credits**: Transactional: `prisma.$transaction([deduct, dbOp])`.
-- **No Client Secrets**: Env-only; no `dangerouslySetInnerHTML`.
-- **Rate Limits/Abuse**: Check credits first; Svix for webhooks.
-- **Deps**: `pnpm add`; run `pnpm lint:typecheck:build`.
-
-## Workflows for Common Tasks
-
-### 1. New Feature Page (e.g., `/shorts/[id]/new-feature`)
-1. Create `src/app/(protected)/shorts/[id]/new-feature/page.tsx`: Use `(protected)` layout.
-2. Add page component: `<PageHeader />`, feature-specific `<FeatureForm />`.
-3. Custom hook: `src/hooks/use-new-feature.ts` with TanStack Query.
-4. Link in nav: Update `src/components/navigation/*`.
-5. Test: Storybook or e2e (Playwright).
-
-### 2. New API Endpoint (e.g., `/api/shorts/[id]/new-action`)
-1. Create `src/app/api/shorts/[id]/new-action/route.ts`.
-2. Import auth/credits: `validateApiKey`, `deductCreditsForFeature('ai_short_action')`.
-3. Zod schema: Parse `req.json()`.
-4. Prisma ops: Scope to `userId`; transaction if credits + DB.
-5. Wrap: `withApiLogging(handler)`.
-6. Client integration: New mutation hook.
-
-**Example**:
-```typescript
-// route.ts
-import { NextRequest } from 'next/server';
-import { z } from 'zod';
-
-const Schema = z.object({ prompt: z.string().min(10) });
+const Schema = z.object({ prompt: z.string().min(1) });
 
 export const POST = withApiLogging(async (req: NextRequest) => {
   const user = await validateApiKey(req);
-  const { id } = routeParams(req); // Custom util for [id]
+  const { id } = req.params as { id: string }; // Or use route util
   const data = Schema.parse(await req.json());
 
-  await deductCreditsForFeature(user.id, 'ai_short_action', { quantity: 1 });
+  await prisma.$transaction(async (tx) => {
+    await deductCreditsForFeature(user.id, 'ai_short_generate', { quantity: 1 }, tx);
+    // Feature logic, e.g., generate short scenes
+  });
 
-  const short = await prisma.short.findUnique({ where: { id, userId: user.id } });
-  if (!short) throw new ApiError(404, 'Not found');
+  return createSuccessResponse({ data: { success: true } });
+});
 
-  // Feature logic
-  return createSuccessResponse({ result: 'done' });
+// Hook (useCreateShort.ts)
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+
+export const useGenerateShort = () => useMutation({
+  mutationFn: (data: { id: string; prompt: string }) => apiClient.post(`/api/shorts/${data.id}/generate`, { body: data }),
+  onError: (err) => toast.error('Generation failed'),
 });
 ```
 
-### 3. New UI Component (e.g., `NewFeatureDialog`)
-1. Place in `src/components/[feature]/NewFeatureDialog.tsx`.
-2. Props: Typed interface (e.g., `NewFeatureDialogProps`).
-3. Use shadcn: `<Dialog>`, `<Form>`.
-4. Hook integration: `useCreateFeature`.
-5. Accessibility: `aria-*`, keyboard nav.
-6. Responsive: Tailwind `sm:`, `md:`.
+## Workflows for Common Tasks
 
-### 4. AI Integration (Chat/Image/Video)
-1. Server-only: `/api/ai/[provider]/[type]`.
-2. Validate: Model from `getModelById`; provider allowlist.
-3. Credits: Deduct before call (e.g., 1 for text, 5 for image).
-4. Streaming: `streamText` for chat; SSE response.
-5. Client: `<AIChat />` with `useChat` from `@ai-sdk/react`.
+### 1. Add New Feature Page (e.g., `/shorts/[id]/analyze`)
+1. Create `src/app/(protected)/shorts/[id]/analyze/page.tsx`: Import layout; use `<PageHeader title="Analyze Short" />`.
+2. Add client component: `<AnalyzeForm />` with `useForm`, `useGenerateAnalysis` hook.
+3. Navigation: Update `src/components/navigation/SideNav.tsx` or parent page links.
+4. Metadata: `usePageConfig({ title: 'Analyze' })`.
+5. Test: Responsive; query keys unique (e.g., `['shorts', id, 'analyze']`).
 
-### 5. Credits/Billing Feature
-1. Define in `src/lib/credits/feature-config.ts`: `{ key: 'new_feature', cost: 2 }`.
-2. Webhook if subscription: `src/app/api/webhooks/*`.
-3. UI: `<CreditEstimate />`; check `/api/credits/me`.
+### 2. New API Endpoint (e.g., `/api/shorts/[id]/analyze`)
+1. Create `src/app/api/shorts/[id]/analyze/route.ts`.
+2. Auth/Parse: `validateApiKey`, Zod `Schema.parse(await req.json())`.
+3. Validate: `prisma.short.findUnique({ where: { id_userId: { id, userId } } })`.
+4. Credits: `deductCreditsForFeature(user.id, 'ai_short_analyze')` in transaction.
+5. Logic: AI call (e.g., `generateText`), DB update.
+6. Wrap: `withApiLogging`.
+7. Client: New mutation hook; optimistic update.
 
-### 6. Database Changes
-1. Update `prisma/schema.prisma`: Add models/fields.
-2. `pnpm db:push` (dev); `prisma migrate dev` (prod).
-3. Seed if needed: `prisma/seed.ts`.
+### 3. New UI Component (e.g., `AnalyzeDialog.tsx`)
+1. `src/components/shorts/AnalyzeDialog.tsx`: `<Dialog><Form {...form}><Button>Analyze</Button></Form></Dialog>`.
+2. Props: `AnalyzeDialogProps = { shortId: string; onSuccess?: () => void }`.
+3. Integrate hook: `const { mutate } = useAnalyzeShort()`.
+4. Patterns: `GlowingEffect`, `DataTable` for results; `CreditEstimate`.
+5. Export typed; use in pages.
 
-### 7. Testing & Deployment
-- **Unit**: Vitest for utils/hooks.
-- **E2E**: Playwright in `tests/`.
+### 4. AI Feature (e.g., Image Gen in Styles)
+1. API: `src/app/api/styles/[id]/generate-image/route.ts`; validate `AIModel`.
+2. Deduct: `'ai_image_generation'`.
+3. Provider: `fal.ai` via `src/lib/ai/providers`; stream if chat.
+4. Client: `AIModelSelector`; `<AIImagePreview />`.
+
+### 5. Admin Feature (e.g., Bulk Credits)
+1. Page: `src/app/admin/credits/bulk/page.tsx` with `DataTable`.
+2. API: `src/app/api/admin/credits/bulk/route.ts`; admin-only auth.
+3. Component: `BulkCreditForm.tsx` with validation.
+
+### 6. DB Schema Update
+1. Edit `prisma/schema.prisma` (e.g., add `Analysis` model).
+2. `pnpm db:push`; migrate prod.
+3. Update queries/prismas.
+
+### 7. Testing/Polish
 - **Lint/Build**: `pnpm lint`, `pnpm typecheck`, `pnpm build`.
-- **PR Checklist**: Security review (auth, Zod, credits); update docs.
+- **E2E**: Playwright for flows (auth -> feature).
+- **Review**: Auth, Zod, credits txn, no client secrets.
 
-## Quick Reference: Feature Mapping
-| Feature | API Base | Components | Credits Key | Models |
-|---------|----------|------------|-------------|--------|
-| Shorts | `/api/shorts/[id]` | `shorts/*` | `ai_short_generate` | Text/Image/Video |
-| Roteirista | `/api/roteirista/ai/*` | `roteirista/*` | `ai_text_assist` | Text |
-| Estilos | `/api/styles/*` | `estilos/*` | `ai_style_generate` | Image |
-| Characters | `/api/characters/[id]` | `characters/*` | `ai_character_prompt` | Text/Image |
+**Feature Quick Map**:
+| Feature | APIs | Components | Credits Key Example |
+|---------|------|------------|---------------------|
+| Shorts | `shorts/[id]/scenes/[sceneId]/regenerate` | `SortableSceneList`, `RegenerateSceneDialog` | `ai_short_generate` |
+| Roteirista | `roteirista/ai/generate-scenes` | `ScriptWizard`, `SceneEditor` | `ai_text_assist` |
+| Styles | `styles/[id]`, `user/styles/[id]` | `GuidedSelectCard`, `StyleForm` | `ai_style_generate` |
+| Admin | `admin/users/[id]/credits` | `DataTable` | N/A (admin) |
 
-Follow this playbook for consistent, secure feature development. Reference security checklist for PRs.
+Adhere strictly for scalable, secure features.

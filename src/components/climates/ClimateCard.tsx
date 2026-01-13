@@ -99,15 +99,7 @@ export function ClimateCard({ climate, onEdit, onDelete, onView }: ClimateCardPr
                     )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
-                        <MessageSquare className="h-3 w-3" />
-                        <span>Prompt behavioral ativo</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground italic">
-                        Max: {climate.sentenceMaxWords} words/sentence
-                    </div>
-                </div>
+
             </CardContent>
         </Card>
     )

@@ -2,173 +2,192 @@
 
 ## Overview
 
-Clerk webhooks enable real-time synchronization of user data between Clerk (authentication provider) and the local database. This ensures user profiles, updates, and deletions are mirrored in the app's Prisma models (e.g., `User` model).
+Clerk webhooks provide real-time synchronization of user data from Clerk (the authentication provider) to the application's Prisma database. This keeps local `User` models in sync with Clerk events for profiles, metadata (e.g., credits, subscriptions), and deletions.
 
 **Key Benefits:**
-- Automatic user provisioning on signup (`user.created`).
-- Profile sync on updates (`user.updated`).
-- Cleanup on deletion (`user.deleted`).
-- Handles Clerk-specific fields like `publicMetadata` for plan/subscription data.
+- Automatic provisioning on `user.created`.
+- Real-time updates on `user.updated` (e.g., email, `publicMetadata` like plans/credits).
+- Cleanup on `user.deleted`.
+- Enables hooks like `useSubscription` (`SubscriptionStatus`), `useCredits` (`CreditData`), and `useUsage` to reflect accurate data.
 
-**Production Note:** In production (Vercel), webhooks are auto-configured via Clerk Dashboard. This guide focuses on **local development** using tunnels for testing.
+**Production vs. Dev:**
+- **Production (Vercel)**: Auto-configured via Clerk Dashboard.
+- **Development**: Requires HTTPS tunnels for local testing (Clerk mandates HTTPS).
 
-**Related Files:**
-- [`src/app/api/webhooks/clerk/route.ts`](src/app/api/webhooks/clerk/route.ts): Main webhook handler.
-- [`src/lib/auth-utils.ts`](src/lib/auth-utils.ts): Utilities like `getUserFromClerkId`.
-- [`src/hooks/use-subscription.ts`](src/hooks/use-subscription.ts): Depends on synced user data (`SubscriptionStatus`).
-- Prisma schema: `User` model (inferred from codebase; syncs `clerkId`, credits, etc.).
-- Env vars: `CLERK_WEBHOOK_SECRET` (per-endpoint signing secret).
+**Core Files & Symbols:**
+- [`src/app/api/webhooks/clerk/route.ts`](src/app/api/webhooks/clerk/route.ts): Main `POST` handler (uses `svix` for verification).
+- [`src/lib/auth-utils.ts`](src/lib/auth-utils.ts): `getUserFromClerkId` (fetches/upserts `User` by `clerkId`).
+- [`src/hooks/use-subscription.ts`](src/hooks/use-subscription.ts): Exports `SubscriptionStatus` (relies on synced data).
+- [`src/hooks/use-credits.ts`](src/hooks/use-credits.ts): Exports `CreditData`, `CreditsResponse`.
+- [`src/hooks/use-usage.ts`](src/hooks/use-usage.ts): Exports `UsageData`, depends on user sync.
+- Prisma `User` model: Syncs `clerkId` (unique), `email`, `name`, `publicMetadata` (JSON), credits, etc.
+- Env: `CLERK_WEBHOOK_SECRET` (Svix signing secret).
+
+**Dependencies:** Controllers → Models (webhook updates `User` model); Utils → Auth.
 
 ## Prerequisites
 
-1. **Vercel CLI**: `npm i -g vercel`, then `vercel login` and `vercel link`.
-2. **Dev Server**: `npm run dev` (runs on `http://localhost:3000`).
-3. **Clerk Dashboard Access**: [clerk.com](https://clerk.com) → Your App → Webhooks.
-4. **Svix Support**: Built into Clerk; handler uses `svix` lib for signature verification.
+- **Tools:** Vercel CLI (`npm i -g vercel`), `vercel login`, `vercel link`.
+- **Server:** `npm run dev` (port 3000).
+- **Clerk Dashboard:** [dashboard.clerk.com](https://dashboard.clerk.com) → Your App → **Webhooks**.
+- **Packages:** `svix` (for signature verification), Prisma Client.
 
-## Local Tunnel Setup (Public HTTPS Endpoint Required)
+## Local HTTPS Tunnel Setup
 
-Clerk requires HTTPS. Use one of these to expose `localhost:3000`:
+Clerk rejects HTTP/localhost. Expose `http://localhost:3000/api/webhooks/clerk` via HTTPS:
 
-### Option A: Vercel Dev Tunnel (Preferred if Available)
+### 1. Vercel Dev Tunnel (Recommended)
 ```bash
-npm run dev:tunnel
+npm run dev:tunnel  # Outputs https://your-app-git-dev-xxx.vercel.app
 ```
-- Outputs: `https://your-app-git-dev-xxx.vercel.app` (or similar).
-- Check CLI version; falls back if `--tunnel` unsupported.
 
-### Option B: Cloudflare Tunnel (Recommended)
-1. Install: `brew install cloudflared` (macOS) or equivalent.
-2. Start app: `npm run dev`.
-3. Tunnel: `npm run tunnel:cf`.
-   - Outputs: `https://<hash>.cfargotunnel.com` (copies to clipboard).
+### 2. Cloudflare Tunnel
+```bash
+npm run dev &  # Background dev server
+npm run tunnel:cf  # https://<hash>.cfargotunnel.com (copies URL)
+```
 
-### Option C: ngrok (Quickest)
-1. Start app: `npm run dev`.
-2. Tunnel: `npm run tunnel:ngrok`.
-   - Outputs: `https://<subdomain>.ngrok.io` (copies to clipboard).
-   - Free tier: Random subdomains; paid for static.
+### 3. ngrok (Quick Test)
+```bash
+npm run dev &
+npm run tunnel:ngrok  # https://abc123.ngrok.io (free: random URLs)
+```
 
-## Configure Clerk Webhook Endpoint
+## Clerk Dashboard Configuration
 
-1. Clerk Dashboard → **Webhooks** → **Add Endpoint**.
-   - **URL**: `https://<your-tunnel-url>/api/webhooks/clerk`.
-   - Select events: `user.created`, `user.updated`, `user.deleted`.
-2. Copy **Signing Secret** (`whsec_...`).
-3. Add to `.env.local`:
+1. **Add Endpoint:** Webhooks → **Add Endpoint** → `https://<tunnel>/api/webhooks/clerk`.
+2. **Events:** `user.created`, `user.updated`, `user.deleted`.
+3. **Signing Secret:** Copy `whsec_...` to `.env.local`:
    ```
    CLERK_WEBHOOK_SECRET=whsec_your_secret_here
    ```
-4. Restart dev server: `npm run dev`.
+4. Restart: `npm run dev`.
+5. **Per-Dev:** Create separate endpoints/secrets to avoid conflicts.
 
-**Pro Tip:** Create **one endpoint per developer** for isolated secrets (avoids conflicts).
+## Implementation Details
 
-## Webhook Implementation Details
+### Endpoint Flow (`src/app/api/webhooks/clerk/route.ts`)
 
-The endpoint (`src/app/api/webhooks/clerk/route.ts`) handles `POST` requests:
+Handles `POST` with Svix verification and event dispatching:
 
-### Flow
 ```typescript
-// Simplified pseudocode from route.ts
 import { Webhook } from 'svix';
+import { headers } from 'next/headers';
 import { getUserFromClerkId } from '@/lib/auth-utils';
-// ...
+import { createLogger } from '@/lib/logger';
+// ... (full handler)
 
 export async function POST(req: Request) {
-  const payload = await req.text();
-  const headers = req.headers;
+  try {
+    const payload = await req.text();
+    const hdrs = headers();
 
-  // Verify signature (Svix/Clerk)
-  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
-  const evt = wh.verify(payload, {
-    'svix-id': headers.get('svix-id')!,
-    'svix-timestamp': headers.get('svix-timestamp')!,
-    'svix-signature': headers.get('svix-signature')!,
-  }) as ClerkEvent;
+    const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
+    const evt = wh.verify(payload, {
+      'svix-id': hdrs.get('svix-id')!,
+      'svix-timestamp': hdrs.get('svix-timestamp')!,
+      'svix-signature': hdrs.get('svix-signature')!,
+    }) as any;  // Typed as ClerkEvent
 
-  // Handle events
-  switch (evt.type) {
-    case 'user.created':
-      await syncUser(evt.data); // Create/update User in DB
-      break;
-    case 'user.updated':
-      await syncUser(evt.data); // Upsert
-      break;
-    case 'user.deleted':
-      await deleteUser(evt.data.id); // Soft/hard delete
-      break;
+    const logger = createLogger('clerk-webhook');
+
+    switch (evt.type) {
+      case 'user.created':
+      case 'user.updated':
+        await getUserFromClerkId(evt.data.id, evt.data);  // Upsert User
+        logger.info(`User synced: ${evt.data.id}`);
+        break;
+      case 'user.deleted':
+        // Soft delete or remove User by clerkId
+        await prisma.user.deleteMany({ where: { clerkId: evt.data.id } });
+        logger.info(`User deleted: ${evt.data.id}`);
+        break;
+    }
+
+    return new Response('OK', { status: 200 });
+  } catch (err) {
+    // Logs error, returns 400/401
+    return new Response('Error', { status: 400 });
   }
-
-  return new Response('OK', { status: 200 });
 }
 ```
 
-- **Verification**: Fails fast on invalid `svix-*` headers or signature → `401 Unauthorized`.
-- **Sync Logic**: Uses `getUserFromClerkId(clerkId)` to upsert `User` model with fields like `email`, `name`, `publicMetadata` (e.g., credits, subscription).
-- **Error Handling**: Logs via `createLogger`; retries not implemented (idempotent via upsert).
-- **Idempotency**: Events are processed once; duplicates ignored via DB constraints.
+- **Verification:** Throws on invalid `svix-*` headers → `401`.
+- **Sync:** `getUserFromClerkId(clerkId, data)` upserts `User`:
+  ```typescript
+  // src/lib/auth-utils.ts (excerpt)
+  export async function getUserFromClerkId(clerkId: string, data?: any) {
+    return prisma.user.upsert({
+      where: { clerkId },
+      update: { ...data },  // email, name, publicMetadata, credits, etc.
+      create: { clerkId, ...data },
+    });
+  }
+  ```
+- **Idempotent:** Prisma `upsert` handles duplicates.
+- **Logging:** `createLogger('clerk-webhook')` (LogLevel configurable).
 
-### Supported Events
-| Event          | Action                  | DB Impact                  |
-|----------------|-------------------------|----------------------------|
-| `user.created` | Create new `User`      | Inserts with `clerkId`    |
-| `user.updated` | Upsert `User`          | Updates profile/credits   |
-| `user.deleted` | Delete `User`          | Removes or sets inactive  |
+### Event Payload Examples
 
-**Event Payload Example** (Clerk `user.created`):
+**`user.created`**:
 ```json
 {
   "type": "user.created",
   "data": {
     "id": "user_2abc123",
-    "email_addresses": [{"email_address": "user@example.com"}],
-    "public_metadata": {"credits": 1000, "plan": "starter"}
+    "first_name": "John",
+    "email_addresses": [{ "email_address": "john@example.com" }],
+    "public_metadata": { "credits": 1000, "plan": "starter", "subscription": "active" }
   }
 }
 ```
 
+**`user.updated`** (similar, triggers upsert).
+
 ## Testing
 
-1. **Clerk Dashboard**: Webhooks → Your Endpoint → **Send Test Event** (select `user.created`).
-2. **In-App Actions**:
-   - Signup new user → Triggers `user.created`.
-   - Update profile → `user.updated`.
-   - Delete user → `user.deleted`.
-3. **Verify Sync**:
-   - Check DB: `npx prisma studio` → Look for new `User` row.
-   - App UI: Refresh dashboard; credits/subscription should update.
-   - Logs: Console shows "User synced: user_2abc123".
+1. **Dashboard Test:** Webhooks → Endpoint → **Send Test** (`user.created`).
+2. **Live Triggers:**
+   - Signup → `user.created`.
+   - Profile edit → `user.updated`.
+   - Delete account → `user.deleted`.
+3. **Verify:**
+   - **DB:** `npx prisma studio` (check `User.clerkId`, `publicMetadata`).
+   - **UI:** Refresh dashboard; `useCredits`, `useSubscription` update.
+   - **Logs:** `LOG_LEVEL=debug` → "User synced: user_2abc123".
 
-**Hooks Impacted**:
-- `useSubscription`: Reflects `SubscriptionStatus` from synced data.
-- `useCredits`: Uses `CreditData` tied to user.
-- `useUsage`: Tracks against synced user.
+**Example Hook Usage (Post-Sync):**
+```tsx
+// In component
+const { data: credits } = useCredits();  // CreditData from synced User
+const { data: status } = useSubscription();  // SubscriptionStatus
+```
 
 ## Troubleshooting
 
-| Issue                          | Cause/Fix                                                                 |
-|--------------------------------|---------------------------------------------------------------------------|
-| `no svix headers`              | Tunnel not used; Clerk hitting `localhost`. Use HTTPS tunnel URL.         |
-| `Signature verification failed`| Wrong `CLERK_WEBHOOK_SECRET`. Re-copy from **your specific endpoint**.    |
-| No DB sync                     | Check logs for errors; ensure Prisma connected (`npx prisma db push`).    |
-| Tunnel expires/disconnects     | Restart tunnel; ngrok free tier rotates URLs.                             |
-| `401 Unauthorized`             | Invalid secret/headers; test with Clerk's "Send test".                    |
-| Duplicate users                | Handled by upsert; check `clerkId` unique constraint.                     |
+| Issue | Cause & Fix |
+|-------|-------------|
+| `no svix headers` / `400` | HTTP/localhost. Use tunnel HTTPS URL. |
+| `Signature verification failed` (401) | Mismatched `CLERK_WEBHOOK_SECRET`. Re-copy from **your endpoint**. |
+| No sync | Logs/errors? `npx prisma db push`; check `getUserFromClerkId`. |
+| Tunnel fails | Restart; ngrok free rotates URLs. |
+| Duplicates | Upsert + `clerkId` unique constraint handles. |
+| Hooks stale | Refresh page; data queries cache by user ID. |
 
-**Logs**: Enable `LOG_LEVEL=debug` in `.env.local`; uses `createLogger` from `src/lib/logger.ts`.
+**Debug:** `LOG_LEVEL=debug` + `createLogger`.
 
-## Production Considerations
+## Production & Advanced
 
-- **Vercel**: Auto-deploys `/api/webhooks/clerk`; set `CLERK_WEBHOOK_SECRET` in Vercel env vars.
-- **Multiple Endpoints**: Use Clerk's "Development" vs "Production" staging.
-- **Monitoring**: Integrate with Vercel Logs or Sentry; track `user.*` events.
-- **Rate Limits**: Clerk limits ~1000/min; app handles bursts idempotently.
+- **Vercel:** Deploys `/api/webhooks/clerk`; env var `CLERK_WEBHOOK_SECRET`.
+- **Staging:** Separate Clerk "Development" instance.
+- **Monitoring:** Vercel Logs, Sentry; track event volumes.
+- **Other Webhooks:** Asaas (`AsaasClient` @ `src/lib/asaas/client.ts`); extend pattern.
+- **Security:** Signature-only auth; no API keys. Add rate-limit if needed.
 
-## Security Best Practices
+**Changes:** Track PRs on `route.ts`, `auth-utils.ts`. See `#dev-webhooks` channel.
 
-- **Never commit secrets**: `.env.local` → `.gitignore`.
-- **Verify All Headers**: Svix lib enforces this.
-- **Rate Limiting**: Add via `next-rate-limit` if needed (not implemented).
-- **Admin Check**: No auth bypass; pure signature verification.
-
-For codebase changes, see PRs touching `route.ts` or `auth-utils.ts`. Questions? Ping #dev channel.
+**Related Exports:**
+- `SubscriptionStatus` (`use-subscription.ts`)
+- `CreditData` (`use-credits.ts`)
+- `UsageData` (`use-usage.ts`)
+- `AdminSettings` (may sync metadata)

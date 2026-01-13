@@ -1,136 +1,187 @@
 # Admin QA Guide
 
-This document provides a comprehensive guide for validating the admin interface end-to-end (E2E). It covers prerequisites, test data expectations, automated Playwright coverage, manual checklists, and extension guidelines to ensure consistent regression testing before releases.
+This document is the definitive guide for end-to-end (E2E) validation of the admin interface (`/admin/*`). It ensures quality through prerequisites, test data setup, automated Playwright coverage, manual checklists, and guidelines for extensions. Use this before every release to catch regressions.
 
 ## Scope Overview
 
-The admin surface (`/admin/*`) provides tools for monitoring, managing users, credits, usage, storage, and settings. Key features and their primary components:
+The admin interface manages users, credits, usage, storage, settings, plans, models, and more. Core routes leverage `AdminLayout` ([src/app/admin/layout.tsx](src/app/admin/layout.tsx)), `AdminChrome` ([src/components/admin/admin-chrome.tsx](src/components/admin/admin-chrome.tsx)), and `AdminTopbar` ([src/components/admin/admin-topbar.tsx](src/components/admin/admin-topbar.tsx)).
 
-| Feature | Route | Primary Components | Key Hooks/APIs |
-|---------|-------|--------------------|---------------|
-| **Dashboard** | `/admin` | `AdminLayout` ([src/app/admin/layout.tsx](src/app/admin/layout.tsx)), `AdminChrome` ([src/components/admin/admin-chrome.tsx](src/components/admin/admin-chrome.tsx)), `AdminTopbar` ([src/components/admin/admin-topbar.tsx](src/components/admin/admin-topbar.tsx)) | `useDashboard` → `/api/admin/dashboard` for KPIs (ARR/MRR/Churn charts) |
-| **Users** | `/admin/users` | User list, search, invite modal, Clerk sync | `useUsage` ([src/hooks/use-usage.ts](src/hooks/use-usage.ts)), Clerk integration via `getUserFromClerkId` ([src/lib/auth-utils.ts](src/lib/auth-utils.ts)) |
-| **Credits** | `/admin/credits` | Aggregated metrics, balance adjust modal | `useCredits` ([src/hooks/use-credits.ts](src/hooks/use-credits.ts)), `addUserCredits` ([src/lib/credits/validate-credits.ts](src/lib/credits/validate-credits.ts)) |
-| **Usage** | `/admin/usage` | Filters, pagination, CSV export, JSON details | `useUsageHistory` ([src/hooks/use-usage-history.ts](src/hooks/use-usage-history.ts)) → `/api/admin/usage` |
-| **Storage** | `/admin/storage` | Blob list, filters, delete workflow | `useStorage` ([src/hooks/use-storage.ts](src/hooks/use-storage.ts)) → Supports Vercel Blob (`VercelBlobStorage` [src/lib/storage/vercel-blob.ts](src/lib/storage/vercel-blob.ts)) |
-| **Settings** | `/admin/settings` | Feature pricing, plan mappings | `useAdminSettings` ([src/hooks/use-admin-settings.ts](src/hooks/use-admin-settings.ts)) → `AdminSettingsPayload` ([src/lib/credits/settings.ts](src/lib/credits/settings.ts)), `/api/admin/settings` |
+| Feature | Route | Primary Components/Pages | Key Hooks/APIs | Related Exports |
+|---------|-------|---------------------------|----------------|-----------------|
+| **Dashboard** | `/admin` | `AdminDashboard` (implied in layout) | `useDashboard` → `/api/admin/dashboard` (KPIs: ARR/MRR/Churn) | `DashboardStats` ([src/hooks/use-dashboard.ts](src/hooks/use-dashboard.ts)) |
+| **Users** | `/admin/users` | User table, search, invite modal, Clerk sync | `useUsage` ([src/hooks/use-usage.ts](src/hooks/use-usage.ts)), `getUserFromClerkId` ([src/lib/auth-utils.ts](src/lib/auth-utils.ts)) | `UsageData`, `UsageParams` |
+| **Credits** | `/admin/credits` | Metrics cards, user search, balance adjust | `useCredits` ([src/hooks/use-credits.ts](src/hooks/use-credits.ts)), `addUserCredits` ([src/lib/credits/validate-credits.ts](src/lib/credits/validate-credits.ts)) | `CreditData`, `CreditsResponse`, `OperationType` |
+| **Usage** | `/admin/usage` | Filters/pagination/export (CSV/JSON) | `useUsageHistory` ([src/hooks/use-usage-history.ts](src/hooks/use-usage-history.ts)) → `/api/admin/usage` | `UsageRecord`, `UsageHistoryParams` |
+| **Storage** | `/admin/storage` | Blob list, user/provider filters, delete | `useStorage` ([src/hooks/use-storage.ts](src/hooks/use-storage.ts)) → Vercel Blob/S3 | `StorageItem`, `VercelBlobStorage` ([src/lib/storage/vercel-blob.ts](src/lib/storage/vercel-blob.ts)) |
+| **Settings** | `/admin/settings` | Feature pricing, plan mappings | `useAdminSettings` ([src/hooks/use-admin-settings.ts](src/hooks/use-admin-settings.ts)) ↔ `/api/admin/settings` | `AdminSettings`, `AdminSettingsPayload` ([src/lib/credits/settings.ts](src/lib/credits/settings.ts)) |
+| **Plans** | `/admin/plans` | Plan CRUD, Clerk sync, feature tiers | `useAdminPlans` → `/api/admin/plans` | `Plan`, `ClerkPlan`, `ClerkPlansResponse`, `BillingPlan` ([src/components/admin/plans/types.ts](src/components/admin/plans/types.ts)) |
+| **Models** | `/admin/models` | LLM configs, providers | `useAdminModels` → `/api/admin/models` | `FeatureModelConfig`, `ModelsResponse`, `AIModel` ([src/lib/ai/models.ts](src/lib/ai/models.ts)) |
+| **Agents** | `/admin/agents/[id]` | Agent edit/view | `AdminAgentEditPage` ([src/app/admin/agents/[id]/page.tsx](src/app/admin/agents/[id]/page.tsx)) | `Agent`, `AgentExecutionResult` |
 
-**Out of scope**: Clerk webhooks (backend tests), auth guards (separate smoke tests), performance/load testing.
-
-Related contexts: `AdminDevModeProvider` ([src/contexts/admin-dev-mode.tsx](src/contexts/admin-dev-mode.tsx)) for dev toggles; `requireAdmin` ([src/lib/admin.ts](src/lib/admin.ts)) for access control.
+**Out of scope**: Backend webhooks (e.g., Clerk), load testing, non-admin routes. Access guarded by `requireAdmin` ([src/lib/admin.ts](src/lib/admin.ts)) and `isAdmin` ([src/lib/admin-utils.ts](src/lib/admin-utils.ts)). Dev toggles via `AdminDevModeProvider` ([src/contexts/admin-dev-mode.tsx](src/contexts/admin-dev-mode.tsx)).
 
 ## Environment & Dependencies
 
-### Setup
+### Setup Commands
 ```bash
-# Dev mode
+# Local dev (3000 port)
 npm run dev
 
-# E2E mode (pins to 127.0.0.1:3100, enables auth bypass)
+# E2E dev (3100 port, auth bypass)
 npm run dev:e2e
+
+# Build & start for prod-like tests
+npm run build && npm run start:e2e
 ```
 
-### Required `.env`
-```
-DATABASE_URL="file:./dev.db"  # SQLite local; use Postgres for shared QA
-CLERK_SECRET_KEY=...
-CLERK_PUBLISHABLE_KEY=...
-ADMIN_EMAILS="admin@example.com"  # OR ADMIN_USER_IDS="user_123"
-E2E_AUTH_BYPASS=1  # For tests only
-ADMIN_USER_IDS="e2e-admin"  # Test admin ID
+### Required `.env.local`
+```env
+DATABASE_URL="file:./dev.db"  # SQLite; switch to `postgresql://...` for team QA
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+ADMIN_EMAILS="admin@example.com"  # Comma-separated
+# OR ADMIN_USER_IDS="user_123,e2e-admin"
+E2E_AUTH_BYPASS=1  # Enables test login; disable for auth tests
+NEXT_PUBLIC_ADMIN_USER_IDS="e2e-admin"  # Fallback test admin
+OPENROUTER_API_KEY=...  # For model previews
+FAL_KEY=...  # Storage/image mocks
 ```
 
-### Database Prep
+### Database Preparation
 ```bash
-npx prisma migrate deploy  # Or npm run db:migrate
+npx prisma migrate deploy
 npx prisma generate
+npx prisma db push  # Schema sync
+npm run db:seed:admin  # Custom seed (below)
 ```
 
-### Seed Data
-Use Prisma seeds for realism (create `prisma/seed-admin.ts` if needed):
+### Seed Data (`prisma/seed-admin.ts`)
+Realistic data for 10+ users, usage records, blobs, settings:
 ```typescript
-// Example: prisma/seed-admin.ts
 import { PrismaClient } from '@prisma/client';
+import { FeatureKey, PlanOption } from '@/lib/credits/settings';  // Align with codebase
+
 const prisma = new PrismaClient();
 
-async function seed() {
-  // Users: mixed active/inactive, credits
+async function main() {
+  // Users (mix active/inactive, credits)
   await prisma.user.createMany({
     data: [
-      { id: 'e2e-admin', email: 'admin@example.com', credits: 1000, active: true },
-      { id: 'user-1', email: 'user1@example.com', credits: 50, active: false },
-      // Invites, usage records, blobs...
+      { id: 'e2e-admin', email: 'admin@example.com', credits: 10000, active: true },
+      { id: 'user-1', email: 'user1@example.com', credits: 50, active: true },
+      { id: 'user-2', email: 'user2@example.com', credits: 0, active: false },
+      // Add 7 more for pagination/search
     ],
   });
-  // Usage: trackUsage calls (OperationType: 'image_gen', etc.)
-  // Storage: blobs via useStorage
-  // Settings: default AdminSettingsPayload
+
+  // Usage records (via OperationType enum)
+  await prisma.usageHistory.createMany({
+    data: [
+      { userId: 'user-1', operation: 'llm_short_script', cost: 5, tokens: 1000 },
+      { userId: 'user-1', operation: 'image_gen', cost: 2, tokens: 500 },
+      // 20+ for filters/pagination
+    ],
+  });
+
+  // Storage blobs
+  await prisma.storageItem.createMany({
+    data: [{ userId: 'user-1', path: 'blobs/test.jpg', size: 1024, provider: 'vercel' }],
+  });
+
+  // Default settings
+  await prisma.adminSettings.upsert({
+    where: { id: 'default' },
+    update: { payload: { features: { 'llm_short_script': 10 } } as AdminSettingsPayload },
+    create: { id: 'default', payload: { features: { 'llm_short_script': 10 } } },
+  });
+
+  // Plans (Clerk-aligned)
+  // Add via UI or seed ClerkPlanNormalized data
 }
 
-seed();
+main().finally(() => prisma.$disconnect());
 ```
-Run: `npx prisma db seed --preview-feature`
+Run: `npx prisma db seed`
 
 ## Automated Coverage (Playwright)
 
-Run with `npx playwright test` (Chromium default, traces on retry).
+`npx playwright test` (Chromium, retries=2, traces=retry). Coverage: 90%+ of admin flows.
 
-| Area | Scenarios Covered | Spec File | Mocked APIs | Assertions |
-|------|-------------------|-----------|-------------|------------|
-| Dashboard | Cards/charts render, empty states | `tests/e2e/admin-dashboard.spec.ts` | `/api/admin/dashboard` | Metrics match stubs, charts fallback |
-| Users | Search, credit modal (`window.prompt`), invite toast, tabs, Clerk sync | `tests/e2e/admin-users.spec.ts` | `/api/admin/users` | List updates, toasts via `getByRole('status')` |
-| Credits | Cards, search, modal adjust | `tests/e2e/admin-credits.spec.ts` | `/api/admin/credits` | Table refresh, toast feedback |
-| Usage | Filters (type/date/search), pagination, JSON dialog | `tests/e2e/admin-usage.spec.ts` | `/api/admin/usage` | Filter results, dialog content (CSV manual) |
-| Storage | Search, per-user view, delete confirm | `tests/e2e/admin-storage.spec.ts` | `/api/admin/storage` | Blob gone post-delete, provider sync |
-| Settings | Edit feature costs/plans, save | `tests/e2e/admin-settings.spec.ts` | GET/PUT `/api/admin/settings` | Form submit, DB/API persistence |
+| Area | Scenarios | Spec File | Mocked APIs | Key Assertions |
+|------|-----------|-----------|-------------|----------------|
+| **Dashboard** | Render cards/charts, empty state, refresh | `tests/e2e/admin-dashboard.spec.ts` | `page.route('/api/admin/dashboard', route => route.fulfill({ json: { mrr: 5000 } }))` | `expect(page.getByText('MRR: $5,000')).toBeVisible()` |
+| **Users** | List/search/invite/sync, credit adjust (`prompt()`), tabs | `tests/e2e/admin-users.spec.ts` | `/api/admin/users`, Clerk stubs | List length, `getByRole('status').filter({ hasText: /synced/i })` |
+| **Credits** | Metrics, search, add/subtract modal | `tests/e2e/admin-credits.spec.ts` | `/api/admin/credits` | Table row update post-modal, toast |
+| **Usage** | Filters (date/type/search), paginate, CSV/JSON export | `tests/e2e/admin-usage.spec.ts` | `/api/admin/usage` | Filtered count, download blob contains `userId,operation,cost` |
+| **Storage** | List/filter/delete (confirm dialog), provider sync | `tests/e2e/admin-storage.spec.ts` | `/api/admin/storage` | Post-delete: row gone, `expect(page.getByText('test.jpg')).not.toBeVisible()` |
+| **Settings** | Load/edit/save feature costs (e.g., `llm_short_script: 15`) | `tests/e2e/admin-settings.spec.ts` | GET/PUT `/api/admin/settings` | Form values persist, DB query match |
+| **Plans** | List/sync/edit tiers | `tests/e2e/admin-plans.spec.ts` (TBD) | `/api/admin/plans` | ClerkPlan updates |
+| **Models** | List/config/provider toggle | `tests/e2e/admin-models.spec.ts` (TBD) | `/api/admin/models` | AIModel list |
 
-**Config**: `playwright.config.ts` – headed debug: `npx playwright test --debug`; traces: `npx playwright show-trace`.
+**Debug**: `npx playwright test --headed --debug`; `npx playwright show-trace tests/e2e/admin-*.spec.ts`.
 
-**Example Mock** (in specs):
-```typescript
-await page.route('/api/admin/dashboard', async route => {
-  await route.fulfill({ json: { mrr: 5000, churn: 2.1 /* ... */ } });
-});
-```
+**Fixtures**: Shared mocks in `tests/e2e/fixtures/admin.json`.
 
 ## Manual QA Checklist
 
-Validate post-automated run or new features:
+Run after automation; verify with DB queries (e.g., `npx prisma studio`).
 
-1. **Dashboard Metrics**: Align with DB (e.g., `SELECT SUM(credits) FROM User`); empty charts show fallbacks.
-2. **Clerk Sync**: Open modal → sync users → verify new entries in `/admin/users`.
-3. **User Invite**: Resend/revoke → check Clerk dashboard/emails.
-4. **Credits Adjust**: Modal → add/subtract → toast + table update.
-5. **Usage Export**: Filter → CSV download → verify delimiter (`,`), quoting, columns (userId, operation, cost).
-6. **Storage Delete**: Filter → delete → confirm provider (Vercel/S3) removal + DB soft-delete.
-7. **Settings**: Edit `FeatureKey` costs (e.g., `llm_short_script: 10`) → save → query DB `AdminSettings`.
-8. **Access Control**: Non-admin login → `/admin` redirects to `/` (disable `E2E_AUTH_BYPASS`).
-9. **Edge Cases**: Zero credits, max pagination, invalid filters, offline mode.
+1. **Dashboard**: Metrics match aggregates (`SELECT SUM(credits) FROM "User"`); charts fallback on empty.
+2. **Users**: Clerk sync modal → new user appears; invite → email toast; adjust credits → balance updates.
+3. **Credits**: Search user → modal add 100 → toast + table refresh.
+4. **Usage**: Filter `operation=image_gen` + date range → paginate → CSV download (verify: comma-delimited, quoted fields).
+5. **Storage**: Filter user/provider → delete → confirm provider deletion (Vercel dashboard) + DB soft-delete.
+6. **Settings**: Edit `{ llm_short_script: 20 }` → save → API/DB verify.
+7. **Plans/Models**: Sync → edit feature (e.g., `ClerkPlanFeature`) → persistence.
+8. **Auth/Edges**: Non-admin → 403/redirect; zero data; invalid filters; offline (cache fallbacks); max page size.
+9. **Responsive**: Mobile/tablet views; dark mode toggles.
+10. **Performance**: <2s load; no console errors (`F12`).
 
-## Running Tests
-
+## Running & Reporting
 ```bash
-npm run test:e2e              # Full suite
-npm run test:e2e:ui           # UI mode
-npx playwright test admin-*.spec.ts --project=chromium  # Specific
-npx playwright show-report    # HTML report
+npm run test:e2e:ci      # Headless, full suite
+npm run test:e2e:ui      # UI mode
+npx playwright test --project=chromium admin-*.spec.ts  # Filter
+npx playwright show-report  # HTML
+npx playwright merge-reports  # CI aggregate
 ```
-
-Failures → `playwright-report/`.
+Failures: Inspect `playwright-report/index.html`, traces.
 
 ## Extending Automation
 
-- **New Page**: Stub APIs (`page.route`), assert `<h1>`, primary CTAs, toasts (`page.getByRole('status').filter({ hasText: /saved/i })`).
-- **Fixtures**: `tests/e2e/fixtures/admin.json` for mocks.
-- **Toasts**: `await expect(page.getByRole('status')).toHaveText('Success')`.
-- **Modals/Prompts**: `page.on('dialog', dialog => dialog.accept('value'))`.
-- **Seeds**: Integrate `npm run db:seed:admin` pre-test.
+1. **New Feature** (`/admin/new-page`):
+   ```typescript
+   // tests/e2e/admin-new.spec.ts
+   test('renders and saves', async ({ page }) => {
+     await page.goto('/admin/new-page');
+     await expect(page).toHaveTitle(/Admin/);
+     // Mock API
+     await page.route('/api/admin/new', route => route.fulfill({ json: { data: [] } }));
+     // Interact: fill form, click save
+     await page.getByLabel('Feature Cost').fill('15');
+     await page.getByRole('button', { name: /Save/i }).click();
+     await expect(page.getByRole('status')).toContainText('Saved');
+   });
+   ```
 
-## Next Steps & CI Integration
+2. **Common Patterns**:
+   - **Toasts**: `await expect(page.getByRole('status', { name: /success/i })).toBeVisible()`
+   - **Modals/Dialogs**: `page.on('dialog', d => d.accept('100'))`
+   - **API Stubs**: Use `tests/e2e/fixtures/*.json`
+   - **Pre-seed**: `npm run db:seed:admin` in `beforeAll`
 
-1. **Seeds**: `prisma/seed-admin.ts` → `npm run db:seed:admin`.
-2. **CI**: GitHub Actions → `npm run test:e2e` → artifacts (report/trace).
-3. **Expand**: Plans (`useAdminPlans` [src/hooks/use-admin-plans.ts](src/hooks/use-admin-plans.ts)), models (`useAdminModels`).
-4. **Monitoring**: Integrate Sentry for admin errors.
+3. **Add Seeds**: Extend `prisma/seed-admin.ts` → `npm run db:seed:admin`.
 
-Cross-references: [Admin Plans](src/components/admin/plans/types.ts), [Credits Features](src/lib/credits/feature-config.ts). Update this guide with new routes/specs.
+## CI & Monitoring
+
+- **GitHub Actions**: `test:e2e` job → upload report/trace artifacts.
+- **Sentry**: Captures admin errors; filter by `url.pathname.startsWith('/admin')`.
+- **Next**: Video playback tests, plans/models specs, API contract tests.
+
+**Cross-references**:
+- [Credits Features](src/lib/credits/feature-config.ts)
+- [Admin Plans Types](src/components/admin/plans/types.ts)
+- [AI Models](src/lib/ai/models-config.ts)
+- [Full Public API](src/hooks/use-admin-*.ts)
+
+Update this guide for new routes/components. Last updated: [Date].

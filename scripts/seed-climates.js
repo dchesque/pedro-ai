@@ -12,11 +12,7 @@ async function main() {
             emotionalState: "CURIOSITY",
             revelationDynamic: "PROGRESSIVE",
             narrativePressure: "FLUID",
-            hookType: "QUESTION",
-            closingType: "CTA_DIRECT",
-            sentenceMaxWords: 15,
             minScenes: 5,
-            maxScenes: 10,
             isSystem: true
         },
         {
@@ -26,11 +22,7 @@ async function main() {
             emotionalState: "DARK_INSPIRATION",
             revelationDynamic: "EARLY",
             narrativePressure: "FAST",
-            hookType: "STATEMENT",
-            closingType: "REVELATION",
-            sentenceMaxWords: 12,
             minScenes: 5,
-            maxScenes: 12,
             isSystem: true
         },
         {
@@ -40,11 +32,7 @@ async function main() {
             emotionalState: "THREAT",
             revelationDynamic: "HIDDEN",
             narrativePressure: "FAST",
-            hookType: "SHOCK",
-            closingType: "REVELATION",
-            sentenceMaxWords: 10,
             minScenes: 7,
-            maxScenes: 15,
             isSystem: true
         }
     ]

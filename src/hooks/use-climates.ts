@@ -4,9 +4,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
     EmotionalState,
     RevelationDynamic,
-    NarrativePressure,
-    HookType,
-    ClosingType
+    NarrativePressure
 } from '../../prisma/generated/client_final'
 
 export interface Climate {
@@ -20,13 +18,9 @@ export interface Climate {
     emotionalState: EmotionalState
     revelationDynamic: RevelationDynamic
     narrativePressure: NarrativePressure
-    hookType: HookType
-    closingType: ClosingType
 
     // Limites
-    sentenceMaxWords: number
     minScenes: number
-    maxScenes: number
 
     promptFragment?: string | null
     behaviorPreview?: string | null
