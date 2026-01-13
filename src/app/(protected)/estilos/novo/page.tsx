@@ -82,6 +82,7 @@ export default function CreateStylePage() {
     };
 
     const [loadingSuggestion, setLoadingSuggestion] = useState<{ hook: boolean; cta: boolean }>({ hook: false, cta: false });
+    const [pendingSuggestion, setPendingSuggestion] = useState<{ type: 'HOOK' | 'CTA'; data: { type: string; example: string } } | null>(null);
 
     const suggestWithAi = async (type: 'HOOK' | 'CTA') => {
         setLoadingSuggestion(prev => ({ ...prev, [type.toLowerCase()]: true }));
@@ -96,20 +97,29 @@ export default function CreateStylePage() {
 
             const data = await response.json();
             if (data.type) {
-                if (type === 'HOOK') {
-                    updateField('hookType', data.type);
-                    if (data.example) updateField('hookExample', data.example);
-                } else {
-                    updateField('ctaType', data.type);
-                    if (data.example) updateField('ctaExample', data.example);
-                }
-                toast.success('Sugestão aplicada!');
+                setPendingSuggestion({ type, data });
             }
         } catch (e) {
             toast.error('Erro ao gerar sugestão com IA');
         } finally {
             setLoadingSuggestion(prev => ({ ...prev, [type.toLowerCase()]: false }));
         }
+    };
+
+    const confirmSuggestion = () => {
+        if (!pendingSuggestion) return;
+
+        const { type, data } = pendingSuggestion;
+        if (type === 'HOOK') {
+            updateField('hookType', data.type as any);
+            if (data.example) updateField('hookExample', data.example);
+        } else {
+            updateField('ctaType', data.type as any);
+            if (data.example) updateField('ctaExample', data.example);
+        }
+
+        toast.success('Sugestão aplicada!');
+        setPendingSuggestion(null);
     };
 
     const [visualRefinement, setVisualRefinement] = useState<{ original: string; refined: string; isOpen: boolean; loading: boolean }>({
@@ -128,7 +138,7 @@ export default function CreateStylePage() {
             const response = await fetch('/api/styles/ai/refine-visual', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: formData.visualPromptBase })
+                body: JSON.stringify({ prompt: formData.visualPromptBase, styleData: formData })
             });
 
             if (!response.ok) throw new Error('Falha no refinamento');
@@ -638,6 +648,50 @@ export default function CreateStylePage() {
                             }}
                         >
                             Aceitar Refinamento
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Hook/CTA Confirmation Dialog */}
+            <Dialog open={!!pendingSuggestion} onOpenChange={(open) => !open && setPendingSuggestion(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Sugestão de {pendingSuggestion?.type === 'HOOK' ? 'Hook' : 'CTA'}</DialogTitle>
+                        <DialogDescription>
+                            A IA analisou o perfil e sugeriu:
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {pendingSuggestion && (
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground uppercase">Tipo Sugerido</Label>
+                                <div className="bg-primary/5 p-3 rounded-md border border-primary/20 flex items-center justify-between">
+                                    <span className="font-medium text-primary">
+                                        {pendingSuggestion.type === 'HOOK'
+                                            ? STYLE_HOOK_LABELS[pendingSuggestion.data.type as keyof typeof STYLE_HOOK_LABELS]?.label
+                                            : STYLE_CTA_LABELS[pendingSuggestion.data.type as keyof typeof STYLE_CTA_LABELS]?.label}
+                                    </span>
+                                    <Badge variant="outline" className="bg-background">Melhor Escolha</Badge>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground uppercase">Exemplos Gerados</Label>
+                                <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-line border">
+                                    {pendingSuggestion.data.example}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPendingSuggestion(null)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={confirmSuggestion}>
+                            Aceitar Sugestão
                         </Button>
                     </DialogFooter>
                 </DialogContent>

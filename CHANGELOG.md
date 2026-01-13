@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0] - 2026-01-13
+
+### Added
+- **Centralização de Prompts de IA**: Implementação de um sistema dinâmico para gerenciar templates de prompts diretamente pelo banco de dados.
+- **Painel Administrativo de Prompts**: Nova página em `/admin/prompts` com interface organizada por Página e Bloco de funcionalidade.
+- **Edição em Modal**: Interface de edição de prompts via Dialog (modal), permitindo ajustes rápidos e visualização de variáveis disponíveis.
+- **Auto-Seeding Inteligente**: Sistema que popula o banco de dados automaticamente com templates padrão na primeira carga da página ou uso da funcionalidade.
+- **Segurança Admin**: Rota e API protegidas por verificação de permissão de administrador (`isAdmin`).
+
+### Changed
+- **Configurabilidade de Sugestões**: Funcionalidades de Hook, CTA e Refinamento Visual de Estilos agora utilizam prompts dinâmicos.
+- **Melhoria de Climas**: Os prompts para Descrição, Instruções Técnicas e Behavior Preview do módulo de Climas agora são totalmente configuráveis.
+- **Arquitetura de Fallback**: Mantida a integridade do sistema com fallbacks "hardcoded" caso o banco de dados esteja inacessível.
+
 ## [2.0.0] - 2026-01-13
 
 ### Changed

@@ -5,11 +5,21 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
 import { z } from 'zod'
+import {
+    CONTENT_TYPE_LABELS,
+    SCRIPT_FUNCTION_LABELS,
+    NARRATOR_POSTURE_LABELS,
+    CONTENT_COMPLEXITY_LABELS,
+    LANGUAGE_REGISTER_LABELS
+} from '@/types/style'
+import { getSystemPrompt } from '@/lib/system-prompts'
+import { SYSTEM_PROMPTS_CONFIG } from '@/lib/system-prompts-config'
 
 const logger = createLogger('style-ai-refine-visual')
 
 const requestSchema = z.object({
     prompt: z.string().min(1).max(5000),
+    styleData: z.any().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -26,27 +36,36 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
         }
 
-        const { prompt: userPrompt } = parsed.data
+        const { prompt: userPrompt, styleData } = parsed.data
+
+        const getLabel = (map: any, key: string) => map[key]?.label || key;
+
+        // Build Context if available
+        let contextBlock = ''
+        if (styleData) {
+            contextBlock = `
+CONTEXTO DO PROJETO (Use APENAS para desambiguação e tom técnico):
+- Nome: ${styleData.name}
+- Descrição: ${styleData.description}
+- Nicho/Conteúdo: ${getLabel(CONTENT_TYPE_LABELS, styleData.contentType)}
+- Público: ${styleData.targetAudience}
+- Palavras-Chave: ${styleData.keywords?.join(', ')}
+            `.trim()
+        }
 
         const modelId = await getDefaultModel('agent_scriptwriter')
         const openrouter = createOpenRouter({
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const systemPrompt = `Você é um especialista em engenharia de prompt visual para IA.`
+        const systemPrompt = `Você é um especialista em engenharia de prompt visual para IA (Midjourney, Flux, Stable Diffusion).`
 
-        const fullPrompt = `Reescreva o prompt visual abaixo para ficar mais claro, técnico e adequado para geração de imagens ou vídeos por IA.
+        const visualRefineConfig = SYSTEM_PROMPTS_CONFIG.find(c => c.key === 'STYLE_VISUAL_REFINEMENT')!;
+        const promptTemplate = await getSystemPrompt(visualRefineConfig.key, visualRefineConfig.defaultTemplate);
 
-REGRAS:
-- NÃO altere a intenção visual original.
-- NÃO adicione novos estilos, referências artísticas ou emoções.
-- NÃO interprete criativamente.
-- Apenas traduza (se necessário), organize e refine tecnicamente.
-
-Prompt original:
-${userPrompt}
-
-Responda APENAS com o prompt refinado/traduzido.`
+        const fullPrompt = promptTemplate
+            .replace('{{CONTEXT_BLOCK}}', contextBlock)
+            .replace('{{USER_PROMPT}}', userPrompt);
 
         const { text } = await generateText({
             model: openrouter(modelId),

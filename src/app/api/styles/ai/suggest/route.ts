@@ -4,6 +4,20 @@ import { generateText } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
+import {
+    CONTENT_TYPE_LABELS,
+    SCRIPT_FUNCTION_LABELS,
+    NARRATOR_POSTURE_LABELS,
+    CONTENT_COMPLEXITY_LABELS,
+    LANGUAGE_REGISTER_LABELS,
+    ContentType,
+    ScriptFunction,
+    NarratorPosture,
+    ContentComplexity,
+    LanguageRegister
+} from '@/types/style'
+import { getSystemPrompt } from '@/lib/system-prompts'
+import { SYSTEM_PROMPTS_CONFIG } from '@/lib/system-prompts-config'
 
 const logger = createLogger('style-ai-suggest')
 
@@ -26,49 +40,36 @@ export async function POST(req: NextRequest) {
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        // Construct System Prompt
-        let instruction = ''
+        // Construct Context String
+        const getLabel = (map: any, key: string) => map[key]?.label || key;
 
-        if (type === 'HOOK') {
-            instruction = `
-Sugira UM tipo de hook adequado para este estilo de conteúdo.
-Considere:
-- Tipo de conteúdo: ${styleData.contentType}
-- Função do roteiro: ${styleData.scriptFunction}
-- Postura do narrador: ${styleData.narratorPosture}
-- Complexidade: ${styleData.contentComplexity}
+        const contextStr = `
+- Nome do Estilo: ${styleData.name}
+- Descrição: ${styleData.description}
+- Tipo de Conteúdo: ${getLabel(CONTENT_TYPE_LABELS, styleData.contentType)}
+- Função do Roteiro: ${getLabel(SCRIPT_FUNCTION_LABELS, styleData.scriptFunction)}
+- Postura do Narrador: ${getLabel(NARRATOR_POSTURE_LABELS, styleData.narratorPosture)}
+- Complexidade: ${getLabel(CONTENT_COMPLEXITY_LABELS, styleData.contentComplexity)}
+- Público-Alvo: ${styleData.targetAudience || 'Geral'}
+- Palavras-Chave: ${styleData.keywords?.length ? styleData.keywords.join(', ') : 'Nenhuma'}
+- Linguagem: ${getLabel(LANGUAGE_REGISTER_LABELS, styleData.languageRegister)}
+- Climas Compatíveis: ${styleData.compatibleClimates?.length ? styleData.compatibleClimates.join(', ') : 'Nenhum específico'}
+        `.trim()
 
-Não leve em conta clima emocional.
-            `
-        } else {
-            instruction = `
-Sugira UM tipo de CTA adequado para este estilo de conteúdo.
-Considere:
-- Função do roteiro: ${styleData.scriptFunction}
-- Público-alvo: ${styleData.targetAudience}
-- Plataforma genérica de vídeo
+        const hookConfig = SYSTEM_PROMPTS_CONFIG.find(c => c.key === 'STYLE_HOOK_SUGGESTION')!;
+        const ctaConfig = SYSTEM_PROMPTS_CONFIG.find(c => c.key === 'STYLE_CTA_SUGGESTION')!;
 
-Não leve em conta clima emocional.
-            `
-        }
+        const promptTemplate = type === 'HOOK'
+            ? await getSystemPrompt(hookConfig.key, hookConfig.defaultTemplate)
+            : await getSystemPrompt(ctaConfig.key, ctaConfig.defaultTemplate);
 
-        const prompt = `
-${instruction}
-
-Retorne um JSON puro com:
-- "type": O tipo sugerido (Enum string exato: ${type === 'HOOK'
-                ? 'QUESTION, STRONG_STATEMENT, DATA_FACT, SHORT_STORY, CONTRAST'
-                : 'DIRECT_ACTION, ENGAGEMENT, REFLECTION, SHARE, FOLLOW'})
-- "example": 1 exemplo curto de texto
-
-JSON:
-`
+        const prompt = promptTemplate.replace('{{CONTEXT_STR}}', contextStr);
 
         const { text } = await generateText({
             model: openrouter(modelId),
             system: "Você é um especialista em roteiros de vídeo curtos.",
             prompt: prompt,
-            temperature: 0.7,
+            temperature: 0.8, // Increased for variety
         })
 
         // Simple JSON extraction

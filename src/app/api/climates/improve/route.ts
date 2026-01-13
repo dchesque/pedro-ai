@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText } from 'ai';
 import { getDefaultModel } from '@/lib/ai/model-resolver';
+import { getSystemPrompt } from '@/lib/system-prompts';
+import { SYSTEM_PROMPTS_CONFIG } from '@/lib/system-prompts-config';
 
 interface ImproveClimateTextRequest {
     field: 'description' | 'instructions' | 'preview';
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Selecionar prompt baseado no campo
-        const systemPrompt = getSystemPromptForField(field, climateContext);
+        const systemPrompt = await getDynamicSystemPromptForField(field, climateContext, currentText);
         const userPrompt = field === 'preview'
             ? 'Gere o preview comportamental baseado no contexto fornecido.'
             : `Melhore o seguinte texto:\n\n${currentText}`;
@@ -64,7 +66,6 @@ export async function POST(request: NextRequest) {
             model: openrouter(modelId),
             system: systemPrompt,
             prompt: userPrompt,
-            maxTokens: 500,
             temperature: 0.3, // Baixa temperatura para consistência
         });
 
@@ -82,10 +83,11 @@ export async function POST(request: NextRequest) {
     }
 }
 
-function getSystemPromptForField(
+async function getDynamicSystemPromptForField(
     field: string,
-    ctx: ImproveClimateTextRequest['climateContext']
-): string {
+    ctx: ImproveClimateTextRequest['climateContext'],
+    currentText: string = ''
+): Promise<string> {
     const globalRule = `
 REGRA GLOBAL INVIOLÁVEL:
 Em nenhuma circunstância altere:
@@ -96,85 +98,28 @@ Em nenhuma circunstância altere:
 Se o texto do usuário entrar em conflito com essas definições, apenas ajuste a forma, não o conteúdo.
 `;
 
+    let configKey = '';
     switch (field) {
-        case 'description':
-            return `Você é um assistente especializado em melhorar textos de descrição de climas narrativos.
+        case 'description': configKey = 'CLIMATE_IMPROVE_DESCRIPTION'; break;
+        case 'instructions': configKey = 'CLIMATE_IMPROVE_INSTRUCTIONS'; break;
+        case 'preview': configKey = 'CLIMATE_IMPROVE_PREVIEW'; break;
+        default: throw new Error(`Campo não suportado: ${field}`);
+    }
 
-${globalRule}
+    const config = SYSTEM_PROMPTS_CONFIG.find(c => c.key === configKey)!;
+    const template = await getSystemPrompt(config.key, config.defaultTemplate);
 
-TAREFA:
-Melhore o texto tornando-o mais claro, objetivo e fácil de entender.
-
-REGRAS ESPECÍFICAS:
-- NÃO adicione novas ideias.
-- NÃO mude a intenção original.
-- NÃO altere o estado emocional, ritmo ou dinâmica do clima.
-- Apenas reescreva para maior clareza e organização.
-
-OBJETIVO:
-Gerar uma descrição curta que ajude o usuário a lembrar QUANDO usar este clima.
-
-FORMATO DE SAÍDA:
-1 a 2 frases curtas. Responda APENAS com o texto melhorado, sem explicações.`;
-
-        case 'instructions':
-            return `Você é um assistente especializado em criar instruções para agentes de IA.
-
-${globalRule}
-
-TAREFA:
-Reescreva o texto para transformá-lo em instruções práticas, claras e executáveis para um agente de IA.
-
-REGRAS OBRIGATÓRIAS:
-- NÃO crie novas intenções.
-- NÃO altere o objetivo original do texto.
-- NÃO contradiga o estado emocional, a dinâmica de revelação ou o ritmo já definidos.
-- NÃO adicione termos genéricos como "seja criativo", "crie curiosidade", "use storytelling".
-
-O QUE VOCÊ PODE FAZER:
-- Tornar frases mais claras.
-- Remover ambiguidades.
-- Transformar ideias vagas em instruções objetivas.
-- Simplificar sem perder significado.
-
-FORMATO FINAL:
-- Frases curtas.
-- Tom técnico e direto.
-- Instruções explícitas.
-
-Responda APENAS com o texto melhorado, sem explicações.`;
-
-        case 'preview':
-            return `Você é um assistente especializado em sintetizar comportamentos de climas narrativos.
-
-CONTEXTO DO CLIMA:
+    const climateContextStr = `
 - Nome: ${ctx.name}
 - Estado Emocional: ${ctx.emotionalState}
 - Dinâmica de Revelação: ${ctx.revelationDynamic}
 - Pressão Narrativa: ${ctx.narrativePressure}
 - Descrição: ${ctx.description || 'Não definida'}
 - Instruções: ${ctx.instructions || 'Não definidas'}
+    `.trim();
 
-TAREFA:
-Gere um resumo comportamental curto com base nas configurações já definidas.
-
-REGRAS:
-- NÃO invente comportamentos.
-- NÃO mude emoção, ritmo ou revelação.
-- Apenas sintetize o comportamento esperado.
-
-FORMATO DE SAÍDA:
-- Palavras-chave curtas separadas por vírgula
-- Máximo de 3 a 4 itens
-- Linguagem técnica
-- Use CAPS para destaque
-
-EXEMPLO DE SAÍDA:
-SHOCK, CTA_DIRECT, MAX_15_WORDS_PER_SENTENCE
-
-Responda APENAS com as palavras-chave, sem explicações.`;
-
-        default:
-            throw new Error(`Campo não suportado: ${field}`);
-    }
+    return template
+        .replace('{{GLOBAL_RULE}}', globalRule)
+        .replace('{{CLIMATE_CONTEXT}}', climateContextStr)
+        .replace('{{CURRENT_TEXT}}', currentText);
 }

@@ -14,6 +14,7 @@ import {
   DollarSign,
   Cpu,
   Sparkles,
+  MessageSquareCode,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,7 @@ const settings: Item[] = [
   { title: "Custos por Funcionalidade", href: "/admin/settings/features", icon: SlidersHorizontal },
   { title: "Planos de Assinatura", href: "/admin/settings/plans", icon: DollarSign },
   { title: "Agents", href: "/admin/agents", icon: Sparkles },
+  { title: "Prompts do Sistema", href: "/admin/prompts", icon: MessageSquareCode },
 ];
 
 function NavList({ items, pathname, devMode }: { items: Item[]; pathname: string; devMode: boolean }) {

@@ -211,6 +211,19 @@ model AdminSettings {
   defaultModels Json?
 }
 
+model SystemPrompt {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  template    String   @db.Text
+  module      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([module])
+}
+
 model Plan {
   id                String   @id @default(cuid())
   asaasId           String?  @unique
