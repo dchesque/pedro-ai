@@ -78,11 +78,14 @@ export interface AIAssistantResponse {
 // Request para gerar cenas
 export interface GenerateScenesRequest {
     title: string
+    theme?: string
+    premise?: string
     synopsis: string
     tone: string
+    styleId: string
     characterDescriptions?: string
     sceneCount: number
-    stylePrompt?: string    // Prompt do estilo visual selecionado
+    modelId?: string
     targetAudience?: string
     toneId?: string
 }

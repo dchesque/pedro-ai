@@ -52,7 +52,7 @@ export async function PUT(
         const { name, icon, description, promptFragment } = body;
 
         // Verify ownership and that it's NOT a system tone
-        const existingTone = await prisma.tone.findUnique({
+        const existingTone = await db.tone.findUnique({
             where: { id },
         });
 
@@ -74,7 +74,7 @@ export async function PUT(
             );
         }
 
-        const updatedTone = await prisma.tone.update({
+        const updatedTone = await db.tone.update({
             where: { id },
             data: {
                 name,
@@ -106,7 +106,7 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const existingTone = await prisma.tone.findUnique({
+        const existingTone = await db.tone.findUnique({
             where: { id },
         });
 
@@ -128,7 +128,7 @@ export async function DELETE(
             );
         }
 
-        await prisma.tone.delete({
+        await db.tone.delete({
             where: { id },
         });
 

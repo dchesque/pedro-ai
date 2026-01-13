@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
             type: tone.isSystem ? 'system' : 'personal'
         }));
 
-        return NextResponse.json(serializedTones);
+        return NextResponse.json({ tones: serializedTones });
     } catch (error) {
         console.error("Error fetching tones:", error);
         return NextResponse.json(

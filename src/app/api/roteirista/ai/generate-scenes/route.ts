@@ -13,7 +13,8 @@ const logger = createLogger('roteirista-generate-scenes')
 
 const requestSchema = z.object({
     title: z.string().min(1),
-    theme: z.string().min(1),
+    theme: z.string().optional(),
+    premise: z.string().optional(),
     synopsis: z.string().optional(),
     tone: z.string().optional(),
     styleId: z.string().min(1),
@@ -49,7 +50,9 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { title, theme, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, toneId: reqToneId } = parsed.data
+        const { title, theme, premise, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, toneId: reqToneId } = parsed.data
+
+        const finalTheme = premise || theme || title
 
         // Buscar estilo e tom sugerido
         const style = await db.style.findUnique({
@@ -121,7 +124,7 @@ Responda APENAS em JSON válido no formato:
         const userPrompt = `Crie um roteiro com ${sceneCount} cenas para o seguinte projeto:
 
 TÍTULO: ${title}
-TEMA: ${theme}
+TEMA: ${finalTheme}
 ${synopsis ? `SINOPSE: ${synopsis}` : ''}
 TOM: ${toneName}
 ${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}

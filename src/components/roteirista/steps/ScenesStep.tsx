@@ -98,10 +98,16 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
         mutationFn: async () => {
             const request: GenerateScenesRequest = {
                 title: data.title || '',
+                premise: data.premise || '',
+                theme: data.theme || data.premise || '',
                 synopsis: data.synopsis || '',
                 tone: data.tone || '',
+                styleId: data.styleId || '',
+                toneId: data.toneId || '',
+                modelId: data.modelId || '',
                 characterDescriptions: data.charactersDescription || '',
                 sceneCount: data.sceneCount || 7,
+                targetAudience: data.targetAudience || '',
             }
             return api.post<GenerateScenesResponse>('/api/roteirista/ai/generate-scenes', request)
         },

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.1] - 2026-01-13
+
+### Fixed
+- **API Tone List**: Corrigido formato da resposta para `{ tones: [...] }`, resolvendo bug de lista vazia no frontend.
+- **Geração de Cenas**: Corrigido erro 400 ao gerar roteiro por incompatibilidade no payload entre frontend e backend.
+- **Padronização de Tipos**: Ajustado o campo `characterDescriptions` e suporte a `premise`/`theme` de forma intercambiável na API.
+- **Conectividade DB**: Removidas referências residuais ao objeto `prisma` em favor do `db` nas rotas de tons.
+
 ## [1.9.0] - 2026-01-13
 
 ### Added
