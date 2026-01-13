@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { withApiLogging } from '@/lib/logging/api'
+import { isAdmin } from '@/lib/admin-utils'
 
 async function handleSubscriptionStatus() {
   try {
@@ -41,10 +42,15 @@ async function handleSubscriptionStatus() {
     }
 
     const planName = currentPlan?.name || 'free'
-    const isActive = !!user.currentPlanId || !!currentPlan
+    const isUserAdmin = await isAdmin(userId)
 
-    return NextResponse.json({ 
-      isActive, 
+    // O usuário é considerado ativo se tiver um plano explicitamente atribuído E a conta estiver ativa
+    // OU se for um administrador.
+    const isActive = (!!user.currentPlanId && user.isActive) || isUserAdmin
+
+    return NextResponse.json({
+      isActive,
+      isAdmin: isUserAdmin,
       plan: planName,
       planId: currentPlan?.id || null,
       billingPeriodEnd: user.billingPeriodEnd?.toISOString() || null,

@@ -70,6 +70,16 @@ export default function ProtectedLayout({
     );
   }
 
+  const isActive = Boolean(subscriptionStatus?.isActive);
+  const allowedPaths = ['/subscribe', '/billing'];
+  const isOnAllowedPath = allowedPaths.some(path => pathname.startsWith(path));
+
+  // Se não estiver autenticado ou não for ativo em uma rota protegida, não renderiza nada
+  // O useEffect cuidará do redirecionamento
+  if (!isSignedIn || (!isActive && !isOnAllowedPath)) {
+    return null;
+  }
+
   // Authenticated layout with sidebar
   return (
     <PageMetadataProvider>

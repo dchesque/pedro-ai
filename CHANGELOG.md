@@ -1,4 +1,12 @@
 # Changelog
+ 
+## [2.1.1] - 2026-01-13
+ 
+### Fixed
+- **Bloqueio de Páginas**: Corrigido o erro que permitia que usuários sem assinatura ativa acessassem áreas restritas do aplicativo.
+- **API de Status**: Refatorada a lógica de `isActive` para exigir um `currentPlanId` válido ou privilégios de administrador, eliminando o fallback que ativava usuários indevidamente.
+- **Hard Wall de Layout**: Reforçada a segurança no `ProtectedLayout` para impedir a renderização de qualquer conteúdo protegido antes do redirecionamento para a página de assinatura.
+- **Typing**: Adicionada a propriedade `isAdmin` ao hook `useSubscription` para melhor integração com o frontend.
 
 ## [2.1.0] - 2026-01-13
 

@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client';
 
 export interface SubscriptionStatus {
   isActive: boolean;
+  isAdmin?: boolean;
   plan?: string;
   trialEndsAt?: string;
 }
