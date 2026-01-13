@@ -19,7 +19,7 @@ import {
     NarrativePressure,
     HookType,
     ClosingType
-} from '../../prisma/generated/client_final'
+} from '../../../prisma/generated/client_final'
 import {
     EMOTIONAL_STATE_PROMPTS,
     REVELATION_DYNAMIC_PROMPTS,

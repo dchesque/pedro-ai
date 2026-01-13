@@ -5,7 +5,7 @@ import {
     HookType,
     ClosingType,
     Climate
-} from '../../prisma/generated/client_final'
+} from '../../../prisma/generated/client_final'
 
 export interface ClimateEffect {
     label: string
@@ -30,7 +30,7 @@ FORÇA EMOCIONAL: CURIOSIDADE
     THREAT: {
         label: 'Ameaça',
         icon: '⚡',
-        subtitle: 'Precisa prestar atenção',
+        subtitle: 'Precisa prestar attention',
         promptInstructions: `
 FORÇA EMOCIONAL: AMEAÇA
 - Abra com uma consequência negativa iminente ou um erro comum perigoso.

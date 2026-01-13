@@ -4,7 +4,7 @@ import {
     NarrativePressure,
     HookType,
     ClosingType
-} from '../../prisma/generated/client_final'
+} from '../../../prisma/generated/client_final'
 
 export interface ClimateConfig {
     emotionalState: EmotionalState
