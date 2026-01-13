@@ -40,12 +40,19 @@ async function handleGet(req: Request) {
 
 // POST - Criar novo short
 const CreateShortSchema = z.object({
-    theme: z.string().min(3).max(500),
+    premise: z.string().min(3).max(2000), // Updated from theme
+    theme: z.string().optional(), // Legacy support
     title: z.string().optional(),
     synopsis: z.string().optional(),
-    tone: z.string().optional(),
-    targetDuration: z.number().int().min(15).max(60).optional().default(30),
-    style: z.string().min(1).optional().default('engaging'),
+
+    // Updated IDs
+    toneId: z.string().optional(),
+    styleId: z.string().optional(),
+
+    tone: z.string().optional(), // Legacy
+    style: z.string().optional(), // Legacy
+
+    targetDuration: z.number().int().min(15).max(180).optional().default(30),
     aiModel: z.string().min(1).optional().default('deepseek/deepseek-chat'),
     status: z.string().optional(),
     characterIds: z.array(z.string()).optional(),
@@ -69,14 +76,17 @@ async function handlePost(req: Request) {
             return NextResponse.json({ error: 'Invalid request body', issues: parsed.error.flatten() }, { status: 400 })
         }
 
-        const { theme, title, synopsis, tone, targetDuration, style, aiModel, status, scenes, characterIds } = parsed.data
+        const { premise, theme, title, synopsis, toneId, styleId, tone, style, targetDuration, aiModel, status, scenes, characterIds } = parsed.data
 
         const short = await createShort({
             userId: user.id,
             clerkUserId,
+            premise: premise || theme || "No premise provided", // Fallback
             theme,
             title,
             synopsis,
+            toneId, // New
+            styleId,// New
             tone,
             targetDuration,
             style,

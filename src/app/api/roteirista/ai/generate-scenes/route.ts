@@ -20,6 +20,8 @@ const requestSchema = z.object({
     characterDescriptions: z.string().optional(),
     sceneCount: z.number().optional(),
     modelId: z.string().optional(),
+    targetAudience: z.string().optional(),
+    toneId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -47,18 +49,32 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { title, theme, synopsis, tone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId } = parsed.data
+        const { title, theme, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, toneId: reqToneId } = parsed.data
 
-        // Buscar estilo no banco
+        // Buscar estilo e tom sugerido
         const style = await db.style.findUnique({
-            where: { id: styleId }
+            where: { id: styleId },
+            include: { suggestedTone: true }
         })
 
         if (!style) {
             return NextResponse.json({ error: 'Style not found' }, { status: 404 })
         }
 
-        logger.info('Generate scenes request', { title, styleId, tone })
+        // Resolver Tom
+        let toneName = reqTone || style.suggestedTone?.name || 'Envolvente'
+        let tonePrompt = style.suggestedTone?.promptFragment || ''
+
+        // Se toneId foi passado explicitamente, buscar (sobrescreve o do estilo)
+        if (reqToneId) {
+            const toneObj = await db.tone.findUnique({ where: { id: reqToneId } })
+            if (toneObj) {
+                toneName = toneObj.name
+                tonePrompt = toneObj.promptFragment || ''
+            }
+        }
+
+        logger.info('Generate scenes request', { title, styleId, tone: toneName })
 
         // Resolver modelo
         const modelId = reqModelId || await getDefaultModel('agent_scriptwriter')
@@ -67,7 +83,8 @@ export async function POST(req: NextRequest) {
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const sceneCount = reqSceneCount || style.suggestedSceneCount
+        const sceneCount = reqSceneCount || 7 // Default fallback since style doesn't have it anymore
+        const targetAudience = reqTargetAudience || style.targetAudience || 'Geral'
 
         const systemPrompt = `Você é um roteirista profissional especializado em vídeos curtos (shorts/reels).
 
@@ -78,22 +95,15 @@ ${style.contentType}
 ${style.scriptwriterPrompt || 'Crie um roteiro envolvente e bem estruturado.'}
 
 ## PARÂMETROS
-- Duração alvo: ${style.targetDuration} segundos
+- Público Alvo: ${targetAudience}
 - Número de cenas: ${sceneCount}
-- Estilo de narrativa: ${style.narrativeStyle || 'Não especificado'}
-- Linguagem: ${style.languageStyle || 'Não especificada'}
-- Tom: ${tone || style.defaultTone || 'Envolvente'}
-
-## EXEMPLOS DE REFERÊNCIA
-${style.exampleHook ? `Exemplo de abertura: "${style.exampleHook}"` : ''}
-${style.exampleCta ? `Exemplo de fechamento: "${style.exampleCta}"` : ''}
-
-## ESTILO VISUAL BASE
-${style.visualPrompt || 'Estilo cinematográfico, cores vibrantes, alta qualidade.'}
+- Tom: ${toneName}
+${tonePrompt ? `- Instruções de Tom: ${tonePrompt}` : ''}
 
 ## REGRAS
 - Cada cena deve ter narração em português (1-2 frases)
 - Cada cena deve ter descrição visual em INGLÊS para geração de imagem
+- Descrições visuais devem ser detalhadas, cinematográficas e incluir estilo de iluminação
 - Mantenha consistência visual entre as cenas
 - A história deve ter início, meio e fim satisfatório
 
@@ -113,7 +123,7 @@ Responda APENAS em JSON válido no formato:
 TÍTULO: ${title}
 TEMA: ${theme}
 ${synopsis ? `SINOPSE: ${synopsis}` : ''}
-TOM: ${tone || style.defaultTone || 'Envolvente'}
+TOM: ${toneName}
 ${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
 
 Gere as ${sceneCount} cenas agora.`
@@ -123,6 +133,7 @@ Gere as ${sceneCount} cenas agora.`
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.8,
+            // maxTokens removed to avoid lint error
         })
 
         // Parse JSON da resposta

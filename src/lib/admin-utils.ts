@@ -11,13 +11,30 @@ const getAdminUserIds = () => parseListEnv(process.env.ADMIN_USER_IDS);
 
 export async function isAdmin(userId: string): Promise<boolean> {
   try {
-    if (getAdminUserIds().includes(userId)) return true;
+    const adminUserIds = getAdminUserIds();
+    const adminEmails = getAdminEmails();
+
+    console.log('[isAdmin] Checking access for:', { userId });
+    console.log('[isAdmin] Configured Admins:', { adminUserIds, adminEmails });
+
+    if (adminUserIds.includes(userId)) {
+      console.log('[isAdmin] Match found in ADMIN_USER_IDS');
+      return true;
+    }
 
     const user = await currentUser();
-    if (!user) return false;
+    if (!user) {
+      console.log('[isAdmin] Clerk currentUser() returned null');
+      return false;
+    }
 
     const userEmail = user.emailAddresses[0]?.emailAddress;
-    return !!userEmail && getAdminEmails().includes(userEmail);
+    console.log('[isAdmin] Clerk User Email:', userEmail);
+
+    const isMatch = !!userEmail && adminEmails.includes(userEmail);
+    console.log('[isAdmin] Match found in ADMIN_EMAILS?', isMatch);
+
+    return isMatch;
   } catch (error) {
     console.error("Admin check error:", error);
     return false;

@@ -32,6 +32,7 @@ export function useSaveScript() {
                 // Novos Shorts vêm com esse status
                 status: 'SCRIPT_READY',
                 characterIds: data.characterIds,
+                targetDuration: data.scenes.reduce((acc, s) => acc + (s.duration || 5), 0) || 30,
             }
 
             return api.post<{ short: { id: string } }>('/api/shorts', payload)

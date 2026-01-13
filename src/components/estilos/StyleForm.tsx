@@ -32,17 +32,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Save, X } from 'lucide-react'
 
+import { useTones } from '@/hooks/use-tones'
+
 const styleSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório').max(100),
     description: z.string().max(500).default(''),
     icon: z.string().max(10).default('🎬'),
     contentType: z.enum(['news', 'story', 'meme', 'educational', 'motivational', 'tutorial', 'custom']),
     scriptwriterPrompt: z.string().max(5000).default(''),
-    targetDuration: z.number().min(15).max(180).default(45),
-    suggestedSceneCount: z.number().min(3).max(15).default(7),
+    targetAudience: z.string().max(100).optional().default(''),
+    keywords: z.string().optional().default(''),
+    suggestedToneId: z.string().optional().default(''),
     narrativeStyle: z.string().max(50).default('direto'),
     languageStyle: z.string().max(50).default('informal'),
-    defaultTone: z.string().max(50).default(''),
     exampleHook: z.string().max(500).default(''),
     exampleCta: z.string().max(500).default(''),
     visualPrompt: z.string().max(2000).default(''),
@@ -52,14 +54,9 @@ type StyleFormValues = z.infer<typeof styleSchema>
 
 interface StyleFormProps {
     initialData?: Style
-    onSubmit: (data: StyleFormValues) => void
+    onSubmit: (data: any) => void // Relaxed type to allow keyword transformation
     isLoading?: boolean
 }
-
-const TONE_OPTIONS = [
-    '🎬 Cinemático', '⚔️ Épico', '🎭 Dramático', '😄 Comédia', '😱 Suspense',
-    '💕 Romance', '👻 Terror', '📚 Educativo', '💪 Motivacional', '📰 Urgente'
-]
 
 const NARRATIVE_OPTIONS = [
     { value: 'direto', label: 'Direto e Objetivo' },
@@ -77,6 +74,8 @@ const LANGUAGE_OPTIONS = [
 
 export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) {
     const router = useRouter()
+    const { data: tonesData } = useTones()
+    const tones = tonesData?.tones || []
 
     const form = useForm<StyleFormValues>({
         resolver: zodResolver(styleSchema) as any,
@@ -86,11 +85,11 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
             icon: initialData?.icon || '🎬',
             contentType: initialData?.contentType || 'story' as any,
             scriptwriterPrompt: initialData?.scriptwriterPrompt || '',
-            targetDuration: initialData?.targetDuration || 45,
-            suggestedSceneCount: initialData?.suggestedSceneCount || 7,
+            targetAudience: initialData?.targetAudience || '',
+            keywords: initialData?.keywords?.join(', ') || '',
+            suggestedToneId: initialData?.suggestedToneId || '',
             narrativeStyle: initialData?.narrativeStyle || 'direto',
             languageStyle: initialData?.languageStyle || 'informal',
-            defaultTone: initialData?.defaultTone || '',
             exampleHook: initialData?.exampleHook || '',
             exampleCta: initialData?.exampleCta || '',
             visualPrompt: initialData?.visualPrompt || '',
@@ -105,11 +104,11 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
                 icon: initialData.icon || '🎬',
                 contentType: initialData.contentType as any,
                 scriptwriterPrompt: initialData.scriptwriterPrompt || '',
-                targetDuration: initialData.targetDuration || 45,
-                suggestedSceneCount: initialData.suggestedSceneCount || 7,
+                targetAudience: initialData.targetAudience || '',
+                keywords: initialData.keywords?.join(', ') || '',
+                suggestedToneId: initialData.suggestedToneId || '',
                 narrativeStyle: initialData.narrativeStyle || 'direto',
                 languageStyle: initialData.languageStyle || 'informal',
-                defaultTone: initialData.defaultTone || '',
                 exampleHook: initialData.exampleHook || '',
                 exampleCta: initialData.exampleCta || '',
                 visualPrompt: initialData.visualPrompt || '',
@@ -118,7 +117,16 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
     }, [initialData, form])
 
     const onFormSubmit = (values: StyleFormValues) => {
-        onSubmit(values)
+        // Transform keywords string to array
+        const keywordsArray = values.keywords
+            ? values.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+            : []
+
+        const payload = {
+            ...values,
+            keywords: keywordsArray
+        }
+        onSubmit(payload)
     }
 
     return (
@@ -208,64 +216,44 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
 
                     <Card className="glass-panel border-border/50">
                         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <FormField
-                                control={form.control}
-                                name="targetDuration"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <FormLabel>Duração Alvo: <span className="text-primary">{field.value}s</span></FormLabel>
-                                        </div>
-                                        <FormControl>
-                                            <Slider
-                                                min={15}
-                                                max={180}
-                                                step={5}
-                                                value={[field.value]}
-                                                onValueChange={(val) => field.onChange(val[0])}
-                                            />
-                                        </FormControl>
-                                        <FormDescription className="flex justify-between mt-1">
-                                            <span>15s</span>
-                                            <span>180s</span>
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <FormField
+                                    control={form.control}
+                                    name="targetAudience"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Público Alvo</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Ex: Jovens empreendedores, Pais..." {...field} />
+                                            </FormControl>
+                                            <FormDescription>Quem é o espectador ideal?</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="keywords"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Palavras-chave</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Ex: tecnologia, inovação (separe por vírgula)" {...field} />
+                                            </FormControl>
+                                            <FormDescription>Tags para categorizar este estilo</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
                             <FormField
                                 control={form.control}
-                                name="suggestedSceneCount"
+                                name="suggestedToneId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <FormLabel>Número de Cenas: <span className="text-primary">{field.value}</span></FormLabel>
-                                        </div>
-                                        <FormControl>
-                                            <Slider
-                                                min={3}
-                                                max={15}
-                                                step={1}
-                                                value={[field.value]}
-                                                onValueChange={(val) => field.onChange(val[0])}
-                                            />
-                                        </FormControl>
-                                        <FormDescription className="flex justify-between mt-1">
-                                            <span>3</span>
-                                            <span>15</span>
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="defaultTone"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Tom Padrão</FormLabel>
+                                        <FormLabel>Tom Recomendado</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
@@ -273,11 +261,15 @@ export function StyleForm({ initialData, onSubmit, isLoading }: StyleFormProps) 
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {TONE_OPTIONS.map(tone => (
-                                                    <SelectItem key={tone} value={tone}>{tone}</SelectItem>
+                                                <SelectItem value="none">Nenhum específico</SelectItem>
+                                                {tones.map(tone => (
+                                                    <SelectItem key={tone.id} value={tone.id}>
+                                                        {tone.icon} {tone.name} {tone.type === 'system' && '(Sistema)'}
+                                                    </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        <FormDescription>Tom de voz sugerido para este estilo.</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}

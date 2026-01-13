@@ -22,6 +22,7 @@ interface SceneEditorProps {
         tone?: string
         stylePrompt?: string
         characterDescriptions?: string
+        targetAudience?: string
     }
     disabled?: boolean
     isDragging?: boolean
@@ -43,6 +44,7 @@ export function SceneEditor({
                 stylePrompt: context?.stylePrompt,
                 characterDescriptions: context?.characterDescriptions,
                 tone: context?.tone,
+                targetAudience: context?.targetAudience,
             }
             return api.post<GenerateVisualPromptResponse>('/api/roteirista/ai/generate-visual-prompt', request)
         },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Wand2, Loader2, Sparkles, Settings, ExternalLink } from 'lucide-react'
+import { Wand2, Loader2, Sparkles, Settings, ExternalLink, MessageSquare } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { AITextAssistant } from '../AITextAssistant'
 import { useStyles } from '@/hooks/use-styles'
+import { useTones } from '@/hooks/use-tones'
 import { useAvailableModels } from '@/hooks/use-available-models'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
@@ -32,39 +33,51 @@ interface ConceptStepProps {
     onChange: (data: Partial<ScriptFormData>) => void
 }
 
-const TONE_OPTIONS = [
-    { value: 'épico', label: '⚔️ Épico' },
-    { value: 'dramático', label: '🎭 Dramático' },
-    { value: 'aventura', label: '🗺️ Aventura' },
-    { value: 'comédia', label: '😄 Comédia' },
-    { value: 'suspense', label: '😰 Suspense' },
-    { value: 'romance', label: '💕 Romance' },
-    { value: 'terror', label: '👻 Terror' },
-    { value: 'infantil', label: '🧸 Infantil' },
-    { value: 'educativo', label: '📚 Educativo' },
-    { value: 'motivacional', label: '💪 Motivacional' },
-]
-
 export function ConceptStep({ data, onChange }: ConceptStepProps) {
     const router = useRouter()
+
+    // Data Hooks
     const { data: stylesData, isLoading: loadingStyles } = useStyles()
+    const { data: tonesData, isLoading: loadingTones } = useTones()
     const { data: modelsData, isLoading: loadingModels } = useAvailableModels()
+
     const styles = stylesData?.styles || []
+    const tones = tonesData?.tones || []
     const models = modelsData?.models || []
+
     const [suggestingTitles, setSuggestingTitles] = useState(false)
     const [titles, setTitles] = useState<string[]>([])
 
     const selectedStyle = styles.find(s => s.id === data.styleId)
+    const selectedTone = tones.find(t => t.id === data.toneId)
 
-    // Mutation para gerar sinopse a partir do tema
+    // Sync legacy/new fields
+    const handleChange = (field: keyof ScriptFormData, value: any) => {
+        const updates: Partial<ScriptFormData> = { [field]: value }
+
+        // Sync tone name if toneId changes
+        if (field === 'toneId') {
+            const toneObj = tones.find(t => t.id === value)
+            if (toneObj) updates.tone = toneObj.name
+        }
+
+        // Sync theme with premise
+        if (field === 'premise') {
+            updates.theme = value
+        }
+
+        onChange({ ...data, ...updates })
+    }
+
+    // Mutation para gerar sinopse a partir da premissa
     const generateSynopsisMutation = useMutation({
         mutationFn: async () => {
             const response = await api.post<{ suggestion: string }>('/api/roteirista/ai/assist', {
-                text: data.theme || '',
+                text: data.premise || data.theme || '',
                 action: 'expand',
                 context: {
                     fieldType: 'synopsis',
-                    tone: data.tone,
+                    tone: selectedTone?.name || data.tone,
                 },
             })
             return response.suggestion
@@ -79,9 +92,9 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
         mutationFn: async () => {
             setSuggestingTitles(true)
             const response = await api.post<{ titles: string[] }>('/api/roteirista/ai/suggest-titles', {
-                theme: data.theme || '',
+                theme: data.premise || data.theme || '',
                 styleId: data.styleId,
-                tone: data.tone,
+                tone: selectedTone?.name || data.tone,
             })
             return response.titles
         },
@@ -93,10 +106,6 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
             setSuggestingTitles(false)
         }
     })
-
-    const handleChange = (field: keyof ScriptFormData, value: any) => {
-        onChange({ ...data, [field]: value })
-    }
 
     return (
         <div className="space-y-6">
@@ -154,22 +163,41 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                         </Select>
                     </div>
 
-                    {/* Tom */}
+                    {/* Tom (Atualizado para usar ToneId) */}
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Tom / Clima *</Label>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Tom / Clima *</Label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => router.push('/estilos')}>
+                                            <MessageSquare className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Gerenciar Tons</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                         <Select
-                            value={data.tone || ''}
-                            onValueChange={(value) => handleChange('tone', value)}
+                            value={data.toneId || ''}
+                            onValueChange={(value) => handleChange('toneId', value)}
                         >
                             <SelectTrigger className="bg-background/50 h-9">
                                 <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {TONE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
+                                {loadingTones ? (
+                                    <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
+                                ) : (
+                                    tones.map((tone) => (
+                                        <SelectItem key={tone.id} value={tone.id}>
+                                            <div className="flex items-center gap-2">
+                                                <span>{tone.icon}</span>
+                                                <span>{tone.name}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))
+                                )}
                             </SelectContent>
                         </Select>
                     </div>
@@ -224,7 +252,7 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                                 size="sm"
                                 className="h-7 px-3 text-[11px] text-primary hover:text-primary-foreground gap-1.5 bg-primary/5 hover:bg-primary"
                                 onClick={() => !titles.length && suggestTitlesMutation.mutate()}
-                                disabled={!data.theme || suggestingTitles}
+                                disabled={(!data.premise && !data.theme) || suggestingTitles}
                             >
                                 {suggestingTitles ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -273,15 +301,15 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                 />
             </div>
 
-            {/* Tema/Premissa */}
+            {/* Premissa (Antigo Tema) */}
             <AITextAssistant
-                value={data.theme || ''}
-                onChange={(value) => handleChange('theme', value)}
+                value={data.premise || data.theme || ''}
+                onChange={(value) => handleChange('premise', value)}
                 label="Tema / Premissa *"
                 placeholder="Descreva brevemente a ideia central da história..."
                 description="Uma frase ou parágrafo curto. A IA vai expandir isso em uma sinopse completa."
                 fieldType="synopsis"
-                context={{ title: data.title, tone: data.tone }}
+                context={{ title: data.title, tone: selectedTone?.name || data.tone }}
                 rows={2}
                 actions={['improve', 'rewrite']}
             />
@@ -295,12 +323,12 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                     placeholder="A história completa em detalhes..."
                     description="Descrição completa da história. Pode gerar automaticamente a partir do tema."
                     fieldType="synopsis"
-                    context={{ title: data.title, tone: data.tone }}
+                    context={{ title: data.title, tone: selectedTone?.name || data.tone }}
                     rows={5}
                     actions={['improve', 'expand', 'rewrite', 'summarize']}
                 />
 
-                {data.theme && !data.synopsis && (
+                {(data.premise || data.theme) && !data.synopsis && (
                     <div className="pt-2">
                         <Button
                             type="button"
@@ -314,10 +342,20 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                             ) : (
                                 <Wand2 className="h-4 w-4" />
                             )}
-                            Gerar Sinopse do Tema
+                            Gerar Sinopse Automática
                         </Button>
                     </div>
                 )}
+            </div>
+
+            {/* Público Alvo (Novo) */}
+            <div className="space-y-2">
+                <Label>Público Alvo (Opcional)</Label>
+                <Input
+                    value={data.targetAudience || ''}
+                    onChange={(e) => handleChange('targetAudience', e.target.value)}
+                    placeholder="Ex: Jovens empreendedores, Crianças de 5 anos..."
+                />
             </div>
 
             {/* Número de Cenas */}

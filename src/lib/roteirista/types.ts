@@ -19,11 +19,14 @@ export type WizardStep = 'concept' | 'characters' | 'scenes' | 'review'
 export interface ScriptFormData {
     // Etapa 1: Conceito
     title: string
-    theme: string           // Tema/premissa curta
+    premise: string         // Premissa/Ideia inicial (substitui theme como principal)
+    theme?: string          // Mantido para compatibilidade
     synopsis: string        // Descrição expandida
     styleId?: string        // ID do estilo visual
     modelId?: string        // ID do modelo de IA
-    tone: string            // Tom: épico, dramático, aventura, etc.
+    toneId?: string         // ID do tom de voz
+    tone?: string           // Mantido para compatibilidade (nome do tom)
+    targetAudience?: string // Público-alvo
 
     // Etapa 2: Personagens
     characterIds: string[]  // IDs de personagens da biblioteca
@@ -60,6 +63,7 @@ export interface AIAssistantRequest {
         title?: string
         synopsis?: string
         tone?: string
+        targetAudience?: string
         fieldType?: 'title' | 'synopsis' | 'narration' | 'visualPrompt'
     }
 }
@@ -79,6 +83,8 @@ export interface GenerateScenesRequest {
     characterDescriptions?: string
     sceneCount: number
     stylePrompt?: string    // Prompt do estilo visual selecionado
+    targetAudience?: string
+    toneId?: string
 }
 
 // Response de cenas geradas
@@ -92,6 +98,8 @@ export interface GenerateVisualPromptRequest {
     stylePrompt?: string
     characterDescriptions?: string
     tone?: string
+    targetAudience?: string
+    toneId?: string
 }
 
 // Response de prompt visual

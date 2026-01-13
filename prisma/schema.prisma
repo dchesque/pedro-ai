@@ -45,6 +45,7 @@ model User {
   userAgents        UserAgent[]
   userStyles        UserStyle[]
   styles            Style[]
+  tones             Tone[]
   characters        Character[]
 }
 
@@ -148,18 +149,25 @@ model Short {
   styleId         String?      // Relacionamento com o novo sistema de estilos
   styleRelation   Style?       @relation(fields: [styleId], references: [id])
   
+  // Relação com Tom selecionado
+  toneId          String?
+  tone            Tone?        @relation(fields: [toneId], references: [id])
+  
   // Novo: Modelo de IA escolhido pelo usuário
   aiModel           String?     @default("deepseek/deepseek-v3.2")
 
   // Novo: Resumo da história (gerado junto com roteiro)
   summary           String?     @db.Text
   synopsis          String?     @db.Text  // Sinopse expandida para o roteirista
-  tone              String?               // Tom: épico, dramático, etc.
+  premise           String?     @db.Text  // Premissa original do usuário
   
   // Roteiro gerado
-  script          Json?        // Roteiro completo em JSON
-  hook            String?      // Gancho inicial
-  cta             String?      // Call to action final
+  script          Json?        // Roteiro completo em JSON (mantido por compatibilidade)
+  
+  story           String?      @db.Text // História/Sinopse gerada
+  hook            String?      @db.Text // Gancho inicial
+  cta             String?      @db.Text // Call to action final
+  fullNarration   String?      @db.Text // Narração completa concatenada
   
   // Novo: Versão do roteiro (para histórico futuro)
   scriptVersion     Int         @default(1)
@@ -201,8 +209,8 @@ model ShortScene {
   duration        Int            @default(5)  // Duração em segundos
   
   // Conteúdo do roteiro
-  narration       String?        // Texto de narração
-  visualDesc      String?        // Descrição visual do roteiro (original)
+  narration       String?        @db.Text // Texto de narração desta cena
+  visualDesc      String?        @db.Text // Descrição visual do roteiro (original)
   visualPrompt    String?        @db.Text // Prompt visual detalhado para IA
   
   // Prompts gerados
@@ -521,13 +529,15 @@ model Style {
   scriptwriterPrompt  String?  @db.Text   // Prompt detalhado com instruções
   
   // Parâmetros de estrutura
-  targetDuration      Int      @default(45)   // Duração alvo em segundos
-  suggestedSceneCount Int      @default(7)    // Número sugerido de cenas
+  targetAudience      String?        // Público-alvo (ex: "Jovens 18-25")
+  keywords            String[]       // Palavras-chave/tags
   
   // Estilo de narrativa
   narrativeStyle  String?  // "direto", "storytelling", "primeira_pessoa", "narrador_onisciente"
   languageStyle   String?  // "formal", "informal", "jovem", "técnico"
-  defaultTone     String?  // Tom padrão: "épico", "urgente", "inspirador", etc.
+  
+  suggestedToneId String?
+  suggestedTone   Tone?    @relation("SuggestedTone", fields: [suggestedToneId], references: [id])
   
   // Exemplos (ajudam o agente a entender o estilo)
   exampleHook     String?  @db.Text  // Exemplo de gancho/abertura
@@ -549,5 +559,32 @@ model Style {
   // Relações
   shorts      Short[]
   
+
   @@index([userId])
+}
+
+// Tom/Clima da narrativa (separado do Estilo)
+model Tone {
+  id              String    @id @default(cuid())
+  userId          String?   // Null = Sistema, ID = Pessoal
+  
+  name            String
+  description     String?
+  icon            String?   // Emoji
+  
+  // Instruções para o agente
+  promptFragment  String    @db.Text // Trecho de prompt que define o tom
+  
+  // Metadados
+  isSystem        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relações
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shorts          Short[]
+  suggestedIn     Style[]   @relation("SuggestedTone")
+  
+  @@index([userId])
+  @@index([isSystem])
 }

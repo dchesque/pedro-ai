@@ -12,11 +12,25 @@ export interface Style {
     icon?: string
     contentType: ContentType
     scriptwriterPrompt?: string
-    targetDuration: number
-    suggestedSceneCount: number
+    // Removed targetDuration, suggestedSceneCount
     narrativeStyle?: string
     languageStyle?: string
-    defaultTone?: string
+    // New fields
+    targetAudience?: string
+    keywords?: string[]
+    suggestedToneId?: string
+    suggestedTone?: {
+        id: string
+        name: string
+        icon?: string
+    }
+    // Fields removed from UI/Schema but might exist in DB (deprecated)
+    // targetDuration?
+    // suggestedSceneCount?
+    // defaultTone?
+
+    // Removed: defaultTone, suggestedSceneCount, targetDuration (optional now)
+
     exampleHook?: string
     exampleCta?: string
     visualPrompt?: string

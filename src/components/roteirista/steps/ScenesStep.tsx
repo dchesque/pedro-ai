@@ -240,6 +240,7 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
                                             title: data.title,
                                             synopsis: data.synopsis,
                                             tone: data.tone,
+                                            targetAudience: data.targetAudience,
                                             characterDescriptions: data.charactersDescription,
                                         }}
                                         disabled={isLoading}

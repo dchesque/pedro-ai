@@ -26,12 +26,20 @@ export interface Short {
     id: string
     title?: string
     summary?: string
-    theme: string
+
+    premise?: string // User Input V2
+    theme: string // Legacy or Mapped
+
     targetDuration: number
-    style: string
+
+    styleId?: string
+    style?: string // Legacy or Name
+
+    toneId?: string
+    tone?: any // Tone object if expanded
+
     aiModel?: string
-    synopsis?: string // Novo campo
-    tone?: string    // Novo campo
+    synopsis?: string
     script?: any
     hook?: string
     cta?: string
@@ -48,9 +56,12 @@ export interface Short {
 }
 
 export interface CreateShortInput {
-    theme: string
+    premise: string // Required V2
+    theme?: string // Legacy
     targetDuration?: number
-    style?: string
+    styleId?: string
+    toneId?: string
+    style?: string // Legacy
     aiModel?: string
 }
 
@@ -131,6 +142,18 @@ export function useRegenerateScript() {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['shorts', data.short.id] })
             queryClient.invalidateQueries({ queryKey: ['credits'] })
+        }
+    })
+}
+
+// Regenerar short (recomeçar do zero)
+export function useRegenerateShort() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: (shortId: string) =>
+            api.post<{ success: true; script: any }>(`/api/shorts/${shortId}/regenerate`),
+        onSuccess: (_, shortId) => {
+            queryClient.invalidateQueries({ queryKey: ['shorts', shortId] })
         }
     })
 }

@@ -16,6 +16,7 @@ const requestSchema = z.object({
         title: z.string().optional(),
         synopsis: z.string().optional(),
         tone: z.string().optional(),
+        targetAudience: z.string().optional(),
         fieldType: z.enum(['title', 'synopsis', 'narration', 'visualPrompt']).optional(),
     }).optional(),
 })
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
         let systemPrompt = `Você é um assistente de escrita criativa especializado em roteiros para vídeos curtos (shorts/reels).
 ${context?.fieldType ? FIELD_CONTEXT[context.fieldType] : ''}
 ${context?.tone ? `O tom desejado é: ${context.tone}.` : ''}
+${context?.targetAudience ? `Público-alvo: ${context.targetAudience}.` : ''}
 ${context?.title ? `Título do projeto: ${context.title}` : ''}
 
 Responda APENAS com o texto melhorado, sem explicações ou comentários adicionais.`
@@ -83,7 +85,7 @@ ${text}`
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.7,
-            maxTokens: 2000,
+            // maxTokens removed
         })
 
         logger.info('AI assist response', {

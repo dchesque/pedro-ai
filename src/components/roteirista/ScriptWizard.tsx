@@ -34,10 +34,13 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
         if (initialData) {
             return {
                 title: initialData.title || '',
+                premise: initialData.premise || initialData.theme || '',
                 theme: initialData.theme || '',
                 synopsis: initialData.synopsis || '',
+                toneId: initialData.toneId || '',
                 tone: initialData.tone || 'épico',
-                styleId: initialData.style || '',
+                targetAudience: initialData.targetAudience || '',
+                styleId: initialData.style || initialData.styleId || '',
                 sceneCount: initialData.sceneCount || initialData.scenes?.length || 7,
                 characterIds: initialData.characterIds || [],
                 scenes: initialData.scenes?.map((s: any) => ({
@@ -51,9 +54,12 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
         }
         return {
             title: '',
+            premise: '',
             theme: '',
             synopsis: '',
+            toneId: '',
             tone: 'épico',
+            targetAudience: '',
             sceneCount: 7,
             characterIds: [],
             scenes: [],

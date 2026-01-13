@@ -1,6 +1,6 @@
 {
   "name": "nextjs-saas-template",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -102,5 +102,8 @@
   },
   "overrides": {
     "jsondiffpatch": "^0.7.2"
+  },
+  "prisma": {
+    "seed": "node scripts/seed-tones.js"
   }
 }

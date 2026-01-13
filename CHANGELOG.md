@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - 2026-01-13
+
+### Added
+- **Gestão de Tons de Voz**: Nova entidade `Tone` e API completa (/api/tones) para definir instruções de voz independentes dos estilos.
+- **Roteirista Wizard V2**: Interface completamente nova em `/roteirista/novo` com 4 etapas (Conceito, Personagens, Cenas, Revisão).
+    - **Step 2 (Cenas)**: Suporte a Drag & Drop para reordenar cenas e edição inline de narração/visual.
+    - **AI Assistance**: Botões contextuais para melhorar, expandir ou traduzir textos diretamente no formulário.
+- **Hooks Granulares**: `useSaveScript` atualizado para suportar a nova estrutura de dados V2.
+
+### Changed
+- **Modelo de Estilos Refatorado**: Removidos campos legados (`targetDuration`, `suggestedSceneCount`) em favor de lógica dinâmica no frontend.
+- **Interface de Estilos**: Nova organização com Tabs separando "Estilos Visuais" de "Tons de Voz".
+- **Cálculo de Duração**: O `targetDuration` do Short agora é calculado dinamicamente baseado na soma das durações das cenas.
+
+### Fixed
+- **Sync de Duração**: Corrigido bug onde o roteiro salvo ignorava a duração real das cenas editadas.
+
 ## [1.8.0] - 2026-01-12
 
 ### Added

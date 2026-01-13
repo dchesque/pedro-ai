@@ -26,18 +26,16 @@ export function StylePreviewCard({ style }: StylePreviewCardProps) {
                 </p>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-muted-foreground border-t border-primary/10 pt-3">
-                    <div className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3" />
-                        <span>{style.targetDuration}s sugeridos</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Layout className="h-3 w-3" />
-                        <span>{style.suggestedSceneCount} cenas base</span>
-                    </div>
-                    {style.defaultTone && (
+                    {style.suggestedTone && (
                         <div className="flex items-center gap-1.5">
                             <Tag className="h-3 w-3" />
-                            <span>Tom: {style.defaultTone}</span>
+                            <span>Tom: {style.suggestedTone.name}</span>
+                        </div>
+                    )}
+                    {style.targetAudience && (
+                        <div className="flex items-center gap-1.5">
+                            <Layout className="h-3 w-3" />
+                            <span>Público: {style.targetAudience}</span>
                         </div>
                     )}
                 </div>

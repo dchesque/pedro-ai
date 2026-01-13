@@ -1,7 +1,7 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText } from 'ai'
 import type { ShortScript } from './types'
-import { resolveAgent, resolveStyle } from './resolver'
+import { resolveAgent, resolveStyle, ResolvedStyle } from './resolver'
 import { AgentType } from '../../../prisma/generated/client_final'
 import { createLogger } from '@/lib/logger'
 
@@ -16,7 +16,7 @@ const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-const USER_PROMPT_TEMPLATE = (theme: string, duration: number, styleName: string, characters: CharacterInfo[] = []) => {
+const USER_PROMPT_TEMPLATE = (theme: string, duration: number, styleName: string, characters: CharacterInfo[] = [], toneName?: string, targetAudience?: string) => {
     const charactersPrompt = characters.length > 0
         ? `
 PERSONAGENS DISPONÍVEIS:
@@ -28,11 +28,16 @@ REGRAS DE PERSONAGEM:
 `
         : ''
 
+    const audiencePrompt = targetAudience ? `PÚBLICO-ALVO: ${targetAudience}` : ''
+    const tonePrompt = toneName ? `TOM DE VOZ: ${toneName}` : ''
+
     return `
 Crie um roteiro para um short sobre:
-TEMA: ${theme}
+TEMA/PREMISSA: ${theme}
 DURAÇÃO ALVO: ${duration} segundos
 ESTILO: ${styleName}
+${tonePrompt}
+${audiencePrompt}
 ${charactersPrompt}
 
 Retorne um JSON com a seguinte estrutura:
@@ -62,21 +67,48 @@ export async function generateScript(
     styleKey: string,
     userId?: string,
     characters: CharacterInfo[] = [],
-    modelOverride?: string
+    modelOverride?: string,
+    // New optional params to support V2 system
+    styleObject?: any,
+    toneObject?: any,
+    targetAudience?: string
 ): Promise<ShortScript> {
     const startTime = log.start('Gerando script', { theme, duration, style: styleKey, userId })
 
     // Resolver agente e estilo
     const agent = await resolveAgent(AgentType.SCRIPTWRITER, userId)
-    const style = await resolveStyle(styleKey, userId)
+
+    // Resolve style: Use passed object or resolve legacy key
+    let style: ResolvedStyle
+    if (styleObject) {
+        style = {
+            key: styleObject.id, // Use ID as key
+            name: styleObject.name,
+            description: styleObject.description || '',
+            icon: styleObject.icon || '🎨',
+            scriptwriterPrompt: styleObject.scriptwriterPrompt || '',
+            promptEngineerPrompt: styleObject.promptEngineerPrompt || '', // Not used here but good to have
+            visualStyle: styleObject.visualPrompt || '',
+            negativePrompt: '', // Not in new Style model directly? Or handled validation side
+            source: 'user' // Assumed
+        }
+    } else {
+        style = await resolveStyle(styleKey, userId)
+    }
 
     log.info('🤖 Configuração carregada', {
         agentSource: agent.source,
         styleSource: style.source,
-        model: agent.model
+        model: agent.model,
+        tone: toneObject?.name
     })
 
-    const fullSystemPrompt = `${agent.systemPrompt}\n\n${style.scriptwriterPrompt}`
+    let fullSystemPrompt = `${agent.systemPrompt}\n\n${style.scriptwriterPrompt}`
+
+    // Append Tone prompt if present
+    if (toneObject?.promptFragment) {
+        fullSystemPrompt += `\n\nINSTRUÇÕES DE TOM (${toneObject.name}):\n${toneObject.promptFragment}`
+    }
 
     try {
         const modelToUse = modelOverride || agent.model
@@ -84,7 +116,7 @@ export async function generateScript(
         const { text } = await generateText({
             model: openrouter(modelToUse as any),
             system: fullSystemPrompt,
-            prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name, characters),
+            prompt: USER_PROMPT_TEMPLATE(theme, duration, style.name, characters, toneObject?.name, targetAudience),
             temperature: agent.temperature,
         })
 

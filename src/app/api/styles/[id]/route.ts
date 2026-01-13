@@ -8,12 +8,14 @@ const updateStyleSchema = z.object({
     description: z.string().max(500).optional(),
     icon: z.string().max(10).optional(),
     contentType: z.enum(['news', 'story', 'meme', 'educational', 'motivational', 'tutorial', 'custom']).optional(),
+    // Campos novos
+    targetAudience: z.string().max(200).optional(),
+    keywords: z.array(z.string()).optional(),
+    suggestedToneId: z.string().optional().nullable(),
+
     scriptwriterPrompt: z.string().max(5000).optional(),
-    targetDuration: z.number().min(15).max(180).optional(),
-    suggestedSceneCount: z.number().min(3).max(15).optional(),
     narrativeStyle: z.string().max(50).optional(),
     languageStyle: z.string().max(50).optional(),
-    defaultTone: z.string().max(50).optional(),
     exampleHook: z.string().max(500).optional(),
     exampleCta: z.string().max(500).optional(),
     visualPrompt: z.string().max(2000).optional(),
@@ -40,25 +42,31 @@ export async function GET(
 
         const { id } = await params
 
-        // Usar QueryRaw para evitar erros de validação do Client
-        const styles: any = await db.$queryRaw`
-            SELECT * FROM "Style"
-            WHERE id = ${id}
-            AND (
-                "userId" = ${user.id} 
-                OR "userId" IS NULL 
-                OR "isPublic" = true
-            )
-            LIMIT 1
-        `
-
-        const style = styles[0]
+        const style = await db.style.findFirst({
+            where: {
+                id,
+                OR: [
+                    { userId: user.id },
+                    { userId: null },
+                    { isPublic: true },
+                    { isDefault: true }
+                ]
+            },
+            include: {
+                suggestedTone: true
+            }
+        })
 
         if (!style) {
             return NextResponse.json({ error: 'Style not found' }, { status: 404 })
         }
 
-        return NextResponse.json({ style })
+        return NextResponse.json({
+            style: {
+                ...style,
+                type: style.userId ? 'personal' : 'system'
+            }
+        })
     } catch (error: any) {
         console.error('[GET_STYLE_ERROR]', error)
         return NextResponse.json({ error: 'Failed to fetch style', message: error.message }, { status: 500 })
@@ -139,12 +147,6 @@ export async function DELETE(
         if (!existingStyle) {
             return NextResponse.json({ error: 'Style not found' }, { status: 404 })
         }
-
-        // Verificar se não está sendo usado por shorts (opcional: o schema tem Cascade se configurado, mas aqui apenas desvinculamos ou excluímos)
-        // No schema atual, Short possui styleId opcional e não tem Cascade onDelete: Cascade em Style.
-        // Mas a relação Short -> Style não tem onDelete configurado explicitamente na ida.
-        // Vamos apenas excluir o estilo. Shorts com este styleId ficarão com a referência, mas sem o objeto Style se não for Cascade.
-        // Na verdade, adicionei a relação na volta mas não configurei o comportamento de delete no Short.
 
         await db.style.delete({
             where: { id }

@@ -15,12 +15,20 @@ const log = createLogger('shorts/pipeline')
 interface CreateShortInput {
     userId: string
     clerkUserId: string
-    theme: string
+    // New fields
+    premise: string
+    targetAudience?: string
+    toneId?: string
+    styleId?: string
+
+    // Legacy fields maintained for compatibility or derived
+    theme?: string
     title?: string
     synopsis?: string
-    tone?: string
+    tone?: string // Legacy string tone, deprecated
+    style?: string // Legacy string style, deprecated
+
     targetDuration?: number
-    style?: string
     aiModel?: string
     status?: string
     characterIds?: string[]
@@ -38,9 +46,9 @@ interface CreateShortInput {
 export async function createShort(input: CreateShortInput) {
     log.info('📝 Criando short', {
         userId: input.userId,
-        theme: input.theme,
-        title: input.title,
-        status: input.status,
+        premise: input.premise,
+        styleId: input.styleId,
+        toneId: input.toneId,
     })
 
     const short = await db.$transaction(async (tx) => {
@@ -49,12 +57,30 @@ export async function createShort(input: CreateShortInput) {
             data: {
                 userId: input.userId,
                 clerkUserId: input.clerkUserId,
-                theme: input.theme,
+                premise: input.premise,
+                // Map premise to theme if theme not provided (required field)
+                theme: input.theme || input.premise,
                 title: input.title,
                 synopsis: input.synopsis,
-                tone: input.tone,
+
+                toneId: input.toneId,
+                // Fallback to legay tone string if id not provided? Or just store legacy string.
+                // Assuming legacy tone string is optional but model has it?
+                // Model: toneId String?, tone Tone? @relation...
+                // Wait, previously `tone` field was String? NO.
+                // In my schema update I didn't verify `tone` string field removal.
+                // Step 54 said: "Removed/Modified: The existing `tone` field (String) was replaced by `toneId` (FK)."
+                // SO `tone` String field DOES NOT EXIST anymore.
+                // But `style` String field EXISTS (line 148 in Step 212 view).
+                // `toneId` exists (line 153).
+
+                // So I CANNOT pass `tone: input.tone`.
+
                 targetDuration: input.targetDuration ?? 30,
+                styleId: input.styleId,
+                // Check if style string field exists: Yes, line 148: style String @default("engaging")
                 style: input.style ?? 'engaging',
+
                 aiModel: input.aiModel ?? 'deepseek/deepseek-chat',
                 status: (input.status || 'DRAFT') as ShortStatus,
             },
@@ -99,7 +125,13 @@ export async function createShort(input: CreateShortInput) {
  * 2.2. Gerar Roteiro (DRAFT → SCRIPT_READY)
  */
 export async function generateScript(shortId: string): Promise<ShortScript> {
-    const short = await db.short.findUniqueOrThrow({ where: { id: shortId } })
+    const short = await db.short.findUniqueOrThrow({
+        where: { id: shortId },
+        include: {
+            tone: true,
+            styleRelation: true
+        }
+    })
 
     const modelId = short.aiModel || await getDefaultModel('agent_scriptwriter')
     const model = getModelById(modelId)
@@ -147,12 +179,15 @@ export async function generateScript(shortId: string): Promise<ShortScript> {
 
     try {
         const script = await aiGenerateScript(
-            short.theme,
+            short.premise || short.theme, // Use premise if available (V2)
             short.targetDuration,
             short.style,
             short.userId,
             charactersForScript,
-            modelId // Passar o modelo para o agente
+            modelId, // Passar o modelo para o agente
+            short.styleRelation, // New
+            short.tone, // New
+            short.styleRelation?.targetAudience || undefined // New
         )
 
         log.info('📄 Roteiro recebido', {

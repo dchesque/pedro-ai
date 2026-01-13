@@ -114,17 +114,18 @@ export function StyleCard({ style }: { style: Style }) {
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] sm:text-xs">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>{style.targetDuration}s</span>
-                    </div>
+                    {/* Removed targetDuration */}
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Layout className="h-3 w-3" />
-                        <span>{style.suggestedSceneCount} cenas</span>
+                        <span className="truncate" title={style.targetAudience || 'Geral'}>
+                            {style.targetAudience || 'Público Geral'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Tag className="h-3 w-3" />
-                        <span>{style.defaultTone || 'Vários'}</span>
+                        <span className="truncate" title={style.suggestedTone?.name || 'Vários'}>
+                            {style.suggestedTone?.name || 'Vários'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Video className="h-3 w-3" />

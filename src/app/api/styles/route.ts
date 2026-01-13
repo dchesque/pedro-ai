@@ -3,23 +3,30 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { auth } from '@clerk/nextjs/server'
 
+// Schema atualizado conforme Prisma
 const styleSchema = z.object({
     name: z.string().min(1).max(100),
     description: z.string().max(500).optional(),
     icon: z.string().max(10).optional(),
     contentType: z.enum(['news', 'story', 'meme', 'educational', 'motivational', 'tutorial', 'custom']),
+
+    // Novos campos
+    targetAudience: z.string().max(200).optional(),
+    keywords: z.array(z.string()).optional(),
+    suggestedToneId: z.string().optional(),
+
     scriptwriterPrompt: z.string().max(5000).optional(),
-    targetDuration: z.number().min(15).max(180).default(45),
-    suggestedSceneCount: z.number().min(3).max(15).default(7),
     narrativeStyle: z.string().max(50).optional(),
     languageStyle: z.string().max(50).optional(),
-    defaultTone: z.string().max(50).optional(),
+
+    // Campos antigos removidos: targetDuration, suggestedSceneCount, defaultTone
+
     exampleHook: z.string().max(500).optional(),
     exampleCta: z.string().max(500).optional(),
     visualPrompt: z.string().max(2000).optional(),
 })
 
-// GET /api/styles - Listar estilos do usuário
+// GET /api/styles - Listar estilos do usuário + sistema
 export async function GET() {
     try {
         const { userId } = await auth()
@@ -27,7 +34,6 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Buscar usuário no banco local
         const user = await db.user.findUnique({
             where: { clerkId: userId }
         })
@@ -36,25 +42,34 @@ export async function GET() {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        // Usar QueryRaw para evitar erros de validação do Client que não pôde ser gerado (file lock no Windows)
-        const styles: any = await db.$queryRaw`
-            SELECT 
-                s.*,
-                (SELECT COUNT(*)::int FROM "Short" sh WHERE sh."styleId" = s.id) as "shortsCount"
-            FROM "Style" s
-            WHERE s."userId" = ${user.id} 
-               OR s."userId" IS NULL 
-               OR s."isPublic" = true 
-               OR s."isDefault" = true
-            ORDER BY s."isDefault" DESC, s."usageCount" DESC, s."createdAt" DESC
-        `
+        const styles = await db.style.findMany({
+            where: {
+                OR: [
+                    { userId: user.id },
+                    { userId: null }, // System styles
+                    { isPublic: true },
+                    { isDefault: true }
+                ]
+            },
+            include: {
+                _count: {
+                    select: { shorts: true }
+                },
+                suggestedTone: true // Include tone details
+            },
+            orderBy: [
+                { isDefault: 'desc' },
+                { usageCount: 'desc' },
+                { createdAt: 'desc' }
+            ]
+        })
 
-        // Mapear para o formato que o frontend espera
-        const mappedStyles = styles.map((s: any) => ({
+        // Mapear para adicionar type e formatar
+        const mappedStyles = styles.map((s) => ({
             ...s,
-            _count: {
-                shorts: s.shortsCount || 0
-            }
+            id: s.id,
+            type: s.userId ? 'personal' : 'system',
+            // Conversão de null para undefined se necessário, ou manter
         }))
 
         return NextResponse.json({ styles: mappedStyles })
@@ -91,10 +106,17 @@ export async function POST(req: Request) {
             data: {
                 ...parsed.data,
                 userId: user.id,
+                // Garantir keywords array
+                keywords: parsed.data.keywords || [],
             }
         })
 
-        return NextResponse.json({ style })
+        return NextResponse.json({
+            style: {
+                ...style,
+                type: 'personal' // Sempre personal ao criar
+            }
+        })
     } catch (error: any) {
         return NextResponse.json({ error: 'Failed to create style', message: error.message }, { status: 500 })
     }

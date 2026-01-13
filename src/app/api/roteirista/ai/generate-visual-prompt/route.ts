@@ -14,6 +14,8 @@ const requestSchema = z.object({
     stylePrompt: z.string().optional(),
     characterDescriptions: z.string().optional(),
     tone: z.string().optional(),
+    targetAudience: z.string().optional(),
+    toneId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -70,7 +72,7 @@ Responda APENAS com o prompt em inglês, sem explicações.`
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.7,
-            maxTokens: 500,
+            // maxTokens removed
         })
 
         const visualPrompt = text.trim()
