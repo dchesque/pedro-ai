@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db';
 
 export async function getPromptTemplate(key: string): Promise<string | null> {
-    const prompt = await prisma.systemPrompt.findUnique({
+    const prompt = await db.systemPrompt.findUnique({
         where: { key }
     });
 
