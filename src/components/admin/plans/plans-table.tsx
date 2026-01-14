@@ -59,12 +59,12 @@ interface PlansTableProps {
   onToggleActive: (planId: string) => void;
 }
 
-export function PlansTable({ 
-  plans, 
-  loading = false, 
-  onEdit, 
-  onDelete, 
-  onToggleActive 
+export function PlansTable({
+  plans,
+  loading = false,
+  onEdit,
+  onDelete,
+  onToggleActive
 }: PlansTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [planToDelete, setPlanToDelete] = React.useState<{ id: string; name: string } | null>(null);
@@ -80,9 +80,9 @@ export function PlansTable({
     if (cents == null) return '—';
     const currencyCode = currency?.toUpperCase() || 'USD';
     try {
-      return new Intl.NumberFormat(undefined, { 
-        style: 'currency', 
-        currency: currencyCode 
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currencyCode
       }).format(cents / 100);
     } catch {
       return `${currencyCode} ${(cents / 100).toFixed(2)}`;
@@ -209,7 +209,7 @@ export function PlansTable({
                 </>
               )}
             </DropdownMenuItem>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => handleDeleteClick(plan.id, plan.name)}
               className="text-destructive focus:text-destructive"
             >

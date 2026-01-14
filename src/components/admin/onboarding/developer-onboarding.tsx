@@ -86,17 +86,17 @@ export function DeveloperOnboarding({ envChecklist, openRouterConfigured }: { en
   const planStepState: StepState = !clerkEnvReady
     ? "pending"
     : lastPlanSync
-    ? "complete"
-    : hasPlans
-    ? "info"
-    : "pending";
+      ? "complete"
+      : hasPlans
+        ? "info"
+        : "pending";
   const planStepHelper = !clerkEnvReady
     ? `Configure as chaves do Clerk (${missingClerkEnvLabel}) para continuar`
     : lastPlanSync
-    ? `Última sincronização manual em ${datetimeFormatter.format(lastPlanSync.date)}`
-    : hasPlans
-    ? "Planos criados no Clerk. Sincronize para importar."
-    : "Crie e sincronize um plano de teste no Clerk";
+      ? `Última sincronização manual em ${datetimeFormatter.format(lastPlanSync.date)}`
+      : hasPlans
+        ? "Planos criados no Clerk. Sincronize para importar."
+        : "Crie e sincronize um plano de teste no Clerk";
   const handleSyncPlans = async () => {
     try {
       const result = await fetchClerkPlans();
@@ -224,12 +224,12 @@ export function DeveloperOnboarding({ envChecklist, openRouterConfigured }: { en
             !clerkEnvReady
               ? `Configure as chaves do Clerk (${missingClerkEnvLabel}) para liberar esta etapa`
               : lastUserSyncAt
-              ? `Rodado em ${datetimeFormatter.format(lastUserSyncAt)}`
-              : loadingUsers
-              ? "Conferindo usuários..."
-              : hasUsers
-              ? "Usuários já existem localmente"
-              : "Nenhum usuário encontrado localmente"
+                ? `Rodado em ${datetimeFormatter.format(lastUserSyncAt)}`
+                : loadingUsers
+                  ? "Conferindo usuários..."
+                  : hasUsers
+                    ? "Usuários já existem localmente"
+                    : "Nenhum usuário encontrado localmente"
           }
         >
           <p className="text-sm text-muted-foreground">
@@ -373,19 +373,19 @@ function EnvChecklist({ items }: { items: EnvChecklistItem[] }) {
   const hasAdminConfig = adminItems.some(item => item.isConfigured);
   const adminEmailsItem = items.find(item => item.key === 'ADMIN_EMAILS');
   const adminUserIdsItem = items.find(item => item.key === 'ADMIN_USER_IDS');
-  
+
   const adminEmails = adminEmailsItem?.value?.split(',').map(e => e.trim()).filter(Boolean) || [];
   const adminUserIds = adminUserIdsItem?.value?.split(',').map(id => id.trim()).filter(Boolean) || [];
 
   const storageItems = items.filter(item => item.key === 'BLOB_READ_WRITE_TOKEN' || item.key === 'REPLIT_STORAGE_BUCKET_ID');
   const hasStorageConfig = storageItems.some(item => item.isConfigured);
-  
+
   // Ordenar: não configurados primeiro, depois configurados
   const sortedItems = [...items].sort((a, b) => {
     if (a.isConfigured === b.isConfigured) return 0;
     return a.isConfigured ? 1 : -1;
   });
-  
+
   return (
     <div className="space-y-3">
       {sortedItems.map((item) => {
@@ -394,14 +394,14 @@ function EnvChecklist({ items }: { items: EnvChecklistItem[] }) {
         const showAdminWarning = isAdminItem && !hasAdminConfig;
         const showStorageWarning = isStorageItem && !hasStorageConfig;
         const isNotConfigured = !item.isConfigured;
-        
+
         return (
           <div
             key={item.key}
             className={cn(
               "flex flex-col gap-3 rounded-lg border p-4",
-              item.isConfigured 
-                ? "border-border/60 bg-background/40" 
+              item.isConfigured
+                ? "border-border/60 bg-background/40"
                 : "border-dashed border-amber-500/50 bg-amber-500/5"
             )}
           >
@@ -454,7 +454,7 @@ function EnvChecklist({ items }: { items: EnvChecklistItem[] }) {
           </div>
         );
       })}
-      
+
       {/* Mostrar lista de admins configurados */}
       {hasAdminConfig && (adminEmails.length > 0 || adminUserIds.length > 0) && (
         <div className="rounded-lg border border-emerald-300/40 bg-emerald-500/10 p-4">
@@ -632,17 +632,17 @@ INSTRUÇÕES:
         </ConfigSection>
 
         <ConfigSection title="Analytics (variáveis de ambiente)">
-          <ConfigItem 
-            label="Google Tag Manager" 
-            value={site.analytics.gtmId || "Não configurado (NEXT_PUBLIC_GTM_ID)"} 
+          <ConfigItem
+            label="Google Tag Manager"
+            value={site.analytics.gtmId || "Não configurado (NEXT_PUBLIC_GTM_ID)"}
           />
-          <ConfigItem 
-            label="Google Analytics 4" 
-            value={site.analytics.gaMeasurementId || "Não configurado (NEXT_PUBLIC_GA_ID)"} 
+          <ConfigItem
+            label="Google Analytics 4"
+            value={site.analytics.gaMeasurementId || "Não configurado (NEXT_PUBLIC_GA_ID)"}
           />
-          <ConfigItem 
-            label="Facebook Pixel" 
-            value={site.analytics.facebookPixelId || "Não configurado (NEXT_PUBLIC_FACEBOOK_PIXEL_ID)"} 
+          <ConfigItem
+            label="Facebook Pixel"
+            value={site.analytics.facebookPixelId || "Não configurado (NEXT_PUBLIC_FACEBOOK_PIXEL_ID)"}
           />
           <div className="mt-3 rounded-md border border-amber-300/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
             <p className="font-semibold mb-1">⚠️ Importante:</p>

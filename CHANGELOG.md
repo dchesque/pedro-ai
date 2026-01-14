@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [3.1.1] - 2026-01-14
+
+### Added
+- **Módulo de Prompts**: Organização de prompts por módulo na interface administrativa.
+
+### Fixed
+- **Prompt Resolver**: Correção na importação do banco de dados (db) que causava erro 500.
+- **Error Handling**: Melhoria no tratamento de erros e logs para erros 500 nos endpoints de geração.
+
+### Changed
+- **Code Quality**: Formatação e padronização de código em diversos componentes administrativos e páginas.
+
+
 ## [3.1.0] - 2026-01-14
 
 ### Added

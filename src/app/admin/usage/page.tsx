@@ -173,7 +173,7 @@ export default function UsagePage() {
             <div>
               <p className="text-muted-foreground text-sm">Média de Créditos/Operação (página)</p>
               <p className="text-2xl font-bold text-foreground mt-1">
-                {usageHistory.length > 0 
+                {usageHistory.length > 0
                   ? Math.round(totalCreditsUsed / usageHistory.length)
                   : 0}
               </p>
@@ -360,7 +360,7 @@ function JsonCell({ value }: { value: unknown }) {
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] rounded border border-border">
             <pre className="p-4 text-sm whitespace-pre-wrap break-words text-muted-foreground">
-{safeStringify(value, 2)}
+              {safeStringify(value, 2)}
             </pre>
           </ScrollArea>
           <div className="flex justify-end">

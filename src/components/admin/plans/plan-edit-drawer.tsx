@@ -17,12 +17,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { 
-  AlertTriangle, 
-  Save, 
-  Package, 
-  CreditCard, 
-  FileText, 
+import {
+  AlertTriangle,
+  Save,
+  Package,
+  CreditCard,
+  FileText,
   Sparkles,
   MousePointer,
   Settings,
@@ -95,13 +95,13 @@ const parsePriceInput = (value: string) => {
 
 
 
-export function PlanEditDrawer({ 
-  isOpen, 
-  onClose, 
-  plan, 
-  clerkPlanDetails, 
-  onSave, 
-  isSaving = false 
+export function PlanEditDrawer({
+  isOpen,
+  onClose,
+  plan,
+  clerkPlanDetails,
+  onSave,
+  isSaving = false
 }: PlanEditDrawerProps) {
   const [editedPlan, setEditedPlan] = useState<BillingPlan | null>(plan);
 
@@ -205,8 +205,8 @@ export function PlanEditDrawer({
                 {editedPlan.isNew ? 'Criar Novo Plano' : editedPlan.name}
               </SheetTitle>
               <SheetDescription>
-                {editedPlan.isNew 
-                  ? 'Configure um novo plano de assinatura' 
+                {editedPlan.isNew
+                  ? 'Configure um novo plano de assinatura'
                   : 'Edite as configurações do plano'}
               </SheetDescription>
             </div>
@@ -216,15 +216,15 @@ export function PlanEditDrawer({
         <ScrollArea className="flex-1 overflow-y-auto">
           <div className="px-6 py-6 space-y-8">
             {/* Plan Source */}
-            <DrawerSection 
+            <DrawerSection
               title="Origem do Plano"
               icon={<Settings className="h-4 w-4" />}
-              helpText={isClerkPlan 
-                ? "Este plano está sincronizado com o Clerk e alguns campos não podem ser editados" 
+              helpText={isClerkPlan
+                ? "Este plano está sincronizado com o Clerk e alguns campos não podem ser editados"
                 : "Plano manual permite configuração completa de todos os campos"}
             >
               <div className="flex items-center flex-wrap gap-3">
-                <Badge 
+                <Badge
                   variant={isClerkPlan ? 'default' : 'secondary'}
                   className="gap-1.5"
                 >
@@ -248,7 +248,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* Basic Information */}
-            <DrawerSection 
+            <DrawerSection
               title="Informações Básicas"
               icon={<FileText className="h-4 w-4" />}
               description="Defina o nome e os créditos mensais do plano"
@@ -302,7 +302,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* Pricing */}
-            <DrawerSection 
+            <DrawerSection
               title="Configuração de Preços"
               icon={<DollarSign className="h-4 w-4" />}
               description={isClerkPlan ? "Preços sincronizados do Clerk" : "Configure os valores do plano"}
@@ -316,18 +316,18 @@ export function PlanEditDrawer({
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Preço Mensal</Label>
-                      <Input 
-                        disabled 
-                        className="bg-muted font-mono" 
-                        value={editedPlan.priceMonthlyCents != null ? `${currencyDisplay} ${(editedPlan.priceMonthlyCents/100).toFixed(2)}` : '—'} 
+                      <Input
+                        disabled
+                        className="bg-muted font-mono"
+                        value={editedPlan.priceMonthlyCents != null ? `${currencyDisplay} ${(editedPlan.priceMonthlyCents / 100).toFixed(2)}` : '—'}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Preço Anual</Label>
-                      <Input 
-                        disabled 
-                        className="bg-muted font-mono" 
-                        value={editedPlan.priceYearlyCents != null ? `${currencyDisplay} ${(editedPlan.priceYearlyCents/100).toFixed(2)}` : '—'} 
+                      <Input
+                        disabled
+                        className="bg-muted font-mono"
+                        value={editedPlan.priceYearlyCents != null ? `${currencyDisplay} ${(editedPlan.priceYearlyCents / 100).toFixed(2)}` : '—'}
                       />
                     </div>
                   </FieldGroup>
@@ -402,42 +402,42 @@ export function PlanEditDrawer({
               )}
             </DrawerSection>
 
-          {/* Clerk Details */}
-          {isClerkPlan && clerkPlanDetails && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Detalhes do Clerk</Label>
-              <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 p-3 text-xs space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {clerkPlanDetails.publiclyVisible != null && (
-                    <Badge variant={clerkPlanDetails.publiclyVisible ? 'outline' : 'secondary'}>
-                      {clerkPlanDetails.publiclyVisible ? 'Público' : 'Privado'}
-                    </Badge>
-                  )}
-                  {clerkPlanDetails.isDefault && <Badge variant="outline">Plano padrão</Badge>}
-                  {clerkPlanDetails.isRecurring === false && <Badge variant="outline">Não recorrente</Badge>}
-                </div>
-                {featuresPreview.length > 0 && (
-                  <div className="space-y-1 text-muted-foreground">
-                    <p className="font-medium text-foreground">Recursos ({clerkPlanDetails.features.length})</p>
-                    <ul className="list-disc space-y-1 pl-4">
-                      {featuresPreview.map((feature, idx) => (
-                        <li key={feature?.id ?? `feature-${idx}`}>
-                          {feature?.name || feature?.slug || 'Sem nome'}
-                          {feature?.description ? ` – ${feature.description}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                    {hasMoreFeatures && (
-                      <p>+{(clerkPlanDetails?.features?.length || 0) - featuresPreview.length} outros</p>
+            {/* Clerk Details */}
+            {isClerkPlan && clerkPlanDetails && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Detalhes do Clerk</Label>
+                <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 p-3 text-xs space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {clerkPlanDetails.publiclyVisible != null && (
+                      <Badge variant={clerkPlanDetails.publiclyVisible ? 'outline' : 'secondary'}>
+                        {clerkPlanDetails.publiclyVisible ? 'Público' : 'Privado'}
+                      </Badge>
                     )}
+                    {clerkPlanDetails.isDefault && <Badge variant="outline">Plano padrão</Badge>}
+                    {clerkPlanDetails.isRecurring === false && <Badge variant="outline">Não recorrente</Badge>}
                   </div>
-                )}
+                  {featuresPreview.length > 0 && (
+                    <div className="space-y-1 text-muted-foreground">
+                      <p className="font-medium text-foreground">Recursos ({clerkPlanDetails.features.length})</p>
+                      <ul className="list-disc space-y-1 pl-4">
+                        {featuresPreview.map((feature, idx) => (
+                          <li key={feature?.id ?? `feature-${idx}`}>
+                            {feature?.name || feature?.slug || 'Sem nome'}
+                            {feature?.description ? ` – ${feature.description}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                      {hasMoreFeatures && (
+                        <p>+{(clerkPlanDetails?.features?.length || 0) - featuresPreview.length} outros</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
             {/* Description */}
-            <DrawerSection 
+            <DrawerSection
               title="Descrição do Plano"
               icon={<FileText className="h-4 w-4" />}
               description="Texto que aparece na vitrine de preços"
@@ -459,7 +459,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* Visual Customization */}
-            <DrawerSection 
+            <DrawerSection
               title="Personalização Visual"
               icon={<Sparkles className="h-4 w-4" />}
               description="Destaque este plano na vitrine"
@@ -516,7 +516,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* Features */}
-            <DrawerSection 
+            <DrawerSection
               title="Recursos do Plano"
               icon={<Package className="h-4 w-4" />}
             >
@@ -529,7 +529,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* CTA Configuration */}
-            <DrawerSection 
+            <DrawerSection
               title="Botão de Ação (CTA)"
               icon={<MousePointer className="h-4 w-4" />}
               description="Configure como os usuários interagem com este plano"
@@ -574,7 +574,7 @@ export function PlanEditDrawer({
                       placeholder={ctaValue === 'checkout' ? 'Assinar Agora' : 'Fale Conosco'}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="flex items-center gap-1">
                       <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -606,7 +606,7 @@ export function PlanEditDrawer({
             </DrawerSection>
 
             {/* Status */}
-            <DrawerSection 
+            <DrawerSection
               title="Status do Plano"
               icon={<Settings className="h-4 w-4" />}
             >
@@ -616,8 +616,8 @@ export function PlanEditDrawer({
                     Plano Ativo
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    {editedPlan.active 
-                      ? 'Este plano está visível na vitrine' 
+                    {editedPlan.active
+                      ? 'Este plano está visível na vitrine'
                       : 'Este plano está oculto da vitrine'}
                   </p>
                 </div>
@@ -651,8 +651,8 @@ export function PlanEditDrawer({
                 <Button variant="outline" onClick={onClose} disabled={isSaving}>
                   Cancelar
                 </Button>
-                <Button 
-                  onClick={handleSave} 
+                <Button
+                  onClick={handleSave}
                   disabled={isSaving || hasNameError || hasCreditsError || hasCtaUrlError}
                   className="min-w-[120px]"
                 >

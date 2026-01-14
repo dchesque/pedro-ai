@@ -74,38 +74,38 @@ export default function BillingPlansPage() {
 
     try {
       const payload = serializePlanForPersistence(editedPlan)
-      
+
       if (editedPlan.isNew) {
         // Create new plan
-          await createPlan.mutateAsync({
+        await createPlan.mutateAsync({
           clerkId: editedPlan.clerkId ?? undefined,
-            billingSource: payload.billingSource,
-            ...payload,
-          })
+          billingSource: payload.billingSource,
+          ...payload,
+        })
         // Remove from local state since it will be refetched
         setBillingPlans(prev => {
           const next = { ...prev }
           delete next[editingPlan.id]
           return next
-          })
-        } else {
+        })
+      } else {
         // Update existing plan
         const targetId = editedPlan.planId ?? editingPlan.id
-            await updatePlan.mutateAsync({
-              planId: targetId,
+        await updatePlan.mutateAsync({
+          planId: targetId,
           clerkId: editedPlan.clerkId ?? undefined,
-              ...payload,
-            })
+          ...payload,
+        })
       }
 
       toast({ title: 'Plano salvo com sucesso' })
       setEditDrawerOpen(false)
       setEditingPlan(null)
     } catch (err) {
-      toast({ 
-        title: 'Falha ao salvar plano', 
-        description: err instanceof Error ? err.message : 'Erro desconhecido', 
-        variant: 'destructive' 
+      toast({
+        title: 'Falha ao salvar plano',
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     }
   }
@@ -117,10 +117,10 @@ export default function BillingPlansPage() {
       await deletePlan.mutateAsync(targetId)
       toast({ title: 'Plano removido com sucesso' })
     } catch (err) {
-      toast({ 
-        title: 'Falha ao remover plano', 
-        description: err instanceof Error ? err.message : 'Erro desconhecido', 
-        variant: 'destructive' 
+      toast({
+        title: 'Falha ao remover plano',
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     }
   }
@@ -134,7 +134,7 @@ export default function BillingPlansPage() {
         ...plan,
         active: !(plan.active ?? true)
       })
-      
+
       const targetId = plan.planId ?? planId
       await updatePlan.mutateAsync({
         planId: targetId,
@@ -142,14 +142,14 @@ export default function BillingPlansPage() {
         ...payload,
       })
 
-      toast({ 
-        title: `Plano ${payload.active ? 'ativado' : 'desativado'} com sucesso` 
+      toast({
+        title: `Plano ${payload.active ? 'ativado' : 'desativado'} com sucesso`
       })
     } catch (err) {
-      toast({ 
-        title: 'Falha ao alterar status', 
-        description: err instanceof Error ? err.message : 'Erro desconhecido', 
-        variant: 'destructive' 
+      toast({
+        title: 'Falha ao alterar status',
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     }
   }

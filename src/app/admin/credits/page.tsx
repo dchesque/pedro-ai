@@ -218,12 +218,12 @@ export default function CreditsPage() {
                     b.creditsRemaining > 50
                       ? "border-green-500 text-green-500"
                       : b.creditsRemaining > 10
-                      ? "border-yellow-500 text-yellow-500"
-                      : "border-red-500 text-red-500"
+                        ? "border-yellow-500 text-yellow-500"
+                        : "border-red-500 text-red-500"
                   }
                 >
                   {b.creditsRemaining > 50 ? "Saudável" :
-                   b.creditsRemaining > 10 ? "Baixo" : "Crítico"}
+                    b.creditsRemaining > 10 ? "Baixo" : "Crítico"}
                 </Badge>
               );
             },
@@ -236,86 +236,86 @@ export default function CreditsPage() {
               const b = balance as CreditBalance;
               return (
                 <Dialog open={dialogOpen && selectedUser?.id === b.id} onOpenChange={(open) => {
-                setDialogOpen(open);
-                if (!open) {
-                  setSelectedUser(null);
-                  setCreditAmount("");
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedUser(b)}
-                  >
-                    Ajustar
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="text-foreground">Ajustar Créditos</DialogTitle>
-                    <DialogDescription className="text-muted-foreground">
-                      Ajustar saldo de créditos para {b.user.name || b.user.email}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Saldo Atual</Label>
-                      <div className="text-2xl font-bold text-foreground">
-                        {b.creditsRemaining.toLocaleString()} créditos
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo de Ajuste</Label>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant={adjustmentType === "add" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setAdjustmentType("add")}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Adicionar
-                        </Button>
-                        <Button
-                          variant={adjustmentType === "subtract" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setAdjustmentType("subtract")}
-                        >
-                          <Minus className="h-4 w-4 mr-1" />
-                          Subtrair
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">
-                        Quantidade
-                      </Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        placeholder="Digite a quantidade de créditos"
-                        value={creditAmount}
-                        onChange={(e) => setCreditAmount(e.target.value)}
-                        className="pl-3"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
+                  setDialogOpen(open);
+                  if (!open) {
+                    setSelectedUser(null);
+                    setCreditAmount("");
+                  }
+                }}>
+                  <DialogTrigger asChild>
                     <Button
                       variant="outline"
-                      onClick={() => setDialogOpen(false)}
+                      size="sm"
+                      onClick={() => setSelectedUser(b)}
                     >
-                      Cancelar
+                      Ajustar
                     </Button>
-                    <Button
-                      onClick={handleAdjustCredits}
-                      className="bg-primary hover:bg-primary/90"
-                      disabled={adjustCreditsMutation.isPending}
-                    >
-                      {adjustCreditsMutation.isPending ? "Aplicando..." : "Aplicar Ajuste"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="text-foreground">Ajustar Créditos</DialogTitle>
+                      <DialogDescription className="text-muted-foreground">
+                        Ajustar saldo de créditos para {b.user.name || b.user.email}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Saldo Atual</Label>
+                        <div className="text-2xl font-bold text-foreground">
+                          {b.creditsRemaining.toLocaleString()} créditos
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Ajuste</Label>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant={adjustmentType === "add" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setAdjustmentType("add")}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar
+                          </Button>
+                          <Button
+                            variant={adjustmentType === "subtract" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setAdjustmentType("subtract")}
+                          >
+                            <Minus className="h-4 w-4 mr-1" />
+                            Subtrair
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">
+                          Quantidade
+                        </Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          placeholder="Digite a quantidade de créditos"
+                          value={creditAmount}
+                          onChange={(e) => setCreditAmount(e.target.value)}
+                          className="pl-3"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={handleAdjustCredits}
+                        className="bg-primary hover:bg-primary/90"
+                        disabled={adjustCreditsMutation.isPending}
+                      >
+                        {adjustCreditsMutation.isPending ? "Aplicando..." : "Aplicar Ajuste"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
                 </Dialog>
               );
             },

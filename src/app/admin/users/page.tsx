@@ -193,7 +193,7 @@ export default function UsersPage() {
           <p className="text-muted-foreground mt-2">Gerenciar todos os usuários registrados</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={()=> setConfirmOpen(true)}>Sincronizar do Clerk</Button>
+          <Button variant="outline" onClick={() => setConfirmOpen(true)}>Sincronizar do Clerk</Button>
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -215,7 +215,7 @@ export default function UsersPage() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={runSync} disabled={syncFromClerkMutation.isPending}>
-                  {syncFromClerkMutation.isPending ? 'Sincronizando...' : 'Sincronizar' }
+                  {syncFromClerkMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -516,7 +516,7 @@ export default function UsersPage() {
             headerContent={
               <Button
                 variant="outline"
-                onClick={() => {/* refresh will happen automatically through TanStack Query */}}
+                onClick={() => {/* refresh will happen automatically through TanStack Query */ }}
                 disabled={invLoading}
               >
                 {invLoading ? 'Atualizando...' : 'Atualizar'}
@@ -527,7 +527,7 @@ export default function UsersPage() {
       </Tabs>
 
       {/* Edit User Dialog */}
-      <Dialog open={editOpen} onOpenChange={(o)=>{ setEditOpen(o); if(!o){ setEditId(null) } }}>
+      <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditId(null) } }}>
         <DialogContent className="bg-gray-800 border-gray-700">
           <DialogHeader>
             <DialogTitle className="text-white">Editar Usuário</DialogTitle>
@@ -536,11 +536,11 @@ export default function UsersPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="editName" className="text-gray-300">Nome</Label>
-              <Input id="editName" className="bg-gray-900 border-gray-700 text-white" value={editName} onChange={(e)=>setEditName(e.target.value)} />
+              <Input id="editName" className="bg-gray-900 border-gray-700 text-white" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editEmail" className="text-gray-300">E-mail</Label>
-              <Input id="editEmail" type="email" className="bg-gray-900 border-gray-700 text-white" value={editEmail} onChange={(e)=>setEditEmail(e.target.value)} />
+              <Input id="editEmail" type="email" className="bg-gray-900 border-gray-700 text-white" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editPlan" className="text-gray-300">Plano</Label>
@@ -563,7 +563,7 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="border-gray-600 text-gray-300" onClick={()=>setEditOpen(false)}>Cancelar</Button>
+            <Button variant="outline" className="border-gray-600 text-gray-300" onClick={() => setEditOpen(false)}>Cancelar</Button>
             <Button
               className="bg-primary hover:bg-primary/90"
               onClick={saveEdit}

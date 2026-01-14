@@ -135,8 +135,8 @@ function DeltaBadge({ series, goodWhenPositive = true, suffix = "" }: { series: 
         (color === 'emerald'
           ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
           : color === 'red'
-          ? 'border-red-500/20 bg-red-500/10 text-red-600'
-          : 'border-muted bg-muted/50 text-foreground/60')
+            ? 'border-red-500/20 bg-red-500/10 text-red-600'
+            : 'border-muted bg-muted/50 text-foreground/60')
       }
       title="Variação mês a mês"
     >

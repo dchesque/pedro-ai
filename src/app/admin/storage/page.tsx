@@ -74,8 +74,8 @@ export default function AdminStoragePage() {
 
       <Card className="p-6">
         <form onSubmit={onSearch} className="flex flex-col md:flex-row gap-3 mb-4">
-          <Input className="flex-1" placeholder="Pesquisar por nome, tipo, URL, nome/email do usuário..." value={q} onChange={(e)=>setQ(e.target.value)} />
-          <Select value={typeFilter} onValueChange={(v)=>{ setTypeFilter(v === 'all' ? '' : v); }}>
+          <Input className="flex-1" placeholder="Pesquisar por nome, tipo, URL, nome/email do usuário..." value={q} onChange={(e) => setQ(e.target.value)} />
+          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v === 'all' ? '' : v); }}>
             <SelectTrigger className="w-[220px]"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os tipos</SelectItem>
@@ -84,7 +84,7 @@ export default function AdminStoragePage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={userFilter} onValueChange={(v)=>{ setUserFilter(v === 'all' ? '' : v); }}>
+          <Select value={userFilter} onValueChange={(v) => { setUserFilter(v === 'all' ? '' : v); }}>
             <SelectTrigger className="w-[240px]"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os usuários</SelectItem>
