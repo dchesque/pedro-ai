@@ -4,6 +4,7 @@ import { generateText } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
+import { getPromptTemplate } from '@/lib/prompts/resolver'
 import { z } from 'zod'
 import type { AIAction, AIAssistantRequest, AIAssistantResponse } from '@/lib/roteirista/types'
 
@@ -21,19 +22,39 @@ const requestSchema = z.object({
     }).optional(),
 })
 
-const ACTION_PROMPTS: Record<AIAction, string> = {
-    improve: `Melhore este texto, tornando-o mais envolvente e bem escrito. Mantenha a mesma ideia e tamanho aproximado.`,
-    expand: `Expanda este texto com mais detalhes, descrições e profundidade. Aumente o tamanho em 2-3x mantendo a qualidade.`,
-    rewrite: `Reescreve este texto completamente de forma criativa e original, mantendo a mesma ideia central.`,
-    summarize: `Resuma este texto de forma concisa, mantendo apenas os pontos essenciais.`,
-    translate: `Traduza este texto para inglês de forma otimizada para geração de imagem com IA (Flux, Stable Diffusion). Use termos descritivos visuais.`,
+async function resolveActionPrompt(action: AIAction): Promise<string> {
+    const key = `roteirista.assist.${action}`;
+    const template = await getPromptTemplate(key);
+
+    if (template) {
+        return template;
+    }
+
+    const ACTION_PROMPTS: Record<AIAction, string> = {
+        improve: `Melhore este texto, tornando-o mais envolvente e bem escrito. Mantenha a mesma ideia e tamanho aproximado.`,
+        expand: `Expanda este texto com mais detalhes, descrições e profundidade. Aumente o tamanho em 2-3x mantendo a qualidade.`,
+        rewrite: `Reescreve este texto completamente de forma criativa e original, mantendo a mesma ideia central.`,
+        summarize: `Resuma este texto de forma concisa, mantendo apenas os pontos essenciais.`,
+        translate: `Traduza este texto para inglês de forma otimizada para geração de imagem com IA (Flux, Stable Diffusion). Use termos descritivos visuais.`,
+    }
+    return ACTION_PROMPTS[action];
 }
 
-const FIELD_CONTEXT: Record<string, string> = {
-    title: 'Este é um título de vídeo curto (short/reel).',
-    synopsis: 'Esta é a sinopse/descrição de uma história para vídeo curto.',
-    narration: 'Esta é a narração de uma cena de vídeo curto. Deve ser concisa e impactante.',
-    visualPrompt: 'Este é um prompt para geração de imagem. Deve ser descritivo e visual.',
+async function resolveFieldContext(fieldType: string): Promise<string> {
+    const key = `roteirista.context.${fieldType}`;
+    const template = await getPromptTemplate(key);
+
+    if (template) {
+        return template;
+    }
+
+    const FIELD_CONTEXT: Record<string, string> = {
+        title: 'Este é um título de vídeo curto (short/reel).',
+        synopsis: 'Esta é a sinopse/descrição de uma história para vídeo curto.',
+        narration: 'Esta é a narração de uma cena de vídeo curto. Deve ser concisa e impactante.',
+        visualPrompt: 'Este é um prompt para geração de imagem. Deve ser descritivo e visual.',
+    }
+    return FIELD_CONTEXT[fieldType] || '';
 }
 
 export async function POST(req: NextRequest) {
@@ -66,8 +87,14 @@ export async function POST(req: NextRequest) {
         })
 
         // Construir prompt do sistema
-        let systemPrompt = `Você é um assistente de escrita criativa especializado em roteiros para vídeos curtos (shorts/reels).
-${context?.fieldType ? FIELD_CONTEXT[context.fieldType] : ''}
+        const fieldContext = context?.fieldType
+            ? await resolveFieldContext(context.fieldType)
+            : '';
+
+        const systemPrompt = `Você é um assistente de escrita criativa especializado em roteiros para vídeos curtos (shorts/reels).
+
+${fieldContext}
+
 ${context?.tone ? `O tom desejado é: ${context.tone}.` : ''}
 ${context?.targetAudience ? `Público-alvo: ${context.targetAudience}.` : ''}
 ${context?.title ? `Título do projeto: ${context.title}` : ''}
@@ -75,7 +102,8 @@ ${context?.title ? `Título do projeto: ${context.title}` : ''}
 Responda APENAS com o texto melhorado, sem explicações ou comentários adicionais.`
 
         // Construir prompt do usuário
-        const userPrompt = `${ACTION_PROMPTS[action]}
+        const actionPrompt = await resolveActionPrompt(action);
+        const userPrompt = `${actionPrompt}
 
 TEXTO ORIGINAL:
 ${text}`

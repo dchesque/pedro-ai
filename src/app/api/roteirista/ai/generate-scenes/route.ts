@@ -127,34 +127,44 @@ export async function POST(req: NextRequest) {
         ESPECIFICAÇÃO:
         ${JSON.stringify(payload, null, 2)}`
 
-        const { text } = await generateText({
+        const response = await generateText({
             model: openrouter(modelId),
             system: systemPrompt,
             prompt: userPrompt,
             temperature: agent?.temperature || 0.7,
         })
 
-        // 6. Parse JSON da resposta
-        let scenesData: { scenes: Array<{ narration: string; visualDescription: string; duration: number; goal?: string; order?: number }> }
+        if (!response.text) {
+            throw new Error('No content received from AI')
+        }
+
+        let scenesData: {
+            hook?: string;
+            cta?: string;
+            scenes: Array<{
+                narration: string;
+                visualDescription: string;
+                duration: number;
+                goal?: string;
+                order?: number
+            }>
+        }
 
         try {
-            const cleanJson = text
+            // Limpar markdown code blocks se existirem
+            const jsonStr = response.text
                 .replace(/```json\n?/g, '')
                 .replace(/```\n?/g, '')
                 .trim()
-
-            scenesData = JSON.parse(cleanJson)
-        } catch (parseError) {
-            logger.error('Failed to parse scenes JSON', { response: text })
-            return NextResponse.json(
-                { error: 'Failed to parse AI response', raw: text },
-                { status: 500 }
-            )
+            scenesData = JSON.parse(jsonStr)
+        } catch (e) {
+            logger.error('Failed to parse AI response:', { responseText: response.text, error: e })
+            throw new Error('AI response format error')
         }
 
         if (!scenesData.scenes || !Array.isArray(scenesData.scenes)) {
             return NextResponse.json(
-                { error: 'Invalid scenes format from AI', raw: text },
+                { error: 'Invalid scenes format from AI', raw: response.text },
                 { status: 500 }
             )
         }
@@ -170,7 +180,21 @@ export async function POST(req: NextRequest) {
 
         logger.info('Generated scenes', { count: scenes.length })
 
-        return NextResponse.json({ scenes })
+        const hook = scenesData.hook || scenesData.scenes[0]?.narration || '';
+        const cta = scenesData.cta || scenesData.scenes[scenesData.scenes.length - 1]?.narration || '';
+
+        logger.info('Hook/CTA extraídos', {
+            hookFromField: !!scenesData.hook,
+            ctaFromField: !!scenesData.cta,
+            hook: hook.substring(0, 50) + '...',
+            cta: cta.substring(0, 50) + '...'
+        });
+
+        return NextResponse.json({
+            scenes,
+            hook,
+            cta
+        })
 
     } catch (error: any) {
         logger.error('Generate scenes error', { error })

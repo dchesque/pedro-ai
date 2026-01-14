@@ -4,6 +4,7 @@ import { generateText } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
+import { getPromptTemplate, interpolateVariables } from '@/lib/prompts/resolver'
 import { z } from 'zod'
 import type { GenerateVisualPromptRequest, GenerateVisualPromptResponse } from '@/lib/roteirista/types'
 
@@ -46,7 +47,9 @@ export async function POST(req: NextRequest) {
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const systemPrompt = `Você é um especialista em criar prompts para geração de imagens com IA (Flux, Stable Diffusion, Midjourney).
+        const systemTemplate = await getPromptTemplate('roteirista.visual.system');
+
+        const FALLBACK_SYSTEM = `Você é um especialista em criar prompts para geração de imagens com IA (Flux, Stable Diffusion, Midjourney).
 
 Sua tarefa é converter uma narração de cena em um prompt visual detalhado em INGLÊS.
 
@@ -57,11 +60,17 @@ O prompt deve incluir:
 - Ângulo de câmera sugerido
 - Estilo artístico
 
-${stylePrompt ? `ESTILO BASE: ${stylePrompt}` : ''}
-${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
-${tone ? `TOM: ${tone}` : ''}
+{{#if stylePrompt}}ESTILO BASE: {{stylePrompt}}{{/if}}
+{{#if characterDescriptions}}PERSONAGENS: {{characterDescriptions}}{{/if}}
+{{#if tone}}TOM/CLIMA: {{tone}}{{/if}}
 
-Responda APENAS com o prompt em inglês, sem explicações.`
+Responda APENAS com o prompt em inglês, sem explicações.`;
+
+        const systemPrompt = interpolateVariables(systemTemplate || FALLBACK_SYSTEM, {
+            stylePrompt: stylePrompt || '',
+            characterDescriptions: characterDescriptions || '',
+            tone: tone || ''
+        });
 
         const userPrompt = `Crie um prompt visual para esta narração:
 

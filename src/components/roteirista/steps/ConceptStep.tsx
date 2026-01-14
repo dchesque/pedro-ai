@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Wand2, Loader2, Sparkles, Settings, ExternalLink, MessageSquare, Layout } from 'lucide-react'
+import { Wand2, Loader2, Sparkles, Layout } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -22,11 +22,9 @@ import { useClimates } from '@/hooks/use-climates'
 import { useAvailableModels } from '@/hooks/use-available-models'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
-import { useRouter } from 'next/navigation'
 import type { ScriptFormData } from '@/lib/roteirista/types'
-import { StylePreviewCard } from '../StylePreviewCard'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { StyleInfoCard } from '../StyleInfoCard'
+import { ClimateInfoCard } from '../ClimateInfoCard'
 import { ClimateSelector } from '@/components/climates/ClimateSelector'
 import { FormatSelector } from '@/components/shorts/FormatSelector'
 import { CalculatedParamsDisplay } from '@/components/shorts/CalculatedParamsDisplay'
@@ -37,8 +35,6 @@ interface ConceptStepProps {
 }
 
 export function ConceptStep({ data, onChange }: ConceptStepProps) {
-    const router = useRouter()
-
     // Data Hooks
     const { data: stylesData, isLoading: loadingStyles } = useStyles()
     const { data: climatesData, isLoading: loadingClimates } = useClimates()
@@ -204,63 +200,53 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-6">
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Estilo / Regras *</Label>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => router.push('/estilos')}>
-                                                <ExternalLink className="h-3 w-3" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Gerenciar Estilos</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </div>
-                            <Select value={data.styleId || ''} onValueChange={(value) => handleChange('styleId', value)}>
-                                <SelectTrigger className="bg-background/50 h-10 font-medium">
-                                    <SelectValue placeholder="Selecione o Estilo..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {loadingStyles ? (
-                                        <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
-                                    ) : (
-                                        styles.map((style) => (
-                                            <SelectItem key={style.id} value={style.id}>
-                                                <div className="flex items-center justify-between w-full gap-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{style.icon}</span>
-                                                        <span>{style.name}</span>
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Estilo / Regras *</Label>
+                            {!data.styleId ? (
+                                <Select value={data.styleId || ''} onValueChange={(value) => handleChange('styleId', value)}>
+                                    <SelectTrigger className="bg-background/50 h-10 font-medium">
+                                        <SelectValue placeholder="Selecione o Estilo..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {loadingStyles ? (
+                                            <div className="p-2 text-sm text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
+                                        ) : (
+                                            styles.map((style) => (
+                                                <SelectItem key={style.id} value={style.id}>
+                                                    <div className="flex items-center justify-between w-full gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{style.icon}</span>
+                                                            <span>{style.name}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <StyleInfoCard
+                                    style={selectedStyle || null}
+                                    onClear={() => handleChange('styleId', '')}
+                                />
+                            )}
                         </div>
 
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Clima Narrativo *</Label>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => router.push('/estilos')}>
-                                                <MessageSquare className="h-3 w-3" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Gerenciar Climas</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </div>
-                            <ClimateSelector
-                                value={data.climateId}
-                                onValueChange={(id) => {
-                                    handleChange('climateId', id)
-                                }}
-                                compatibleClimates={selectedStyle?.compatibleClimates}
-                            />
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Clima Narrativo *</Label>
+                            {!data.climateId ? (
+                                <ClimateSelector
+                                    value={data.climateId}
+                                    onValueChange={(id) => {
+                                        handleChange('climateId', id)
+                                    }}
+                                    compatibleClimates={selectedStyle?.compatibleClimates}
+                                />
+                            ) : (
+                                <ClimateInfoCard
+                                    climate={selectedClimate || null}
+                                    onClear={() => handleChange('climateId', '')}
+                                />
+                            )}
                         </div>
                     </div>
 
@@ -343,4 +329,3 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
         </div>
     )
 }
-

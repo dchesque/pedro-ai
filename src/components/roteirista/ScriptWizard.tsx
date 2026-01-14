@@ -11,7 +11,9 @@ import { ConceptStep } from './steps/ConceptStep'
 import { CharactersStep } from './steps/CharactersStep'
 import { ScenesStep } from './steps/ScenesStep'
 import { ReviewStep } from './steps/ReviewStep'
-import { ScriptPreview } from './ScriptPreview'
+import { PreviewPanel } from './PreviewPanel'
+import { useStyles } from '@/hooks/use-styles'
+import { useClimates } from '@/hooks/use-climates'
 
 import { useSaveScript } from '@/hooks/use-script-ai'
 import { useToast } from '@/hooks/use-toast'
@@ -67,6 +69,13 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
         }
     })
 
+    // Hooks para dados completos (necessário para o PreviewPanel)
+    const { data: stylesData } = useStyles()
+    const { data: climatesData } = useClimates()
+
+    const selectedStyle = stylesData?.styles.find(s => s.id === formData.styleId)
+    const selectedClimate = climatesData?.climates.find(c => c.id === formData.climateId)
+
     const saveMutation = useSaveScript()
 
     const currentIndex = STEPS.findIndex((s) => s.id === currentStep)
@@ -89,8 +98,6 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
     const handleSave = () => {
         if (initialData) {
             // Se for edição, precisamos de um hook handleUpdateScript
-            // Simplificado: usar o mesmo hook mas com ID se necessário, 
-            // ou apenas avisar que edição total do pipeline é via nova criação
             toast({ title: 'Salvando alterações...' })
             saveMutation.mutate(formData as ScriptFormData)
         } else {
@@ -208,7 +215,11 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
                 {/* Sidebar Preview */}
                 <div className="hidden lg:block space-y-6">
                     <div className="sticky top-8">
-                        <ScriptPreview data={formData} />
+                        <PreviewPanel
+                            data={formData}
+                            style={selectedStyle}
+                            climate={selectedClimate}
+                        />
                         <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10 text-xs text-muted-foreground flex items-start gap-3">
                             <Sparkles className="h-4 w-4 text-primary shrink-0" />
                             <p>

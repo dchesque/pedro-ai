@@ -1,6 +1,24 @@
 # Changelog
 
-## [3.0.1] - 2026-01-14
+
+## [3.1.0] - 2026-01-14
+
+### Added
+- **Dynamic Prompts System**: Created `src/lib/prompts/resolver.ts` to manage centralized AI prompts from the database.
+- **Admin Prompts**: Seeded initial Roteirista prompts (`scripts/seed-roteirista-prompts.js`).
+- **Style/Climate Info Cards**: Added `StyleInfoCard` and `ClimateInfoCard` components for read-only visualization in `ConceptStep`.
+- **Enhanced Preview**: Updated `PreviewPanel` to show detailed Style (hook, cta) and Climate (emotional state, revelation, pressure) info.
+
+### Changed
+- **API Roteirista Assist**: Updated `/api/roteirista/ai/assist` to use dynamic prompts.
+- **API Suggest Titles**: Updated `/api/roteirista/ai/suggest-titles` to use dynamic prompts.
+- **API Visual Prompt**: Updated `/api/roteirista/ai/generate-visual-prompt` to use dynamic prompts.
+- **API Generate Scenes**: Updated `/api/roteirista/ai/generate-scenes` to extract and return explicit `hook` and `cta` fields.
+- **System Prompt**: Updated `SCRIPTWRITER` system prompt to v3.3 (Parsed Output + Pervasive Climate) via script.
+- **Roteirista UI**: `ConceptStep` now uses read-only cards for Style/Climate after selection.
+
+### Security
+- Added fallback prompts in code to ensure stability if DB prompts are missing.
 
 ### Changed
 - **ClimateSelector Compacto**: Redução de padding e escala visual para melhor integração com formulários padrão.

@@ -4,6 +4,7 @@ import { generateText } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
+import { getPromptTemplate, interpolateVariables } from '@/lib/prompts/resolver'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 
@@ -34,11 +35,12 @@ export async function POST(req: NextRequest) {
 
         const { theme, styleId, tone } = parsed.data
 
-        let styleInfo = ''
+        // Obter nome do estilo se fornecido
+        let styleName = ''
         if (styleId) {
             const style = await db.style.findUnique({ where: { id: styleId } })
             if (style) {
-                styleInfo = `Estilo: ${style.name} (${style.contentType}). `
+                styleName = style.name;
             }
         }
 
@@ -47,16 +49,33 @@ export async function POST(req: NextRequest) {
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const systemPrompt = `Você é um redator criativo especializado em títulos virais para vídeos curtos.
+        // Buscar templates
+        const systemTemplate = await getPromptTemplate('roteirista.titles.system');
+        const userTemplate = await getPromptTemplate('roteirista.titles.user');
+
+        const FALLBACK_SYSTEM = `Você é um redator criativo especializado em títulos virais para vídeos curtos.
 Sua tarefa é sugerir 5 títulos envolventes baseados no tema e estilo fornecidos.
-Os títulos devem ser curtos, causar curiosidade ou impacto.`
+Os títulos devem ser curtos, causar curiosidade ou impacto.
+Responda APENAS com um JSON: { "titles": ["título1", "título2", "título3"] }`;
 
-        const userPrompt = `Sugira 5 títulos para um vídeo com as seguintes características:
-Tema: ${theme}
-${styleInfo}
-Tom: ${tone || 'Livre'}
+        const FALLBACK_USER = `Crie 3 títulos para um vídeo sobre:
 
-Responda APENAS um array JSON de strings.`
+TEMA: {{theme}}
+{{#if style}}ESTILO: {{style}}{{/if}}
+{{#if tone}}TOM: {{tone}}{{/if}}
+
+Os títulos devem ser únicos e criativos.`;
+
+        const systemPrompt = systemTemplate || FALLBACK_SYSTEM;
+
+        const userPrompt = interpolateVariables(userTemplate || FALLBACK_USER, {
+            theme,
+            style: styleName,
+            tone: tone || ''
+        });
+
+        // Garantir formato de resposta JSON no system prompt se não vier do template
+        // (O template do banco já tem instrução JSON)
 
         const { text } = await generateText({
             model: openrouter(modelId),
