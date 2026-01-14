@@ -17,19 +17,19 @@ export function useSaveScript() {
             // Vamos adaptar os novos campos (synopsis, tone) no corpo da request
             const payload = {
                 title: data.title,
+                premise: data.premise || data.theme,
                 theme: data.theme,
                 synopsis: data.synopsis,
-                // tone: data.tone, // Removed
-                style: data.styleId,
+                styleId: data.styleId,
+                toneId: data.climateId,
+                aiModel: data.modelId,
                 sceneCount: data.sceneCount,
-                // Enviar cenas para o endpoint de criação
                 scenes: data.scenes.map(s => ({
                     order: s.orderIndex,
                     narration: s.narration,
-                    visualDesc: s.visualPrompt, // Mapeado para visualDesc que o ShortScene já tem
+                    visualDesc: s.visualPrompt,
                     duration: s.duration || 5,
                 })),
-                // Novos Shorts vêm com esse status
                 status: 'SCRIPT_READY',
                 characterIds: data.characterIds,
                 targetDuration: data.scenes.reduce((acc, s) => acc + (s.duration || 5), 0) || 30,

@@ -54,9 +54,8 @@ export async function POST(request: NextRequest) {
             ? 'Gere o preview comportamental baseado no contexto fornecido.'
             : `Melhore o seguinte texto:\n\n${currentText}`;
 
-        // Resolver modelo (usar 'ai_chat' como fallback para texto geral)
-        // O prompt pedia 'text' mas usamos 'ai_chat' pois é a feature key existente mais adequada
-        const modelId = await getDefaultModel('ai_chat');
+        // Resolver modelo (usar 'system_prompts' como configurado no admin)
+        const modelId = await getDefaultModel('system_prompts');
 
         const openrouter = createOpenRouter({
             apiKey: process.env.OPENROUTER_API_KEY!,

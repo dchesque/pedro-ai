@@ -89,15 +89,22 @@ export interface GenerateScenesRequest {
     theme?: string
     premise?: string
     synopsis: string
-    climate: string         // Substitui tone
-    tone?: string           // Deprecated
+    climate: string
     styleId: string
+    climateId: string
+    format: 'SHORT' | 'REEL' | 'LONG' | 'YOUTUBE'
+    characterIds?: string[]
+    advancedMode?: {
+        enabled: boolean
+        maxScenes?: number
+        avgSceneDuration?: number
+    }
     characterDescriptions?: string
     sceneCount: number
     modelId?: string
     targetAudience?: string
-    climateId?: string      // Substitui toneId
-    toneId?: string         // Deprecated
+    tone?: string
+    toneId?: string
 }
 
 // Response de cenas geradas

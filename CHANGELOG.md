@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.1] - 2026-01-14
+
+### Changed
+- **ClimateSelector Compacto**: Redução de padding e escala visual para melhor integração com formulários padrão.
+- **Tema Harmonizado**: Remoção de cores hardcoded no seletor, garantindo suporte nativo a Temas Claro/Escuro via variáveis semânticas.
+
+### Fixed
+- **Geração de Cenas (Passo 3)**: Corrigido falha na requisição por ausência de campos obrigatórios (`format`, `characterIds`).
+- **Salvamento de Roteiro (Passo 4)**: Corrigida inconsistência de payload no hook `useSaveScript` (campo `premise` e mapeamento de IDs).
+- **Overflow de Texto**: Implementado truncamento inteligente nas descrições de Clima para evitar quebra de layout no componente selecionado.
+- **Feedback ao Usuário**: Adicionadas notificações (toasts) de erro e sucesso nos processos de geração por IA.
+
+
 ## [3.0.0] - 2026-01-14
 
 ### Added

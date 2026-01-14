@@ -10,8 +10,9 @@ export interface Agent {
     slug: string
     description: string
     icon: string
-    type: 'CLIMATE' | 'STYLE' | 'CUSTOM'
+    type: 'CLIMATE' | 'STYLE' | 'CUSTOM' | 'SCRIPTWRITER' | 'PROMPT_ENGINEER' | 'NARRATOR'
     creditsPerUse: number
+    isGlobal?: boolean
     systemMessage?: string
     model?: string
     isActive?: boolean

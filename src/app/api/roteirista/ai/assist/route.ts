@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
 
         logger.info('AI assist request', { action, textLength: text.length, context })
 
-        // Buscar modelo configurado para agentes de texto
-        const modelId = await getDefaultModel('agent_scriptwriter')
+        // Buscar modelo configurado para assistentes de texto
+        const modelId = await getDefaultModel('system_prompts')
 
         // Inicializar OpenRouter provider
         const openrouter = createOpenRouter({

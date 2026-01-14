@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { ChevronLeft, Save, Sparkles, Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { ModelSelector } from '@/components/admin/model-selector'
 
 export default function AdminAgentEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -97,25 +99,33 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Configurações Básicas</CardTitle>
+                            <CardTitle className="flex items-center justify-between">
+                                Configurações Básicas
+                                {agent.isGlobal && (
+                                    <Badge className="bg-primary/10 text-primary border-primary/20">Agent de Sistema</Badge>
+                                )}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className={cn("grid gap-4", agent.isGlobal ? "grid-cols-1" : "grid-cols-2")}>
                                 <div className="space-y-2">
                                     <Label>Nome do Agent</Label>
                                     <Input
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        disabled={agent.isGlobal} // Nome do sistema geralmente é fixo
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Ícone (Emoji)</Label>
-                                    <Input
-                                        value={formData.icon}
-                                        onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                                        className="text-2xl text-center w-20"
-                                    />
-                                </div>
+                                {!agent.isGlobal && (
+                                    <div className="space-y-2">
+                                        <Label>Ícone (Emoji)</Label>
+                                        <Input
+                                            value={formData.icon}
+                                            onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                                            className="text-2xl text-center w-20"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">
@@ -136,14 +146,14 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                                 System Message (Prompt)
                             </CardTitle>
                             <CardDescription>
-                                As instruções principais que guiam o comportamento da IA. Use variáveis e regras claras de validação JSON.
+                                As instruções principais que guiam o comportamento da IA.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Textarea
                                 value={formData.systemMessage}
                                 onChange={(e) => setFormData({ ...formData, systemMessage: e.target.value })}
-                                rows={20}
+                                rows={25}
                                 className="font-mono text-sm bg-muted/30"
                             />
                         </CardContent>
@@ -166,17 +176,20 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                                 label="Configuração de IA"
                             />
 
-                            <div className="space-y-2 pt-2">
-                                <Label>Créditos por Uso</Label>
-                                <Input
-                                    type="number"
-                                    value={formData.creditsPerUse}
-                                    onChange={(e) => setFormData({ ...formData, creditsPerUse: Number(e.target.value) })}
-                                />
-                                <p className="text-[10px] text-muted-foreground">
-                                    Custo para o usuário final em créditos.
-                                </p>
-                            </div>
+                            {!agent.isGlobal && (
+                                <div className="space-y-2 pt-2">
+                                    <Label>Créditos por Uso</Label>
+                                    <Input
+                                        type="number"
+                                        value={formData.creditsPerUse}
+                                        onChange={(e) => setFormData({ ...formData, creditsPerUse: Number(e.target.value) })}
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Custo para o usuário final em créditos.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-between pt-4 border-t">
                                 <Label>Agent Ativo</Label>
                                 <Switch
@@ -187,22 +200,24 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Dados Estruturados</CardTitle>
-                            <CardDescription>
-                                Estes campos (Perguntas e Output) devem ser alterados via Seed/Database por agora devido à complexidade do JSON.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="p-3 bg-muted rounded-lg text-xs font-mono">
-                                {JSON.stringify(agent.questions, null, 2).substring(0, 100)}...
-                            </div>
-                            <Button variant="ghost" className="w-full text-xs" disabled>
-                                Editar via JSON Editor (Em breve)
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    {!agent.isGlobal && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Dados Estruturados</CardTitle>
+                                <CardDescription>
+                                    Estes campos (Perguntas e Output) devem ser alterados via Seed/Database por agora devido à complexidade do JSON.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="p-3 bg-muted rounded-lg text-xs font-mono">
+                                    {JSON.stringify(agent.questions, null, 2).substring(0, 100)}...
+                                </div>
+                                <Button variant="ghost" className="w-full text-xs" disabled>
+                                    Editar via JSON Editor (Em breve)
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

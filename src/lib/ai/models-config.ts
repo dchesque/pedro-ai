@@ -85,6 +85,13 @@ export const LLM_FEATURES = {
         modelType: 'video' as const,
         defaultModel: 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video',
     },
+    system_prompts: {
+        label: 'Assistentes de Prompt',
+        description: 'Modelo usado para sugestões de Hook, CTA, Títulos e Melhorias de Clima',
+        icon: '⚙️',
+        modelType: 'text' as const,
+        defaultModel: 'deepseek/deepseek-v3.2',
+    },
 } as const
 
 export type LLMFeatureKey = keyof typeof LLM_FEATURES

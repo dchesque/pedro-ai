@@ -43,11 +43,20 @@ export default function AdminAgentsPage() {
                             </TableRow>
                         ) : data?.agents.map((agent: any) => (
                             <TableRow key={agent.id}>
-                                <TableCell className="text-2xl">{agent.icon}</TableCell>
-                                <TableCell className="font-medium">{agent.name}</TableCell>
+                                <TableCell className="text-2xl">{agent.icon || '🤖'}</TableCell>
+                                <TableCell className="font-medium">
+                                    <div className="flex flex-col">
+                                        <span>{agent.name}</span>
+                                        {agent.isGlobal && (
+                                            <span className="text-[10px] text-primary font-bold uppercase tracking-tighter -mt-1">Sistema</span>
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell className="text-muted-foreground">{agent.slug}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">{agent.type}</Badge>
+                                    <Badge variant={agent.isGlobal ? "secondary" : "outline"} className={agent.isGlobal ? "bg-primary/10 text-primary border-primary/20" : ""}>
+                                        {agent.type}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell className="font-mono text-xs">{agent.model}</TableCell>
                                 <TableCell>

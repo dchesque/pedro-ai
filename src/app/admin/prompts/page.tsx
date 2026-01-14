@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Save, Search } from 'lucide-react';
+import { Loader2, Save, Search, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { SYSTEM_PROMPTS_CONFIG } from '@/lib/system-prompts-config';
 import {
@@ -17,6 +17,9 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog';
+import { ModelSelector } from '@/components/admin/model-selector';
+import { useAdminModels, useSaveAdminModels } from '@/hooks/use-admin-models';
+import { cn } from '@/lib/utils';
 
 interface SystemPrompt {
     id: string;
@@ -38,6 +41,48 @@ export default function SystemPromptsPage() {
     const [savingId, setSavingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingPrompt, setEditingPrompt] = useState<(SystemPrompt & { pageName: string; blockName: string }) | null>(null);
+
+    // Gestão de Modelos
+    const { data: modelsData, isLoading: loadingModels } = useAdminModels();
+    const saveModelsMutation = useSaveAdminModels();
+    const [selectedModel, setSelectedModel] = useState<{ provider: string, modelId: string }>({
+        provider: 'openrouter',
+        modelId: 'deepseek/deepseek-v3.2'
+    });
+
+    useEffect(() => {
+        if (modelsData?.models?.system_prompts) {
+            const config = modelsData.models.system_prompts;
+            if (typeof config === 'object') {
+                setSelectedModel(config);
+            } else {
+                setSelectedModel({
+                    provider: 'openrouter',
+                    modelId: config
+                });
+            }
+        }
+    }, [modelsData]);
+
+    const handleModelChange = async (provider: string, modelId: string) => {
+        if (!modelsData) return;
+
+        const newModel = { provider, modelId };
+        setSelectedModel(newModel);
+
+        const updatedModels = {
+            ...modelsData.models,
+            system_prompts: newModel
+        };
+
+        // Normalizar formato para salvar (remover strings antigas se houver)
+        const normalized: any = {};
+        Object.entries(updatedModels).forEach(([key, val]) => {
+            normalized[key] = val;
+        });
+
+        await saveModelsMutation.mutateAsync(normalized);
+    };
 
     useEffect(() => {
         fetchPrompts();
@@ -124,7 +169,31 @@ export default function SystemPromptsPage() {
                 <p className="text-muted-foreground">Gerencie templates de IA organizados por página e bloco de funcionalidade.</p>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4">
+                <Card className="bg-muted/30 border-dashed">
+                    <CardHeader className="py-4">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Modelo de IA Padrão para Assistentes
+                        </CardTitle>
+                        <CardDescription>
+                            Este modelo será usado para todas as sugestões e melhorias automatizadas nesta página.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-6">
+                        <div className="max-w-md">
+                            <ModelSelector
+                                selectedProvider={selectedModel.provider}
+                                selectedModel={selectedModel.modelId}
+                                onProviderChange={(p) => handleModelChange(p, '')}
+                                onModelChange={(m) => handleModelChange(selectedModel.provider, m)}
+                                showPricing={true}
+                                label="Configuração Global"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input

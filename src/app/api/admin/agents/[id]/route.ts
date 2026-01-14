@@ -5,9 +5,10 @@ import { z } from 'zod';
 
 const AgentUpdateSchema = z.object({
     name: z.string().min(1).max(100),
-    description: z.string().max(500).optional(),
-    icon: z.string().max(10).optional(),
-    systemMessage: z.string().min(10),
+    description: z.string().max(800).optional().nullable(),
+    icon: z.string().max(100).optional().nullable(),
+    systemMessage: z.string().optional(),
+    systemPrompt: z.string().optional(),
     model: z.string().min(1),
     creditsPerUse: z.number().min(0).default(0),
     isActive: z.boolean().default(true),
@@ -22,9 +23,23 @@ export async function GET(
     const { id } = await params;
 
     try {
-        const agent = await db.agent.findUnique({
+        // Tenta buscar em Agent
+        let agent: any = await db.agent.findUnique({
             where: { id },
         });
+
+        // Se não achar, tenta buscar em GlobalAgent
+        if (!agent) {
+            agent = await db.globalAgent.findUnique({
+                where: { id },
+            });
+
+            if (agent) {
+                // Normaliza para o frontend
+                agent.systemMessage = agent.systemPrompt;
+                agent.isGlobal = true;
+            }
+        }
 
         if (!agent) {
             return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
@@ -49,13 +64,30 @@ export async function PUT(
         const json = await req.json();
         const data = AgentUpdateSchema.parse(json);
 
+        // Verifica se é um GlobalAgent
+        const isGlobal = await db.globalAgent.findUnique({ where: { id } });
+
+        if (isGlobal) {
+            const updated = await db.globalAgent.update({
+                where: { id },
+                data: {
+                    name: data.name,
+                    description: data.description,
+                    systemPrompt: data.systemPrompt || data.systemMessage || "",
+                    model: data.model,
+                    isActive: data.isActive,
+                },
+            });
+            return NextResponse.json(updated);
+        }
+
         const agent = await db.agent.update({
             where: { id },
             data: {
                 name: data.name,
                 description: data.description,
-                icon: data.icon,
-                systemMessage: data.systemMessage,
+                icon: data.icon || "🤖",
+                systemMessage: data.systemMessage || data.systemPrompt || "",
                 model: data.model,
                 creditsPerUse: data.creditsPerUse,
                 isActive: data.isActive,

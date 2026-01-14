@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const modelId = await getDefaultModel('agent_scriptwriter')
+        const modelId = await getDefaultModel('system_prompts')
         const openrouter = createOpenRouter({
             apiKey: process.env.OPENROUTER_API_KEY,
         })

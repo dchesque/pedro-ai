@@ -15,6 +15,22 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command'
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import type { ProviderCapability, ProviderModel } from '@/lib/ai/providers/types'
 
 interface ModelSelectorProps {
@@ -52,6 +68,8 @@ export function ModelSelector({
         selectedProvider || null,
         { capability, enabled: !!selectedProvider }
     )
+
+    const [open, setOpen] = React.useState(false)
 
     // Encontrar modelo selecionado para exibir pricing
     const selectedModelData = modelsData?.models.find(m => m.id === selectedModel)
@@ -138,44 +156,75 @@ export function ModelSelector({
                     </Select>
                 </div>
 
-                {/* Model Select */}
+                {/* Model Combobox (Searchable) */}
                 <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Modelo</Label>
-                    <Select
-                        value={selectedModel}
-                        onValueChange={onModelChange}
-                        disabled={disabled || !selectedProvider || loadingModels || !selectedProviderData?.isEnabled}
-                    >
-                        <SelectTrigger>
-                            {loadingModels ? (
-                                <div className="flex items-center gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Carregando...</span>
-                                </div>
-                            ) : (
-                                <SelectValue placeholder="Selecione o modelo..." />
-                            )}
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                            {modelsData?.models.map(model => (
-                                <SelectItem key={model.id} value={model.id}>
+                    <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={open}
+                                className="w-full justify-between font-normal hover:bg-background"
+                                disabled={disabled || !selectedProvider || loadingModels || !selectedProviderData?.isEnabled}
+                            >
+                                {loadingModels ? (
+                                    <div className="flex items-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Carregando...</span>
+                                    </div>
+                                ) : selectedModel ? (
                                     <div className="flex items-center justify-between w-full gap-2">
-                                        <span className="truncate">{model.name}</span>
-                                        {model.pricing.estimatedCreditsPerUse !== undefined && (
-                                            <Badge variant="outline" className="text-xs shrink-0">
-                                                {model.pricing.estimatedCreditsPerUse} cr
+                                        <span className="truncate">{selectedModelData?.name || selectedModel}</span>
+                                        {selectedModelData?.pricing.estimatedCreditsPerUse !== undefined && (
+                                            <Badge variant="outline" className="text-[10px] py-0 h-4 shrink-0">
+                                                {selectedModelData.pricing.estimatedCreditsPerUse} cr
                                             </Badge>
                                         )}
                                     </div>
-                                </SelectItem>
-                            ))}
-                            {modelsData?.models.length === 0 && (
-                                <div className="p-2 text-sm text-muted-foreground text-center">
-                                    Nenhum modelo disponível
-                                </div>
-                            )}
-                        </SelectContent>
-                    </Select>
+                                ) : (
+                                    "Selecione o modelo..."
+                                )}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                                <CommandInput placeholder="Pesquisar modelo..." />
+                                <CommandList className="max-h-[300px]">
+                                    <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                        {modelsData?.models.map((model) => (
+                                            <CommandItem
+                                                key={model.id}
+                                                value={model.id}
+                                                onSelect={(currentValue) => {
+                                                    onModelChange(currentValue)
+                                                    setOpen(false)
+                                                }}
+                                                className="flex items-center justify-between gap-2"
+                                            >
+                                                <div className="flex items-center gap-2 flex-1 truncate">
+                                                    <Check
+                                                        className={cn(
+                                                            "h-4 w-4 shrink-0",
+                                                            selectedModel === model.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    <span className="truncate">{model.name}</span>
+                                                </div>
+                                                {model.pricing.estimatedCreditsPerUse !== undefined && (
+                                                    <Badge variant="outline" className="text-[10px] py-0 h-4 shrink-0">
+                                                        {model.pricing.estimatedCreditsPerUse} cr
+                                                    </Badge>
+                                                )}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
 

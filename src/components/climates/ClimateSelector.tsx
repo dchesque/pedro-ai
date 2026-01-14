@@ -54,18 +54,18 @@ export function ClimateSelector({ value, onValueChange, className, compatibleCli
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className={cn("w-full justify-between h-auto py-3 px-4 bg-background/50 border-white/10 hover:bg-white/5", className)}
+                    className={cn("w-full justify-between h-auto py-2 px-3 bg-background/50 border-border hover:bg-accent/50 transition-all", className)}
                 >
                     {selectedClimate ? (
-                        <div className="flex flex-col items-start gap-1 text-left">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xl">{selectedClimate.icon}</span>
-                                <span className="font-semibold">{selectedClimate.name}</span>
+                        <div className="flex flex-col items-start gap-0.5 text-left min-w-0 flex-1">
+                            <div className="flex items-center gap-2 w-full">
+                                <span className="text-lg flex-shrink-0">{selectedClimate.icon}</span>
+                                <span className="font-semibold text-sm truncate">{selectedClimate.name}</span>
                                 {selectedClimate.isSystem && (
-                                    <Badge variant="secondary" className="text-[10px] h-4 py-0 px-1 opacity-70">SISTEMA</Badge>
+                                    <Badge variant="secondary" className="text-[10px] h-3.5 py-0 px-1 font-bold">SISTEMA</Badge>
                                 )}
                             </div>
-                            <span className="text-xs text-muted-foreground line-clamp-1">
+                            <span className="text-[10px] text-muted-foreground truncate w-full opacity-80">
                                 {selectedClimate.emotionalDetails?.subtitle} • {selectedClimate.description}
                             </span>
                         </div>
@@ -75,60 +75,66 @@ export function ClimateSelector({ value, onValueChange, className, compatibleCli
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command className="bg-zinc-950 border-white/10">
-                    <CommandInput placeholder="Buscar climas..." className="h-9" />
-                    <CommandList>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 overflow-hidden" align="start">
+                <Command className="bg-popover">
+                    <CommandInput placeholder="Buscar climas..." className="h-10" />
+                    <CommandList className="max-h-[400px]">
                         <CommandEmpty>Nenhum clima encontrado.</CommandEmpty>
                         {isLoading ? (
-                            <div className="p-4 flex flex-col items-center gap-2 text-muted-foreground italic">
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                            <div className="p-8 flex flex-col items-center gap-3 text-muted-foreground italic">
+                                <Loader2 className="h-5 w-5 animate-spin" />
                                 <span className="text-xs">Carregando climas...</span>
                             </div>
                         ) : (
-                            <CommandGroup heading="Disponíveis">
+                            <CommandGroup heading="Climas Disponíveis" className="p-2">
                                 {climates.map((climate) => (
                                     <CommandItem
                                         key={climate.id}
-                                        value={climate.name}
+                                        value={`${climate.name}-${climate.id}`}
                                         onSelect={() => {
                                             onValueChange(climate.id, climate)
                                             setOpen(false)
                                         }}
-                                        className="flex items-start gap-3 py-3 cursor-pointer"
+                                        className="flex items-start gap-3 p-2 cursor-pointer rounded-md mb-0.5 data-[selected=true]:bg-accent/50 data-[selected=true]:text-accent-foreground transition-all"
                                     >
-                                        <div className="text-2xl pt-1">{climate.icon}</div>
-                                        <div className="flex flex-col flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-white">{climate.name}</span>
+                                        <div className="text-xl pt-0.5 flex-shrink-0">{climate.icon}</div>
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-semibold text-sm">{climate.name}</span>
                                                 {climate.isSystem && (
-                                                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60 border border-white/10 px-1 rounded">Sistema</span>
+                                                    <Badge variant="secondary" className="text-[10px] h-4 py-0 px-1 font-bold">
+                                                        SISTEMA
+                                                    </Badge>
                                                 )}
                                             </div>
-                                            <span className="text-xs text-muted-foreground">{climate.description}</span>
-                                            <div className="flex gap-2 mt-1.5">
-                                                <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center border-white/5 bg-white/5">
+                                            <p className="text-[11px] text-muted-foreground line-clamp-1 mb-1 leading-relaxed">
+                                                {climate.description}
+                                            </p>
+                                            <div className="flex flex-wrap gap-1">
+                                                <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center bg-muted/30 border-border/50">
                                                     <span>{climate.emotionalDetails?.icon}</span>
                                                     <span>{climate.emotionalDetails?.label}</span>
                                                 </Badge>
                                                 {compatibleClimates?.includes(climate.id) && (
-                                                    <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
-                                                        <Sparkles className="h-2 w-2" />
+                                                    <Badge variant="outline" className="text-[10px] h-5 py-0 flex gap-1 items-center border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                        <Sparkles className="h-2.5 w-2.5" />
                                                         Compatível
                                                     </Badge>
                                                 )}
-                                                <Badge variant="outline" className="text-[9px] h-4 py-0 flex gap-1 items-center border-white/5 bg-white/5">
+                                                <Badge variant="outline" className="text-[10px] h-5 py-0 flex gap-1 items-center bg-muted/30 border-border/50">
                                                     <span>{climate.pressureDetails?.icon}</span>
                                                     <span>{climate.pressureDetails?.label}</span>
                                                 </Badge>
                                             </div>
                                         </div>
-                                        <Check
-                                            className={cn(
-                                                "ml-auto h-4 w-4 text-primary mt-1",
-                                                value === climate.id ? "opacity-100" : "opacity-0"
-                                            )}
-                                        />
+                                        <div className="flex items-center self-center pl-2">
+                                            <Check
+                                                className={cn(
+                                                    "h-4 w-4 text-primary",
+                                                    value === climate.id ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                        </div>
                                     </CommandItem>
                                 ))}
                             </CommandGroup>

@@ -256,9 +256,8 @@ export function ConceptStep({ data, onChange }: ConceptStepProps) {
                             </div>
                             <ClimateSelector
                                 value={data.climateId}
-                                onValueChange={(id, climate) => {
+                                onValueChange={(id) => {
                                     handleChange('climateId', id)
-                                    if (climate) handleChange('climate', climate.name)
                                 }}
                                 compatibleClimates={selectedStyle?.compatibleClimates}
                             />

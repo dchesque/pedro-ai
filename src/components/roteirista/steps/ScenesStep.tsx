@@ -26,6 +26,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import type { ScriptFormData, SceneData, GenerateScenesRequest, GenerateScenesResponse } from '@/lib/roteirista/types'
 
 interface ScenesStepProps {
@@ -81,6 +82,7 @@ function SortableScene({
 }
 
 export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
+    const { toast } = useToast()
     const scenes = data.scenes || []
 
     const sensors = useSensors(
@@ -101,10 +103,12 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
                 premise: data.premise || '',
                 theme: data.theme || data.premise || '',
                 synopsis: data.synopsis || '',
-                // tone: data.tone || '', // Legacy
-                climate: data.climate || 'neutro', // Default fallback
+                climate: data.climate || 'neutro',
                 styleId: data.styleId || '',
                 climateId: data.climateId || '',
+                format: data.format || 'SHORT',
+                characterIds: data.characterIds || [],
+                advancedMode: data.advancedMode,
                 modelId: data.modelId || '',
                 characterDescriptions: data.charactersDescription || '',
                 sceneCount: data.sceneCount || 7,
@@ -114,7 +118,19 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
         },
         onSuccess: (response) => {
             onChange({ ...data, scenes: response.scenes })
+            toast({
+                title: 'Roteiro gerado!',
+                description: `${response.scenes.length} cenas criadas com sucesso.`,
+            })
         },
+        onError: (error: any) => {
+            console.error('Erro ao gerar cenas:', error)
+            toast({
+                title: 'Erro na geração',
+                description: error.message || 'Ocorreu um problema ao gerar as cenas.',
+                variant: 'destructive',
+            })
+        }
     })
 
     const handleAddScene = () => {
