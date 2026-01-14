@@ -1,7 +1,7 @@
 export const SYSTEM_PROMPTS_CONFIG = [
     {
         key: 'STYLE_HOOK_SUGGESTION',
-        module: 'STYLE',
+        module: 'estilos',
         pageName: 'Criação de Estilos',
         pageHref: '/estilos/novo',
         blockName: 'Hooks (Aberturas)',
@@ -26,7 +26,7 @@ JSON:
     },
     {
         key: 'STYLE_CTA_SUGGESTION',
-        module: 'STYLE',
+        module: 'estilos',
         pageName: 'Criação de Estilos',
         pageHref: '/estilos/novo',
         blockName: 'CTA (Chamada para Ação)',
@@ -51,7 +51,7 @@ JSON:
     },
     {
         key: 'STYLE_VISUAL_REFINEMENT',
-        module: 'STYLE',
+        module: 'estilos',
         pageName: 'Criação de Estilos',
         pageHref: '/estilos/novo',
         blockName: 'Estilo Visual',
@@ -76,7 +76,7 @@ Saída esperada: Apenas o texto do prompt refinado, sem aspas, sem explicações
     },
     {
         key: 'CLIMATE_IMPROVE_DESCRIPTION',
-        module: 'CLIMATE',
+        module: 'climas',
         pageName: 'Criação de Climas',
         pageHref: '/climates',
         blockName: 'Descrição do Clima',
@@ -107,7 +107,7 @@ Texto Atual:
     },
     {
         key: 'CLIMATE_IMPROVE_INSTRUCTIONS',
-        module: 'CLIMATE',
+        module: 'climas',
         pageName: 'Criação de Climas',
         pageHref: '/climates',
         blockName: 'Instruções Técnicas',
@@ -145,7 +145,7 @@ Texto Atual:
     },
     {
         key: 'CLIMATE_IMPROVE_PREVIEW',
-        module: 'CLIMATE',
+        module: 'climas',
         pageName: 'Criação de Climas',
         pageHref: '/climates',
         blockName: 'Behavior Preview',

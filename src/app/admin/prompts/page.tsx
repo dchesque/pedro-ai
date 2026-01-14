@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Loader2, Save, Search, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { SYSTEM_PROMPTS_CONFIG } from '@/lib/system-prompts-config';
 import {
     Dialog,
     DialogContent,
@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { ModelSelector } from '@/components/admin/model-selector';
 import { useAdminModels, useSaveAdminModels } from '@/hooks/use-admin-models';
+import { ModuleFilter } from '@/components/admin/prompts/ModuleFilter';
+import { PromptCard } from '@/components/admin/prompts/PromptCard';
 import { cn } from '@/lib/utils';
 
 interface SystemPrompt {
@@ -27,23 +29,18 @@ interface SystemPrompt {
     description: string;
     template: string;
     module: string;
+    isActive: boolean;
 }
 
-type EnrichedPrompt = SystemPrompt & {
-    pageName: string;
-    pageHref: string;
-    blockName: string;
-};
-
 export default function SystemPromptsPage() {
-    const [prompts, setPrompts] = useState<SystemPrompt[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [savingId, setSavingId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
+    const [selectedModule, setSelectedModule] = useState('todos');
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingPrompt, setEditingPrompt] = useState<(SystemPrompt & { pageName: string; blockName: string }) | null>(null);
+    const [editingPrompt, setEditingPrompt] = useState<SystemPrompt | null>(null);
+    const [savingId, setSavingId] = useState<string | null>(null);
 
     // Gestão de Modelos
-    const { data: modelsData, isLoading: loadingModels } = useAdminModels();
+    const { data: modelsData } = useAdminModels();
     const saveModelsMutation = useSaveAdminModels();
     const [selectedModel, setSelectedModel] = useState<{ provider: string, modelId: string }>({
         provider: 'openrouter',
@@ -75,7 +72,6 @@ export default function SystemPromptsPage() {
             system_prompts: newModel
         };
 
-        // Normalizar formato para salvar (remover strings antigas se houver)
         const normalized: any = {};
         Object.entries(updatedModels).forEach(([key, val]) => {
             normalized[key] = val;
@@ -84,23 +80,27 @@ export default function SystemPromptsPage() {
         await saveModelsMutation.mutateAsync(normalized);
     };
 
-    useEffect(() => {
-        fetchPrompts();
-    }, []);
+    // Buscar módulos
+    const { data: modulesData } = useQuery({
+        queryKey: ['prompt-modules'],
+        queryFn: () => fetch('/api/admin/prompts/modules').then(r => r.json())
+    });
 
-    const fetchPrompts = async () => {
-        try {
-            const response = await fetch('/api/admin/prompts');
-            if (response.ok) {
-                const data = await response.json();
-                setPrompts(data);
-            }
-        } catch (error) {
-            toast.error('Erro ao carregar prompts');
-        } finally {
-            setLoading(false);
+    // Buscar prompts
+    const { data: promptsData, isLoading } = useQuery({
+        queryKey: ['prompts', selectedModule, searchTerm],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (selectedModule !== 'todos') params.set('module', selectedModule);
+            if (searchTerm) params.set('search', searchTerm);
+            const res = await fetch(`/api/admin/prompts?${params.toString()}`);
+            if (!res.ok) throw new Error('Failed to fetch prompts');
+            return res.json();
         }
-    };
+    });
+
+    const modules = modulesData?.modules || [];
+    const grouped = promptsData?.grouped || {};
 
     const handleSave = async () => {
         if (!editingPrompt) return;
@@ -114,10 +114,9 @@ export default function SystemPromptsPage() {
             });
 
             if (response.ok) {
-                // Atualiza lista local
-                setPrompts(prev => prev.map(p => p.id === editingPrompt.id ? { ...p, template: editingPrompt.template } : p));
                 toast.success('Prompt atualizado com sucesso!');
                 setEditingPrompt(null);
+                queryClient.invalidateQueries({ queryKey: ['prompts'] });
             } else {
                 throw new Error('Falha ao salvar');
             }
@@ -128,60 +127,97 @@ export default function SystemPromptsPage() {
         }
     };
 
-    // Unir dados do banco com o config de metadata
-    const enrichedPrompts = prompts.map(p => {
-        const config = SYSTEM_PROMPTS_CONFIG.find(c => c.key === p.key);
-        return {
-            ...p,
-            pageName: config?.pageName || 'Outros',
-            pageHref: config?.pageHref || '#',
-            blockName: config?.blockName || 'Geral',
-            description: config?.description || p.description
-        };
-    });
-
-    const filteredPrompts = enrichedPrompts.filter(p =>
-        p.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.pageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.blockName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Agrupar por página
-    const groupedByPage = filteredPrompts.reduce((acc, p) => {
-        if (!acc[p.pageName]) acc[p.pageName] = { href: p.pageHref, prompts: [] };
-        acc[p.pageName].prompts.push(p);
-        return acc;
-    }, {} as Record<string, { href: string, prompts: EnrichedPrompt[] }>);
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
+    const MODULE_LABELS: Record<string, string> = {
+        roteirista: 'Roteirista',
+        climas: 'Climas',
+        estilos: 'Estilos',
+        personagens: 'Personagens',
+        imagens: 'Imagens',
+        geral: 'Geral',
+    };
 
     return (
-        <div className="container py-8 space-y-8">
+        <div className="container py-8 space-y-8 max-w-[1600px]">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold">Prompts do Sistema</h1>
-                <p className="text-muted-foreground">Gerencie templates de IA organizados por página e bloco de funcionalidade.</p>
+                <p className="text-muted-foreground">Gerencie templates de IA organizados por módulo e funcionalidade.</p>
             </div>
 
-            <div className="flex flex-col gap-4">
-                <Card className="bg-muted/30 border-dashed">
-                    <CardHeader className="py-4">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
-                            Modelo de IA Padrão para Assistentes
-                        </CardTitle>
-                        <CardDescription>
-                            Este modelo será usado para todas as sugestões e melhorias automatizadas nesta página.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-6">
-                        <div className="max-w-md">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Filtros */}
+                    <div className="space-y-4">
+                        <ModuleFilter
+                            modules={modules}
+                            selected={selectedModule}
+                            onSelect={setSelectedModule}
+                        />
+
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por nome, descrição ou key..."
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Lista de Prompts */}
+                    {isLoading ? (
+                        <div className="flex items-center justify-center p-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <div className="space-y-8">
+                            {Object.entries(grouped).map(([module, prompts]: [string, any]) => (
+                                <section key={module} className="space-y-4">
+                                    {(selectedModule === 'todos') && (
+                                        <div className="flex items-center gap-2 border-b pb-2">
+                                            <h2 className="text-lg font-semibold text-primary capitalize">
+                                                {MODULE_LABELS[module] || module}
+                                            </h2>
+                                            <Badge variant="secondary" className="text-[10px] h-5">
+                                                {prompts.length}
+                                            </Badge>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        {prompts.map((prompt: SystemPrompt) => (
+                                            <PromptCard
+                                                key={prompt.id}
+                                                prompt={prompt}
+                                                onEdit={() => setEditingPrompt(prompt)}
+                                            />
+                                        ))}
+                                    </div>
+                                </section>
+                            ))}
+
+                            {Object.keys(grouped).length === 0 && (
+                                <div className="text-center py-20 bg-muted/10 rounded-lg border-2 border-dashed">
+                                    <p className="text-muted-foreground">Nenhum prompt encontrado para os filtros atuais.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Sidebar Configuration */}
+                <div className="space-y-6">
+                    <Card className="bg-muted/30 border-dashed sticky top-6">
+                        <CardHeader className="py-4">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Settings className="h-5 w-5" />
+                                Modelo Padrão
+                            </CardTitle>
+                            <CardDescription>
+                                Modelo usado nas assistências.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pb-6">
                             <ModelSelector
                                 selectedProvider={selectedModel.provider}
                                 selectedModel={selectedModel.modelId}
@@ -190,126 +226,63 @@ export default function SystemPromptsPage() {
                                 showPricing={true}
                                 label="Configuração Global"
                             />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por nome, descrição, página ou bloco..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                        </CardContent>
+                    </Card>
                 </div>
-            </div>
-
-            <div className="space-y-12">
-                {Object.entries(groupedByPage).map(([pageName, group]) => (
-                    <div key={pageName} className="space-y-4">
-                        <div className="flex items-end gap-3 border-b pb-2">
-                            <h2 className="text-lg font-semibold text-primary">{pageName}</h2>
-                            <span className="text-[10px] text-muted-foreground mb-1 font-mono uppercase tracking-wider">{group.href}</span>
-                        </div>
-
-                        <div className="grid gap-3">
-                            {group.prompts.map((prompt) => (
-                                <div
-                                    key={prompt.id}
-                                    className="flex items-center justify-between p-4 rounded-lg bg-card border hover:bg-muted/30 transition-colors group"
-                                >
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-sm">{prompt.blockName}</span>
-                                            <span className="text-[10px] font-mono text-muted-foreground/60">{prompt.key}</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">{prompt.description}</p>
-                                    </div>
-
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setEditingPrompt(prompt)}
-                                        className="gap-2"
-                                    >
-                                        Ver Prompt
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-
-                {Object.keys(groupedByPage).length === 0 && (
-                    <div className="text-center py-20 bg-muted/10 rounded-lg border-2 border-dashed">
-                        <p className="text-muted-foreground">Nenhum prompt encontrado para os filtros atuais.</p>
-                    </div>
-                )}
             </div>
 
             {/* Modal de Edição */}
             <Dialog open={!!editingPrompt} onOpenChange={(open) => !open && setEditingPrompt(null)}>
-                <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-                    <DialogHeader>
+                <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+                    <DialogHeader className="px-6 py-4 border-b">
                         <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-primary bg-primary/5">
-                                {editingPrompt?.blockName}
+                            <Badge variant="outline" className="text-primary bg-primary/5 capitalize">
+                                {editingPrompt?.module}
                             </Badge>
-                            <span className="text-[10px] font-mono text-muted-foreground">{editingPrompt?.key}</span>
+                            <span className="text-xs font-mono text-muted-foreground">{editingPrompt?.key}</span>
                         </div>
-                        <DialogTitle>Editar Prompt</DialogTitle>
-                        <DialogDescription>
-                            {editingPrompt?.description}
-                        </DialogDescription>
+                        <DialogTitle>{editingPrompt?.description || 'Editar Prompt'}</DialogTitle>
                     </DialogHeader>
 
-                    <div className="flex-1 min-h-0 py-4 flex flex-col gap-4">
-                        <div className="flex-1 relative">
+                    <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+                        {/* Editor */}
+                        <div className="flex-1 flex flex-col p-4 min-h-0">
                             <Textarea
-                                className="h-full font-mono text-xs bg-muted/30 focus-visible:ring-1 resize-none p-4"
+                                className="flex-1 font-mono text-xs bg-muted/30 focus-visible:ring-1 resize-none p-4 leading-relaxed"
                                 value={editingPrompt?.template || ''}
                                 onChange={(e) => {
                                     if (editingPrompt) {
                                         setEditingPrompt({ ...editingPrompt, template: e.target.value });
                                     }
                                 }}
+                                spellCheck={false}
                             />
                         </div>
 
-                        <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase">Variáveis Disponíveis:</span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {editingPrompt?.key.includes('STYLE') && (
-                                    <>
-                                        {editingPrompt.key.includes('SUGGESTION') && (
-                                            <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{CONTEXT_STR}}"}</code>
-                                        )}
-                                        {editingPrompt.key.includes('VISUAL') && (
-                                            <>
-                                                <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{CONTEXT_BLOCK}}"}</code>
-                                                <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{USER_PROMPT}}"}</code>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                                {editingPrompt?.key.includes('CLIMATE') && (
-                                    <>
-                                        <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{GLOBAL_RULE}}"}</code>
-                                        {editingPrompt.key.includes('PREVIEW') ? (
-                                            <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{CLIMATE_CONTEXT}}"}</code>
-                                        ) : (
-                                            <code className="text-[10px] text-primary font-mono bg-background px-2 py-0.5 rounded border border-primary/20">{"{{CURRENT_TEXT}}"}</code>
-                                        )}
-                                    </>
-                                )}
+                        {/* Sidebar Variáveis */}
+                        <div className="w-full md:w-64 border-l bg-muted/10 p-4 overflow-y-auto">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Variáveis</h4>
+                            <div className="space-y-2">
+                                <p className="text-[10px] text-muted-foreground mb-2">
+                                    Use as variáveis abaixo com <code>{`{{variavel}}`}</code> no texto.
+                                </p>
+                                {/* Fallback variables detection based on key context logic or standard set */}
+                                {[
+                                    { k: 'theme', d: 'Tema do conteúdo' },
+                                    { k: 'tone', d: 'Clima / Tom de voz' },
+                                    { k: 'style', d: 'Estilo visual' },
+                                    { k: 'context', d: 'Contexto geral' }
+                                ].map(v => (
+                                    <div key={v.k} className="p-2 bg-background rounded border text-xs">
+                                        <code className="text-primary font-bold block mb-0.5">{`{{${v.k}}}`}</code>
+                                        <span className="text-muted-foreground text-[10px]">{v.d}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter className="px-6 py-4 border-t bg-muted/10">
                         <Button variant="outline" onClick={() => setEditingPrompt(null)}>
                             Cancelar
                         </Button>
@@ -327,3 +300,4 @@ export default function SystemPromptsPage() {
         </div>
     );
 }
+
