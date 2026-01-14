@@ -9,14 +9,19 @@ async function handlePost(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        console.log('[generate-media] Starting request...')
         const clerkUserId = await validateUserAuthentication()
+        console.log('[generate-media] Auth validated:', clerkUserId)
         const user = await getUserFromClerkId(clerkUserId)
+        console.log('[generate-media] User fetched:', user.id)
         const { id } = await params
+        console.log('[generate-media] Params id:', id)
 
         const shortExists = await db.short.findFirst({
             where: { id, userId: user.id },
             include: { scenes: true }
         })
+        console.log('[generate-media] Short found:', !!shortExists)
 
         if (!shortExists) {
             return NextResponse.json({ error: 'Short not found' }, { status: 404 })
@@ -24,7 +29,9 @@ async function handlePost(
 
         // A geração de mídia é assíncrona mas aqui vamos rodar e aguardar (ou disparar fire-and-forget)
         // O pipeline atual aguarda.
+        console.log('[generate-media] Calling generateMedia pipeline...')
         await generateMedia(id)
+        console.log('[generate-media] Pipeline finished.')
 
         const updatedShort = await db.short.findUnique({
             where: { id },

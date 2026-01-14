@@ -76,19 +76,25 @@ export async function generatePrompts(
         scenes: script.scenes.length,
         style: styleKey
     })
-
-    const agent = await resolveAgent(SystemAgentType.PROMPT_ENGINEER, userId)
-    const style = await resolveStyle(styleKey, userId)
-
-    log.info('🎨 Configuração carregada', {
-        agentSource: agent.source,
-        styleSource: style.source,
-        model: agent.model
-    })
-
-    const fullSystemPrompt = `${agent.systemPrompt}\n\n${style.promptEngineerPrompt}`
+    console.log('[prompt-engineer] Generating prompts for style:', styleKey)
 
     try {
+        console.log('[prompt-engineer] Resolving agent...')
+        const agent = await resolveAgent(SystemAgentType.PROMPT_ENGINEER, userId)
+        console.log('[prompt-engineer] Agent resolved:', agent?.name)
+
+        console.log('[prompt-engineer] Resolving style...')
+        const style = await resolveStyle(styleKey, userId)
+        console.log('[prompt-engineer] Style resolved:', style?.name)
+
+        log.info('🎨 Configuração carregada', {
+            agentSource: agent.source,
+            styleSource: style.source,
+            model: agent.model
+        })
+
+        const fullSystemPrompt = `${agent.systemPrompt}\n\n${style.promptEngineerPrompt}`
+
         log.debug('Chamando LLM', { model: agent.model })
 
         const { text } = await generateText({

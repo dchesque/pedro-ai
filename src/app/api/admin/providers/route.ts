@@ -4,7 +4,15 @@ import { getAllProviders, getCacheStats } from '@/lib/ai/providers'
 
 export async function GET() {
     try {
-        await requireAdmin()
+        console.log('[API /admin/providers] Starting request processing...')
+
+        try {
+            await requireAdmin()
+            console.log('[API /admin/providers] Admin check passed.')
+        } catch (authError) {
+            console.error('[API /admin/providers] Admin check failed:', authError)
+            throw authError
+        }
 
         console.log('[API /admin/providers] Fetching providers...')
         console.log('[API /admin/providers] FAL_API_KEY exists:', !!process.env.FAL_API_KEY)
@@ -22,9 +30,16 @@ export async function GET() {
         })
     } catch (error: any) {
         console.error('[admin-providers] Erro:', error)
+
+        const message = error.message || 'Internal error';
+        let status = error.status || 500;
+
+        if (message.includes('Acesso negado')) status = 403;
+        if (message.includes('Não autorizado')) status = 401;
+
         return NextResponse.json(
-            { error: error.message || 'Internal error' },
-            { status: error.status || 500 }
+            { error: message },
+            { status }
         )
     }
 }
