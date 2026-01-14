@@ -22,11 +22,19 @@ export interface ScriptFormData {
     premise: string         // Premissa/Ideia inicial (substitui theme como principal)
     theme?: string          // Mantido para compatibilidade
     synopsis: string        // Descrição expandida
+    format: 'SHORT' | 'REEL' | 'LONG' | 'YOUTUBE'
     styleId?: string        // ID do estilo visual
     modelId?: string        // ID do modelo de IA
     climateId?: string      // ID do clima narrativo
     climate?: string        // Mantido para compatibilidade (nome do clima)
     targetAudience?: string // Público-alvo
+
+    // Modo avançado
+    advancedMode?: {
+        enabled: boolean;
+        maxScenes?: number;
+        avgSceneDuration?: number;
+    }
 
     // Etapa 2: Personagens
     characterIds: string[]  // IDs de personagens da biblioteca

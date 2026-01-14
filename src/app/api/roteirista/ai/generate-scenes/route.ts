@@ -6,24 +6,26 @@ import { getDefaultModel } from '@/lib/ai/model-resolver'
 import { createLogger } from '@/lib/logger'
 import { z } from 'zod'
 import { createId } from '@paralleldrive/cuid2'
-import type { GenerateScenesRequest, GenerateScenesResponse, SceneData } from '@/lib/roteirista/types'
+import type { SceneData } from '@/lib/roteirista/types'
 import { db } from '@/lib/db'
-import { buildClimatePrompt } from '@/lib/climate/behavior-mapping'
+import { buildScriptwriterPayload } from '@/lib/shorts/payload-builder'
 
 const logger = createLogger('roteirista-generate-scenes')
 
 const requestSchema = z.object({
-    title: z.string().min(1),
-    theme: z.string().optional(),
-    premise: z.string().optional(),
-    synopsis: z.string().optional(),
-    tone: z.string().optional(),
+    premise: z.string().min(1),
     styleId: z.string().min(1),
-    characterDescriptions: z.string().optional(),
-    sceneCount: z.number().optional(),
+    climateId: z.string().min(1),
+    format: z.enum(['SHORT', 'REEL', 'LONG', 'YOUTUBE']),
+    characterIds: z.array(z.string()).optional(),
     modelId: z.string().optional(),
-    targetAudience: z.string().optional(),
-    climateId: z.string().optional(),
+    advancedMode: z.object({
+        enabled: z.boolean(),
+        maxScenes: z.number().optional(),
+        avgSceneDuration: z.number().optional(),
+    }).optional(),
+    // Campos legados para compatibilidade se necessário
+    title: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -51,110 +53,91 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { title, theme, premise, synopsis, tone: reqTone, styleId, characterDescriptions, sceneCount: reqSceneCount, modelId: reqModelId, targetAudience: reqTargetAudience, climateId: reqClimateId } = parsed.data
+        const {
+            premise,
+            styleId,
+            climateId,
+            format,
+            characterIds = [],
+            modelId: reqModelId,
+            advancedMode
+        } = parsed.data
 
-        const finalTheme = premise || theme || title
-
-        // Buscar estilo e clima sugerido
+        // 1. Buscar Style completo
         const style = await db.style.findUnique({
-            where: { id: styleId },
-            include: { suggestedClimate: true }
+            where: { id: styleId }
         })
 
         if (!style) {
             return NextResponse.json({ error: 'Style not found' }, { status: 404 })
         }
 
-        // Resolver Clima
-        let climatePrompt = ''
-        let climateName = 'Padrão'
+        // 2. Buscar Climate completo
+        const climate = await db.climate.findUnique({
+            where: { id: climateId }
+        })
 
-        // 1. Prioridade para clima passado no request
-        if (reqClimateId) {
-            const climateObj = await db.climate.findUnique({ where: { id: reqClimateId } })
-            if (climateObj) {
-                climateName = climateObj.name
-                climatePrompt = buildClimatePrompt(climateObj)
-            }
-        }
-        // 2. Fallback para clima sugerido no estilo
-        else if (style.suggestedClimate) {
-            climateName = style.suggestedClimate.name
-            climatePrompt = buildClimatePrompt(style.suggestedClimate)
-        }
-        // 3. Fallback final (texto livre do tone/clima se existir)
-        else if (reqTone) {
-            climateName = reqTone
-            climatePrompt = `TOM E CLIMA: ${reqTone}`
+        if (!climate) {
+            return NextResponse.json({ error: 'Climate not found' }, { status: 404 })
         }
 
-        logger.info('Generate scenes request', { title, styleId, climate: climateName })
+        // 3. Buscar Personagens
+        const characters = characterIds.length > 0
+            ? await db.character.findMany({ where: { id: { in: characterIds }, userId: user.id } })
+            : []
 
-        // Resolver modelo
+        // 4. Construir Payload Fechado
+        const payload = buildScriptwriterPayload({
+            premise,
+            style,
+            climate,
+            format,
+            characters,
+            overrides: advancedMode?.enabled ? {
+                maxScenes: advancedMode.maxScenes,
+                avgSceneDuration: advancedMode.avgSceneDuration
+            } : undefined
+        })
+
+        logger.info('🎬 Gerando roteiro', {
+            format: payload.constraints.format,
+            maxScenes: payload.constraints.maxScenes,
+            isOverridden: payload.constraints.isOverridden,
+            style: payload.style.name,
+            climate: payload.climate.name
+        })
+
+        // 5. Resolver modelo e agente
         const modelId = reqModelId || await getDefaultModel('agent_scriptwriter')
+
+        // Buscar o prompt do sistema do Scriptwriter (GlobalAgent)
+        const agent = await db.globalAgent.findUnique({
+            where: { type: 'SCRIPTWRITER' }
+        })
+
+        const systemPrompt = agent?.systemPrompt || 'Você é um roteirista especializado em vídeos curtos.'
 
         const openrouter = createOpenRouter({
             apiKey: process.env.OPENROUTER_API_KEY,
         })
 
-        const sceneCount = reqSceneCount || 7 // Default fallback since style doesn't have it anymore
-        const targetAudience = reqTargetAudience || style.targetAudience || 'Geral'
+        const userPrompt = `Abaixo está a ESPECIFICAÇÃO TÉCNICA que você deve executar.
+        Responda APENAS com o JSON no formato solicitado, seguindo as REGRAS ABSOLUTAS do sistema.
 
-        const systemPrompt = `Você é um roteirista profissional especializado em vídeos curtos (shorts/reels).
-
-## TIPO DE CONTEÚDO
-${style.contentType}
-
-## INSTRUÇÕES DO ESTILO
-${style.scriptwriterPrompt || 'Crie um roteiro envolvente e bem estruturado.'}
-
-## PARÂMETROS
-- Público Alvo: ${targetAudience}
-- Número de cenas: ${sceneCount}
-- Clima Narrativo: ${climateName}
-${climatePrompt ? `## INSTRUÇÕES COMPORTAMENTAIS (CLIMA):\n${climatePrompt}` : ''}
-
-## REGRAS
-- Cada cena deve ter narração em português (1-2 frases)
-- Cada cena deve ter descrição visual em INGLÊS para geração de imagem
-- Descrições visuais devem ser detalhadas, cinematográficas e incluir estilo de iluminação
-- Mantenha consistência visual entre as cenas
-- A história deve ter início, meio e fim satisfatório
-
-Responda APENAS em JSON válido no formato:
-{
-  "scenes": [
-    {
-      "narration": "Texto da narração em português",
-      "visualPrompt": "Detailed visual description in English for image generation",
-      "duration": 5
-    }
-  ]
-}`
-
-        const userPrompt = `Crie um roteiro com ${sceneCount} cenas para o seguinte projeto:
-
-TÍTULO: ${title}
-TEMA: ${finalTheme}
-${synopsis ? `SINOPSE: ${synopsis}` : ''}
-CLIMA: ${climateName}
-${characterDescriptions ? `PERSONAGENS: ${characterDescriptions}` : ''}
-
-Gere as ${sceneCount} cenas agora.`
+        ESPECIFICAÇÃO:
+        ${JSON.stringify(payload, null, 2)}`
 
         const { text } = await generateText({
             model: openrouter(modelId),
             system: systemPrompt,
             prompt: userPrompt,
-            temperature: 0.8,
-            // maxTokens removed to avoid lint error
+            temperature: agent?.temperature || 0.7,
         })
 
-        // Parse JSON da resposta
-        let scenesData: { scenes: Array<{ narration: string; visualPrompt: string; duration?: number }> }
+        // 6. Parse JSON da resposta
+        let scenesData: { scenes: Array<{ narration: string; visualDescription: string; duration: number; goal?: string; order?: number }> }
 
         try {
-            // Limpar possíveis marcadores de código
             const cleanJson = text
                 .replace(/```json\n?/g, '')
                 .replace(/```\n?/g, '')
@@ -169,25 +152,32 @@ Gere as ${sceneCount} cenas agora.`
             )
         }
 
-        // Converter para formato com IDs
+        if (!scenesData.scenes || !Array.isArray(scenesData.scenes)) {
+            return NextResponse.json(
+                { error: 'Invalid scenes format from AI', raw: text },
+                { status: 500 }
+            )
+        }
+
+        // 7. Converter para formato esperado pelo frontend
         const scenes: SceneData[] = scenesData.scenes.map((scene, index) => ({
             id: createId(),
-            orderIndex: index,
+            orderIndex: scene.order ?? index,
             narration: scene.narration,
-            visualPrompt: scene.visualPrompt,
-            duration: scene.duration || 5,
+            visualPrompt: scene.visualDescription, // Mapeando visualDescription -> visualPrompt
+            duration: scene.duration || payload.constraints.avgSceneDuration,
         }))
 
         logger.info('Generated scenes', { count: scenes.length })
 
-        const result: GenerateScenesResponse = { scenes }
-        return NextResponse.json(result)
+        return NextResponse.json({ scenes })
 
     } catch (error: any) {
-        logger.error('Generate scenes error', { error: error.message })
+        logger.error('Generate scenes error', { error })
         return NextResponse.json(
             { error: 'Failed to generate scenes', message: error.message },
             { status: 500 }
         )
     }
 }
+

@@ -1,5 +1,31 @@
 # Changelog
+
+## [3.0.0] - 2026-01-14
+
+### Added
+- **Módulo Roteirista v3.0 (Executor)**: Transformação completa do Roteirista de "autor" para "executor técnico".
+- **ShortFormat**: Novo sistema de formatos pré-definidos (`SHORT`, `REEL`, `LONG`, `YOUTUBE`) com durações e número de cenas automáticos.
+- **Seletor de Formato**: Interface visual premium para escolha do formato alvo no Wizard de criação.
+- **CalculatedParamsDisplay**: Exibição em tempo real dos parâmetros calculados (cenas, duração média, total estimado).
+- **Modo Avançado**: Permite sobrescrever manualmente o número de cenas e duração por cena, com validações de segurança.
+- **Payload Centralizado**: `payload-builder.ts` garante um contrato fechado e rigoroso entre o backend e o Agente Roteirista.
+- **Scene Calculator**: Lógica centralizada para cálculo de ritmo e densidade narrativa com base no Clima e Formato.
+
+### Changed
+- **System Prompt Roteirista**: Atualizado para o papel de Executor, com regras estritas de implementação de Estilo e Clima.
+- **API generate-scenes**: Refatorada para utilizar o novo payload builder e validações rigorosas de contrato.
+- **UI Wizard Etapa 1**: Reorganizada para priorizar Premissa e Formato, removendo seletores manuais legados em favor da automação.
+- **Banco de Dados**: Adicionado campo `format` ao modelo `Short` para persistência do formato escolhido.
+
+### Fixed
+- **Prisma Client Path**: Importações de tipos Prisma atualizadas para apontar corretamente para `prisma/generated/client_final`, resolvendo conflitos de tipagem.
  
+## [2.1.2] - 2026-01-13
+
+### Fixed
+- **Página do Roteirista**: Corrigido o erro "Module not found" na página `/roteirista/novo` causado pela ausência dos componentes `Command` e `Popover`.
+- **Dependências**: Instaladas as dependências `cmdk` e `@radix-ui/react-popover` necessárias para os novos seletores de clima.
+
 ## [2.1.1] - 2026-01-13
  
 ### Fixed

@@ -138,6 +138,13 @@ model UsageHistory {
   @@index([operationType, timestamp])
 }
 
+enum ShortFormat {
+  SHORT      // TikTok/Reels curtos (15-60s)
+  REEL       // Instagram Reels (30-90s)  
+  LONG       // YouTube Shorts (60-180s)
+  YOUTUBE    // YouTube tradicional (3-10min)
+}
+
 model Short {
   id               String           @id @default(cuid())
   userId           String
@@ -172,6 +179,7 @@ model Short {
   user             User             @relation(fields: [userId], references: [id])
   characters       ShortCharacter[]
   scenes           ShortScene[]
+  format           ShortFormat      @default(SHORT)
 
   @@index([userId])
   @@index([clerkUserId])

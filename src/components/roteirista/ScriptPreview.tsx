@@ -37,6 +37,11 @@ export function ScriptPreview({ data, className }: ScriptPreviewProps) {
                         {data.title ? (
                             <div>
                                 <h2 className="text-xl font-bold">{data.title}</h2>
+                                {data.format && (
+                                    <Badge variant="secondary" className="mt-1 mr-2 bg-primary/10 text-primary border-primary/20">
+                                        {data.format}
+                                    </Badge>
+                                )}
                                 {data.climate && (
                                     <Badge variant="outline" className="mt-1">
                                         {data.climate}

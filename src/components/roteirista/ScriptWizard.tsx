@@ -58,6 +58,7 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
             theme: '',
             synopsis: '',
             climateId: '',
+            format: 'SHORT',
             climate: 'épico',
             targetAudience: '',
             sceneCount: 7,

@@ -73,6 +73,12 @@ export function ReviewStep({ data }: ReviewStepProps) {
                             <p className="text-sm font-medium">{data.title || '-'}</p>
                         </div>
                         <div>
+                            <p className="text-xs text-muted-foreground">Formato</p>
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/10">
+                                {data.format || 'SHORT'}
+                            </Badge>
+                        </div>
+                        <div>
                             <h4 className="font-medium text-sm text-muted-foreground">Clima</h4>
                             <p className="capitalize">{data.climate || 'Não definido'}</p>
                         </div>
