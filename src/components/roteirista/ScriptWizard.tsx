@@ -39,6 +39,8 @@ export function ScriptWizard({ initialData }: ScriptWizardProps) {
                 premise: initialData.premise || initialData.theme || '',
                 theme: initialData.theme || '',
                 synopsis: initialData.synopsis || '',
+                hook: initialData.hook || '',
+                cta: initialData.cta || '',
                 climateId: initialData.climateId || '',
                 climate: initialData.climate || 'épico',
                 targetAudience: initialData.targetAudience || '',

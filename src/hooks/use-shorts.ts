@@ -20,12 +20,14 @@ export interface ShortScene {
     mediaHeight?: number
     isGenerated: boolean
     errorMessage?: string
+    goal?: string // Adicionado
 }
 
 export interface Short {
     id: string
     title?: string
     summary?: string
+    characterDescription?: string // Adicionado
 
     premise?: string // User Input V2
     theme: string // Legacy or Mapped
@@ -62,6 +64,8 @@ export interface Short {
             id: string
             name: string
             imageUrl: string
+            description?: string
+            thumbnailUrl?: string
         }
     }>
 }

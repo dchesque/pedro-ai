@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, Loader2, Sparkles, Wand2 } from "lucide-react"
-import { useCreateCharacter, useUpdateCharacter } from "@/hooks/use-characters"
+import { Badge } from "@/components/ui/badge"
+import { useUpdateCharacter } from "@/hooks/use-characters"
 import { useToast } from "@/hooks/use-toast"
 import { generateCharacterPrompt } from "@/lib/characters/prompt-generator"
+import { cn } from "@/lib/utils"
+import { Copy } from "lucide-react"
 import type { Character } from "../../../prisma/generated/client_final"
 
 // Schema
@@ -45,9 +48,9 @@ interface CharacterDialogProps {
 }
 
 export function CharacterDialog({ open, onOpenChange, character }: CharacterDialogProps) {
-    const isEdit = !!character
+    if (!character) return null
+
     const { toast } = useToast()
-    const createMutation = useCreateCharacter()
     const updateMutation = useUpdateCharacter()
     const [showTraits, setShowTraits] = useState(true)
 
@@ -73,25 +76,40 @@ export function CharacterDialog({ open, onOpenChange, character }: CharacterDial
         }
     })
 
-    // Reset form when dialog opens/closes or character changes
-    // (Effect logic omitted for brevity, assuming standard dialog behavior)
+    const isSubmitting = updateMutation.isPending
 
-    const isSubmitting = createMutation.isPending || updateMutation.isPending
+    // Reset form when character changes
+    useEffect(() => {
+        if (open && character) {
+            form.reset({
+                name: character.name || "",
+                description: character.description || "",
+                imageUrl: character.imageUrl || "",
+                traits: (character.traits as any) || {
+                    age: "",
+                    gender: "female",
+                    hairColor: "",
+                    hairStyle: "",
+                    skinTone: "",
+                    eyeColor: "",
+                    clothing: "",
+                    accessories: "",
+                    distinctiveFeatures: "",
+                    bodyType: "",
+                },
+                promptDescription: character.promptDescription || ""
+            })
+        }
+    }, [character, form, open])
 
     const onSubmit = async (data: CharacterFormValues) => {
         try {
-            if (isEdit && character) {
-                await updateMutation.mutateAsync({
-                    id: character.id,
-                    ...data
-                })
-                toast({ title: "Personagem atualizado com sucesso!" })
-            } else {
-                await createMutation.mutateAsync(data)
-                toast({ title: "Personagem criado com sucesso!" })
-            }
+            await updateMutation.mutateAsync({
+                id: character.id,
+                ...data
+            })
+            toast({ title: "Personagem atualizado com sucesso!" })
             onOpenChange(false)
-            form.reset()
         } catch (error) {
             toast({
                 title: "Erro ao salvar personagem",
@@ -112,7 +130,7 @@ export function CharacterDialog({ open, onOpenChange, character }: CharacterDial
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg md:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? "Editar Personagem" : "Novo Personagem"}</DialogTitle>
+                    <DialogTitle>Editar Personagem</DialogTitle>
                     <DialogDescription>
                         Defina as características visuais para manter consistência nos shorts.
                     </DialogDescription>
@@ -220,11 +238,42 @@ export function CharacterDialog({ open, onOpenChange, character }: CharacterDial
 
                                 <div className="space-y-2 pt-4 border-t">
                                     <div className="flex items-center justify-between">
-                                        <Label>Prompt Otimizado (Inglês)</Label>
-                                        <Button type="button" variant="outline" size="sm" onClick={handleGeneratePrompt} className="h-7 gap-1 text-xs">
-                                            <Sparkles className="w-3 h-3 text-amber-500" />
-                                            Gerar de Traits
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Label>Prompt Otimizado (Inglês)</Label>
+                                            {(() => {
+                                                const portrait = form.watch("promptDescription")
+                                                const wordCount = portrait?.trim() ? portrait.trim().split(/\s+/).length : 0
+                                                if (wordCount === 0) return null
+                                                const quality = wordCount > 80 ? 'Excelente' : wordCount > 50 ? 'Bom' : 'Básico'
+                                                const color = wordCount > 80 ? 'text-green-600 bg-green-50' : wordCount > 50 ? 'text-blue-600 bg-blue-50' : 'text-yellow-600 bg-yellow-50'
+
+                                                return (
+                                                    <Badge variant="outline" className={cn("text-[10px] h-4 px-1", color)}>
+                                                        {quality}
+                                                    </Badge>
+                                                )
+                                            })()}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-[10px] gap-1"
+                                                disabled={!form.watch("promptDescription")}
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(form.getValues("promptDescription"))
+                                                    toast({ title: "Copiado!" })
+                                                }}
+                                            >
+                                                <Copy className="h-3 w-3" />
+                                                Copiar
+                                            </Button>
+                                            <Button type="button" variant="outline" size="sm" onClick={handleGeneratePrompt} className="h-7 gap-1 text-[10px]">
+                                                <Sparkles className="w-3 h-3 text-amber-500" />
+                                                IA
+                                            </Button>
+                                        </div>
                                     </div>
                                     <FormField
                                         control={form.control}
@@ -238,9 +287,14 @@ export function CharacterDialog({ open, onOpenChange, character }: CharacterDial
                                                         className="h-32 font-mono text-xs bg-muted/50"
                                                     />
                                                 </FormControl>
-                                                <FormDescription className="text-xs">
-                                                    Este é o texto exato que será usado para descrever o personagem nas cenas.
-                                                </FormDescription>
+                                                <div className="flex justify-between items-center px-1">
+                                                    <FormDescription className="text-[10px]">
+                                                        Consistência visual do personagem.
+                                                    </FormDescription>
+                                                    <span className="text-[10px] text-muted-foreground italic">
+                                                        {form.watch("promptDescription")?.trim() ? form.watch("promptDescription").trim().split(/\s+/).length : 0} palavras
+                                                    </span>
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -255,7 +309,7 @@ export function CharacterDialog({ open, onOpenChange, character }: CharacterDial
                             </Button>
                             <Button type="submit" disabled={isSubmitting} className="min-w-[100px]">
                                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                                {isEdit ? "Salvar" : "Criar"}
+                                Salvar
                             </Button>
                         </DialogFooter>
                     </form>

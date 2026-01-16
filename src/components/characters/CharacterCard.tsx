@@ -1,9 +1,13 @@
+"use client"
+
 import { Character } from "../../../prisma/generated/client_final"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Video } from "lucide-react"
+import { Edit2, Trash2, Video, Calendar, User, Eye } from "lucide-react"
 import Image from "next/image"
+import { motion, AnimatePresence } from "framer-motion"
+import { cn } from "@/lib/utils"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -29,81 +33,115 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
     const gender = traits.gender ? (traits.gender === 'female' ? 'Feminino' : traits.gender === 'male' ? 'Masculino' : traits.gender) : null
 
     return (
-        <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm">
-            <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-                {character.imageUrl ? (
-                    <Image
-                        src={character.imageUrl}
-                        alt={character.name}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 768px) 50vw, 33vw"
-                    />
-                ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                        Sem imagem
+        <div className="group h-full">
+            <Card className="relative h-full overflow-hidden border-border/40 bg-card/30 backdrop-blur-sm hover:border-primary/50 transition-colors duration-500 shadow-sm hover:shadow-md">
+                {/* Image Section */}
+                <div className="relative aspect-[3/4] w-full overflow-hidden">
+                    {character.imageUrl ? (
+                        <Image
+                            src={character.imageUrl}
+                            alt={character.name}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, 33vw"
+                        />
+                    ) : (
+                        <div className="flex h-full flex-col items-center justify-center bg-muted/20 text-muted-foreground gap-2">
+                            <User className="w-8 h-8 opacity-20" />
+                            <span className="text-xs font-medium uppercase tracking-widest opacity-50">Sem Imagem</span>
+                        </div>
+                    )}
+
+                    {/* Gradient Overlay - Multi-layered for depth */}
+                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
+
+                    {/* Usage Badge - Floating Top Right */}
+                    <div className="absolute top-3 right-3 z-10">
+                        <Badge variant="secondary" className="bg-black/40 hover:bg-black/60 text-white backdrop-blur-xl border-white/10 shadow-xl px-2.5 py-1">
+                            <Video className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                            <span className="font-bold">{character.usageCount}</span>
+                        </Badge>
                     </div>
-                )}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity duration-300" />
+                    {/* Name and Basic Info - Floating Glass Card Style */}
+                    <div className="absolute bottom-0 left-0 p-5 w-full z-10">
+                        <h3 className="font-black text-xl text-white mb-2 leading-tight drop-shadow-lg">
+                            {character.name}
+                        </h3>
 
-                <div className="absolute bottom-0 left-0 p-4 w-full">
-                    <h3 className="font-bold text-lg text-white mb-1 truncate">{character.name}</h3>
-                    <div className="flex flex-wrap gap-2 text-xs text-white/80">
-                        {age && <span>{age}</span>}
-                        {age && gender && <span>•</span>}
-                        {gender && <span>{gender}</span>}
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] uppercase tracking-wider font-bold text-white/90">
+                                <Calendar className="w-3 h-3 text-primary/80" />
+                                {age || "N/A"}
+                            </div>
+                            <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] uppercase tracking-wider font-bold text-white/90">
+                                <User className="w-3 h-3 text-primary/80" />
+                                {gender || "N/A"}
+                            </div>
+                        </div>
+
+                        {/* Description - Short reveal on hover */}
+                        <div className="mt-4">
+                            <p className="text-xs text-white/70 line-clamp-2 leading-relaxed font-medium italic">
+                                "{character.description || 'Sem descrição definida.'}"
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <Badge variant="secondary" className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border-none">
-                        <Video className="w-3 h-3 mr-1" />
-                        {character.usageCount} shorts
-                    </Badge>
-                </div>
-            </div>
+                {/* Actions Footer - Minimal Icons */}
+                <div className="p-3 bg-muted/10 border-t border-border/50 flex items-center justify-between gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                        onClick={() => onEdit(character)}
+                        title="Ver Detalhes"
+                    >
+                        <Eye className="w-4 h-4" />
+                    </Button>
 
-            <CardFooter className="p-3 gap-2 bg-muted/30">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 h-8 text-xs font-medium hover:bg-primary/10 hover:text-primary"
-                    onClick={() => onEdit(character)}
-                >
-                    <Edit2 className="w-3 h-3 mr-2" />
-                    Editar
-                </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                        onClick={() => onEdit(character)}
+                        title="Editar Personagem"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </Button>
 
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        >
-                            <Trash2 className="w-3 h-3" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir Personagem?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Esta ação não pode ser desfeita. O personagem "{character.name}" será removido, mas shorts existentes que o utilizam não serão afetados visualmente, apenas perderão a referência.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => onDelete(character.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                                title="Remover Personagem"
                             >
-                                Excluir
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </CardFooter>
-        </Card>
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-border/40 max-w-sm rounded-[2rem]">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="text-xl font-black">Remover Lenda?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-sm font-medium leading-relaxed">
+                                    O personagem <span className="text-foreground font-bold underline decoration-primary/30">"{character.name}"</span> será removido da biblioteca.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="font-bold gap-3 mt-4">
+                                <AlertDialogCancel className="rounded-full h-11 border-none bg-muted/50 hover:bg-muted">Manter</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={() => onDelete(character.id)}
+                                    className="rounded-full h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg shadow-destructive/20"
+                                >
+                                    Remover
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            </Card>
+        </div>
     )
 }

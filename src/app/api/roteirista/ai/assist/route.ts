@@ -18,7 +18,7 @@ const requestSchema = z.object({
         synopsis: z.string().optional(),
         tone: z.string().optional(),
         targetAudience: z.string().optional(),
-        fieldType: z.enum(['title', 'synopsis', 'narration', 'visualPrompt']).optional(),
+        fieldType: z.enum(['title', 'synopsis', 'narration', 'visualPrompt', 'hook', 'cta']).optional(),
     }).optional(),
 })
 
@@ -53,6 +53,8 @@ async function resolveFieldContext(fieldType: string): Promise<string> {
         synopsis: 'Esta é a sinopse/descrição de uma história para vídeo curto.',
         narration: 'Esta é a narração de uma cena de vídeo curto. Deve ser concisa e impactante.',
         visualPrompt: 'Este é um prompt para geração de imagem. Deve ser descritivo e visual.',
+        hook: 'Este é um hook (abertura) de um vídeo curto. Deve ser impactante e prender a atenção nos primeiros segundos.',
+        cta: 'Este é um CTA (chamada para ação) de um vídeo curto. Deve ser claro e incentivar uma ação específica.',
     }
     return FIELD_CONTEXT[fieldType] || '';
 }

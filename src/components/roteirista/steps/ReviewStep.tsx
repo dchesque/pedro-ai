@@ -96,7 +96,17 @@ export function ReviewStep({ data }: ReviewStepProps) {
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">Sinopse</p>
-                            <p className="text-sm line-clamp-3">{data.synopsis || '-'}</p>
+                            <p className="text-sm line-clamp-2">{data.synopsis || '-'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                            <div className="p-2 rounded bg-amber-500/5 border border-amber-500/10">
+                                <p className="text-[10px] uppercase font-bold text-amber-600">Hook</p>
+                                <p className="text-xs italic line-clamp-2">{data.hook || 'Não gerado'}</p>
+                            </div>
+                            <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10">
+                                <p className="text-[10px] uppercase font-bold text-emerald-600">CTA</p>
+                                <p className="text-xs italic line-clamp-2">{data.cta || 'Não gerado'}</p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

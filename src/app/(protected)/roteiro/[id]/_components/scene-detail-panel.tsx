@@ -88,13 +88,15 @@ export function SceneDetailPanel({
                 {/* Objetivo / Goal (se houver) */}
                 {scene.goal && (
                     <section className="space-y-3">
-                        <h5 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-indigo-500">
-                            <Target className="h-3.5 w-3.5" />
+                        <h5 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-500">
+                            <Target className="h-4 w-4" />
                             Objetivo da Cena
                         </h5>
-                        <p className="text-xs text-muted-foreground leading-relaxed px-1">
-                            {scene.goal}
-                        </p>
+                        <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl group-hover:bg-blue-500/10 transition-colors">
+                            <p className="text-sm leading-relaxed text-muted-foreground italic">
+                                {scene.goal}
+                            </p>
+                        </div>
                     </section>
                 )}
 

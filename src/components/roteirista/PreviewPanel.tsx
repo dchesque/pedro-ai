@@ -122,10 +122,25 @@ export function PreviewPanel({ data, style, climate }: PreviewPanelProps) {
                             <ChevronDown className="h-3 w-3 ml-auto group-data-[state=open]:rotate-180 transition-transform" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2">
-                            <div className="pl-6 border-l-2 border-muted ml-2">
+                            <div className="pl-6 border-l-2 border-muted ml-2 space-y-3">
                                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-6">
                                     {data.synopsis}
                                 </p>
+
+                                <div className="space-y-2 pt-2 border-t border-muted/50">
+                                    {data.hook && (
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase font-bold text-amber-500/80 tracking-tighter">Hook</p>
+                                            <p className="text-[11px] italic text-foreground/80 leading-snug">"{data.hook}"</p>
+                                        </div>
+                                    )}
+                                    {data.cta && (
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase font-bold text-emerald-500/80 tracking-tighter">CTA</p>
+                                            <p className="text-[11px] italic text-foreground/80 leading-snug">"{data.cta}"</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </CollapsibleContent>
                     </Collapsible>

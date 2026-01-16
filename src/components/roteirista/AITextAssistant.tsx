@@ -17,7 +17,7 @@ interface AITextAssistantProps {
     label?: string
     placeholder?: string
     description?: string
-    fieldType?: 'title' | 'synopsis' | 'narration' | 'visualPrompt'
+    fieldType?: 'title' | 'synopsis' | 'narration' | 'visualPrompt' | 'hook' | 'cta'
     context?: {
         title?: string
         synopsis?: string

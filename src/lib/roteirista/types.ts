@@ -42,6 +42,8 @@ export interface ScriptFormData {
 
     // Etapa 3: Cenas
     scenes: SceneData[]
+    hook?: string
+    cta?: string
 
     // Metadados
     sceneCount: number      // Número desejado de cenas
@@ -72,7 +74,7 @@ export interface AIAssistantRequest {
         synopsis?: string
         tone?: string
         targetAudience?: string
-        fieldType?: 'title' | 'synopsis' | 'narration' | 'visualPrompt'
+        fieldType?: 'title' | 'synopsis' | 'narration' | 'visualPrompt' | 'hook' | 'cta'
     }
 }
 
@@ -110,6 +112,8 @@ export interface GenerateScenesRequest {
 // Response de cenas geradas
 export interface GenerateScenesResponse {
     scenes: SceneData[]
+    hook?: string
+    cta?: string
 }
 
 // Request para gerar prompt visual

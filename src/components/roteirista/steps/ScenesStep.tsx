@@ -117,7 +117,12 @@ export function ScenesStep({ data, onChange, onNext }: ScenesStepProps) {
             return api.post<GenerateScenesResponse>('/api/roteirista/ai/generate-scenes', request)
         },
         onSuccess: (response) => {
-            onChange({ ...data, scenes: response.scenes })
+            onChange({
+                ...data,
+                scenes: response.scenes,
+                hook: response.hook,
+                cta: response.cta
+            })
             toast({
                 title: 'Roteiro gerado!',
                 description: `${response.scenes.length} cenas criadas com sucesso.`,

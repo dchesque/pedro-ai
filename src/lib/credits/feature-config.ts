@@ -10,6 +10,8 @@ export const FEATURE_CREDIT_COSTS = {
   script_generation: 1,
   script_regeneration: 1,
   scene_regeneration: 1,
+  character_analysis: 2,
+  character_generation: 4,
 } as const
 
 // Feature keys are derived from the config above to ensure type-safety across the codebase
@@ -25,6 +27,8 @@ const FEATURE_TO_OPERATION: Record<FeatureKey, OperationType> = {
   script_generation: OperationType.SCRIPT_GENERATION,
   script_regeneration: OperationType.SCRIPT_REGENERATION,
   scene_regeneration: OperationType.SCENE_REGENERATION,
+  character_analysis: OperationType.CHARACTER_ANALYSIS,
+  character_generation: OperationType.CHARACTER_GENERATION,
 }
 
 export function toPrismaOperationType(feature: FeatureKey): OperationType {

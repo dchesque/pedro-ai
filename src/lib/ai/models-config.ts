@@ -76,7 +76,14 @@ export const LLM_FEATURES = {
         description: 'Vision para analisar imagens de personagens',
         icon: '👁️',
         modelType: 'vision' as const,
-        defaultModel: 'anthropic/claude-3.5-sonnet',
+        defaultModel: 'google/gemini-2.0-flash-001',
+    },
+    character_generation: {
+        label: 'Geração de Personagem',
+        description: 'Gera imagem e descrição detalhada do personagem',
+        icon: '🤖',
+        modelType: 'text' as const, // O agente principal que orquestra é texto
+        defaultModel: 'deepseek/deepseek-v3.2',
     },
     ai_video: {
         label: 'Geração de Vídeo',

@@ -19,7 +19,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'html.tailus.io',
+        hostname: 'v2.fal.media',
+      },
+      {
+        protocol: 'https',
+        hostname: 'v3b.fal.media',
       },
     ],
   },

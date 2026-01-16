@@ -35,6 +35,7 @@ export interface Style {
     exampleHook?: string
     exampleCta?: string
     visualPrompt?: string
+    isSystem: boolean
     isDefault: boolean
     isPublic: boolean
     usageCount: number

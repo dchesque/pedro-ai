@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAvailableStyles } from "@/hooks/use-agents"
+import { useStyles } from "@/hooks/use-styles"
 import { CharacterSelector } from "../characters/CharacterSelector"
 import { useCredits } from "@/hooks/use-credits"
 
@@ -49,7 +49,7 @@ interface CreateShortFormProps {
 }
 
 export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
-    const { data: stylesData, isLoading: loadingStyles } = useAvailableStyles()
+    const { data: stylesData, isLoading: loadingStyles } = useStyles()
     const styles = stylesData?.styles ?? []
     const { credits } = useCredits()
 
@@ -66,10 +66,8 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
     // Selecionar estilo padrão quando carregar
     React.useEffect(() => {
         if (styles.length > 0 && !form.getValues('style')) {
-            const defaultStyle = styles.find(s => s.source === 'default' && s.key === 'engaging') ??
-                styles.find(s => s.source === 'default') ??
-                styles[0]
-            form.setValue('style', defaultStyle.key)
+            const defaultStyle = styles.find(s => s.isSystem) ?? styles[0]
+            form.setValue('style', defaultStyle.id)
         }
     }, [styles, form])
 
@@ -165,7 +163,7 @@ export function CreateShortForm({ onSubmit, isLoading }: CreateShortFormProps) {
                                         </FormControl>
                                         <SelectContent>
                                             {styles.map((style) => (
-                                                <SelectItem key={style.key} value={style.key}>
+                                                <SelectItem key={style.id} value={style.id}>
                                                     <div className="flex items-center gap-2">
                                                         <span>{style.icon}</span>
                                                         <span className="font-medium">{style.name}</span>

@@ -31,15 +31,11 @@ export default function RoteiroDetailPage() {
     const [isNarrationModalOpen, setIsNarrationModalOpen] = React.useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
 
-    usePageConfig(
-        data?.short.title || "Visualizar Roteiro",
-        "Gerencie a estrutura e veja o storyboard do seu roteiro.",
-        [
-            { label: "Início", href: "/dashboard" },
-            { label: "Roteiros", href: "/shorts" },
-            { label: "Detalhes" },
-        ]
-    )
+    usePageConfig({
+        title: undefined,
+        description: undefined,
+        showBreadcrumbs: false,
+    })
 
     // Polling para status de geração
     React.useEffect(() => {
@@ -95,7 +91,7 @@ export default function RoteiroDetailPage() {
     }
 
     return (
-        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-32">
+        <div className="p-4 md:p-6 w-full space-y-6 pb-32">
             <RoteiroHeader
                 title={short.title || "Roteiro sem título"}
                 status={short.status}
@@ -111,6 +107,7 @@ export default function RoteiroDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-8">
                     <RoteiroSummaryCard
+                        id={id}
                         hook={short.hook}
                         summary={short.summary || short.synopsis}
                         cta={short.cta}

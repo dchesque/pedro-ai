@@ -175,5 +175,25 @@ SHOCK, CTA_DIRECT, MAX_15_WORDS_PER_SENTENCE
 
 Responda APENAS com as palavras-chave, sem explicações.
 `.trim()
+    },
+    {
+        key: 'roteirista.context.hook',
+        module: 'roteirista',
+        pageName: 'Página do Roteiro',
+        pageHref: '/roteiro/[id]',
+        blockName: 'Hook (Abertura)',
+        description: 'Contexto para o assistente de IA melhorar o Hook de abertura.',
+        defaultTemplate: `Este é um hook (abertura) de um vídeo curto (short/reel). 
+O objetivo é prender a atenção do espectador nos primeiros 3 segundos.`.trim()
+    },
+    {
+        key: 'roteirista.context.cta',
+        module: 'roteirista',
+        pageName: 'Página do Roteiro',
+        pageHref: '/roteiro/[id]',
+        blockName: 'CTA (Chamada para Ação)',
+        description: 'Contexto para o assistente de IA melhorar o CTA de fechamento.',
+        defaultTemplate: `Este é um CTA (fechamento) de um vídeo curto (short/reel). 
+O objetivo é incentivar o espectador a realizar uma ação clara.`.trim()
     }
 ];

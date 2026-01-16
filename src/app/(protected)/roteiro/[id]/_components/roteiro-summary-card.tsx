@@ -10,14 +10,21 @@ import {
     Target,
     Settings2,
     Coins,
-    User as UserIcon,
     ChevronRight,
-    Eye
+    Eye,
+    Edit2,
+    Check,
+    X,
+    Loader2
 } from "lucide-react"
 import { CharactersDisplay } from "./characters-display"
+import { AITextAssistant } from "@/components/roteirista/AITextAssistant"
+import { useUpdateShort } from "@/hooks/use-shorts"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
 interface RoteiroSummaryCardProps {
+    id: string
     hook: string | null
     summary: string | null
     cta: string | null
@@ -32,6 +39,7 @@ interface RoteiroSummaryCardProps {
 }
 
 export function RoteiroSummaryCard({
+    id,
     hook,
     summary,
     cta,
@@ -44,6 +52,33 @@ export function RoteiroSummaryCard({
     characterDescription,
     onViewNarration
 }: RoteiroSummaryCardProps) {
+    const [isEditingHook, setIsEditingHook] = React.useState(false)
+    const [isEditingCTA, setIsEditingCTA] = React.useState(false)
+    const [localHook, setLocalHook] = React.useState(hook || "")
+    const [localCTA, setLocalCTA] = React.useState(cta || "")
+
+    const updateShort = useUpdateShort()
+
+    const handleSaveHook = async () => {
+        try {
+            await updateShort.mutateAsync({ id, data: { hook: localHook } })
+            setIsEditingHook(false)
+            toast.success("Hook atualizado!")
+        } catch (error) {
+            toast.error("Erro ao atualizar hook")
+        }
+    }
+
+    const handleSaveCTA = async () => {
+        try {
+            await updateShort.mutateAsync({ id, data: { cta: localCTA } })
+            setIsEditingCTA(false)
+            toast.success("CTA atualizado!")
+        } catch (error) {
+            toast.error("Erro ao atualizar CTA")
+        }
+    }
+
     return (
         <Card className="overflow-hidden border-border/50 bg-card/30 backdrop-blur-sm shadow-xl shadow-black/5">
             <CardContent className="p-0">
@@ -52,14 +87,61 @@ export function RoteiroSummaryCard({
                     <div className="md:col-span-7 p-6 space-y-6">
                         <div className="space-y-4">
                             <section className="group">
-                                <div className="flex items-center gap-2 mb-2 text-amber-500 font-bold text-xs uppercase tracking-tighter">
-                                    <Zap className="h-3.5 w-3.5 fill-current" />
-                                    Hook (Abertura)
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-tighter">
+                                        <Zap className="h-3.5 w-3.5 fill-current" />
+                                        Hook (Abertura)
+                                    </div>
+                                    {!isEditingHook && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => {
+                                                setLocalHook(hook || "")
+                                                setIsEditingHook(true)
+                                            }}
+                                        >
+                                            <Edit2 className="h-3 w-3" />
+                                        </Button>
+                                    )}
                                 </div>
-                                <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl group-hover:bg-amber-500/10 transition-colors">
-                                    <p className="text-sm font-medium italic leading-relaxed text-foreground/90">
-                                        {hook || "Nenhum hook definido."}
-                                    </p>
+                                <div className={cn(
+                                    "bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl transition-colors",
+                                    !isEditingHook && "group-hover:bg-amber-500/10"
+                                )}>
+                                    {isEditingHook ? (
+                                        <div className="space-y-3">
+                                            <AITextAssistant
+                                                value={localHook}
+                                                onChange={setLocalHook}
+                                                fieldType="hook"
+                                                rows={3}
+                                                actions={['improve', 'rewrite']}
+                                                context={{
+                                                    title: summary?.slice(0, 50),
+                                                    tone: climate?.name
+                                                }}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingHook(false)} className="h-7 text-xs">
+                                                    <X className="h-3 w-3 mr-1" /> Cancelar
+                                                </Button>
+                                                <Button size="sm" onClick={handleSaveHook} disabled={updateShort.isPending} className="h-7 text-xs">
+                                                    {updateShort.isPending ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Check className="h-3 w-3 mr-1" />
+                                                    )}
+                                                    Salvar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm font-medium italic leading-relaxed text-foreground/90">
+                                            {hook || "Nenhum hook definido."}
+                                        </p>
+                                    )}
                                 </div>
                             </section>
 
@@ -76,14 +158,61 @@ export function RoteiroSummaryCard({
                             </section>
 
                             <section className="group">
-                                <div className="flex items-center gap-2 mb-2 text-emerald-500 font-bold text-xs uppercase tracking-tighter">
-                                    <Target className="h-3.5 w-3.5 fill-current" />
-                                    CTA (Encerrando)
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-tighter">
+                                        <Target className="h-3.5 w-3.5 fill-current" />
+                                        CTA (Encerrando)
+                                    </div>
+                                    {!isEditingCTA && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => {
+                                                setLocalCTA(cta || "")
+                                                setIsEditingCTA(true)
+                                            }}
+                                        >
+                                            <Edit2 className="h-3 w-3" />
+                                        </Button>
+                                    )}
                                 </div>
-                                <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl group-hover:bg-emerald-500/10 transition-colors text-right">
-                                    <p className="text-sm font-medium italic leading-relaxed text-foreground/90">
-                                        {cta || "Nenhum CTA definido."}
-                                    </p>
+                                <div className={cn(
+                                    "bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl transition-colors",
+                                    !isEditingCTA && "group-hover:bg-emerald-500/10"
+                                )}>
+                                    {isEditingCTA ? (
+                                        <div className="space-y-3">
+                                            <AITextAssistant
+                                                value={localCTA}
+                                                onChange={setLocalCTA}
+                                                fieldType="cta"
+                                                rows={3}
+                                                actions={['improve', 'rewrite']}
+                                                context={{
+                                                    title: summary?.slice(0, 50),
+                                                    tone: climate?.name
+                                                }}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingCTA(false)} className="h-7 text-xs">
+                                                    <X className="h-3 w-3 mr-1" /> Cancelar
+                                                </Button>
+                                                <Button size="sm" onClick={handleSaveCTA} disabled={updateShort.isPending} className="h-7 text-xs">
+                                                    {updateShort.isPending ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Check className="h-3 w-3 mr-1" />
+                                                    )}
+                                                    Salvar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm font-medium italic leading-relaxed text-foreground/90 text-right">
+                                            {cta || "Nenhum CTA definido."}
+                                        </p>
+                                    )}
                                 </div>
                             </section>
                         </div>

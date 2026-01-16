@@ -1,12 +1,9 @@
-import { useState } from "react"
 import { useCharacters } from "@/hooks/use-characters"
-import { Character } from "../../../prisma/generated/client_final"
+import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Check, Plus, UserPlus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { CharacterDialog } from "./CharacterDialog"
 
 interface CharacterSelectorProps {
     selectedCharacterIds: string[]
@@ -16,7 +13,7 @@ interface CharacterSelectorProps {
 
 export function CharacterSelector({ selectedCharacterIds, onSelect, onDeselect }: CharacterSelectorProps) {
     const { data, isLoading } = useCharacters()
-    const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
+    const router = useRouter()
 
     const characters = data?.characters || []
 
@@ -32,7 +29,7 @@ export function CharacterSelector({ selectedCharacterIds, onSelect, onDeselect }
                     variant="ghost"
                     size="sm"
                     className="h-8 text-xs text-muted-foreground hover:text-primary"
-                    onClick={() => setIsNewDialogOpen(true)}
+                    onClick={() => router.push('/characters/novo')}
                 >
                     <Plus className="w-3 h-3 mr-1" />
                     Novo
@@ -73,7 +70,7 @@ export function CharacterSelector({ selectedCharacterIds, onSelect, onDeselect }
                     <Button
                         variant="outline"
                         className="h-12 border-dashed w-full text-muted-foreground"
-                        onClick={() => setIsNewDialogOpen(true)}
+                        onClick={() => router.push('/characters/novo')}
                     >
                         <UserPlus className="w-4 h-4 mr-2" />
                         Criar seu primeiro personagem
@@ -81,10 +78,6 @@ export function CharacterSelector({ selectedCharacterIds, onSelect, onDeselect }
                 )}
             </div>
 
-            <CharacterDialog
-                open={isNewDialogOpen}
-                onOpenChange={setIsNewDialogOpen}
-            />
         </div>
     )
 }

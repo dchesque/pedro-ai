@@ -180,6 +180,7 @@ model Short {
   characters       ShortCharacter[]
   scenes           ShortScene[]
   format           ShortFormat      @default(SHORT)
+  characterDescription String?      @db.Text
 
   @@index([userId])
   @@index([clerkUserId])
@@ -205,6 +206,7 @@ model ShortScene {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   visualPrompt   String?
+  goal           String?        @db.Text
   short          Short          @relation(fields: [shortId], references: [id], onDelete: Cascade)
 
   @@index([shortId])
@@ -537,6 +539,8 @@ enum OperationType {
   SCRIPT_GENERATION
   SCRIPT_REGENERATION
   SCENE_REGENERATION
+  CHARACTER_ANALYSIS
+  CHARACTER_GENERATION
 }
 
 enum EmotionalState {

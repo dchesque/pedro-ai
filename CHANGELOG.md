@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.3.0] - 2026-01-16
+
+### Added
+- **Geração de Personagens com IA**: Implementado suporte nativo a Vision AI (Gemini 2.0 Flash) para análise de imagens de referência e criação automática de portraits detalhados.
+- **Interface de Criação Renovada**: Nova página `/characters/novo` com layout expandido, preview em tempo real e validação assistida por IA.
+- **Controles de Edição**: Adicionados ícones minimalistas (Ver, Editar, Remover) nos cards de listagem para melhor usabilidade.
+
+### Changed
+- **Character Cards**: Redesign completo para visual "premium" sem animações excessivas, com foco em clareza e performance.
+- **Validação de Inputs**: Sincronização rigorosa entre frontend e backend (Zod) para limites de caracteres (Nome: 100, Descrição: 1000) com feedback visual.
+- **Modelos de IA**: Atualização da configuração padrão para usar `google/gemini-2.0-flash-001` na análise de personagens, garantindo maior tolerância a imagens artísticas.
+
+### Fixed
+- **Bug de Edição**: Corrigido estado persistente no modal de edição que exibia dados do personagem anterior.
+- **Erro 400 na Geração**: Resolvido falhas de validação silenciosas com logs detalhados e tratamento de erros explícito no frontend.
+
 ## [3.2.0] - 2026-01-16
 
 ### Added
@@ -7,6 +23,8 @@
 - **Storyboard Interativo**: Slider horizontal para navegação entre cenas com preview em tempo real.
 - **Painel de Detalhes da Cena**: Visualização rica de narração, prompts visuais e status de geração por cena.
 - **Resumo Estruturado**: Card executivo com Hook, Sinopse, CTA e detalhes técnicos (Estilo, Clima, IA).
+- **Assistência de IA em Hook/CTA**: Adicionado botão de refinamento por IA diretamente na visualização do roteiro para melhorar aberturas e fechamentos.
+- **Prompts Gerenciáveis**: Novos templates de assistência adicionados ao painel administrativo.
 - **Modais de Gestão**: 
   - `NarrationModal` para leitura integral do roteiro.
   - `EditSceneModal` para ajustes rápidos de narração e prompt visual.
@@ -17,7 +35,9 @@
 - **Schema de Validação**: Adicionado suporte ao campo `visualPrompt` na atualização de cenas.
 
 ### Fixed
-- **Desativação de Rota Legada**: Página `/shorts/[id]` substituída permanentemente pela nova arquitetura.
+- Corrigido desaparecimento dos campos Hook e CTA durante o fluxo de criação no ScriptWizard.
+- Mapeamento de dados entre os passos do wizard para garantir persistência.
+- Desativação de rota legada: Página `/shorts/[id]` substituída permanentemente pela nova arquitetura.
 
 
 ## [3.1.1] - 2026-01-14

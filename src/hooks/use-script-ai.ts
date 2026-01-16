@@ -24,6 +24,8 @@ export function useSaveScript() {
                 toneId: data.climateId,
                 aiModel: data.modelId,
                 sceneCount: data.sceneCount,
+                hook: data.hook,
+                cta: data.cta,
                 scenes: data.scenes.map(s => ({
                     order: s.orderIndex,
                     narration: s.narration,
