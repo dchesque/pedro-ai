@@ -80,7 +80,7 @@ export default function ScriptEditPage() {
         [
             { label: "Início", href: "/dashboard" },
             { label: "Shorts", href: "/shorts" },
-            { label: "Detalhes", href: `/shorts/${id}` },
+            { label: "Detalhes", href: `/roteiro/${id}` },
             { label: "Editar Roteiro" },
         ]
     )
@@ -99,7 +99,7 @@ export default function ScriptEditPage() {
             await approveScript.mutateAsync(id)
             toast.success("Roteiro aprovado! Iniciando geração das imagens...")
             generateMedia.mutate(id)
-            router.push(`/shorts/${id}`)
+            router.push(`/roteiro/${id}`)
         } catch (error) {
             toast.error("Falha ao aprovar roteiro.")
         }
@@ -133,7 +133,7 @@ export default function ScriptEditPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.push(`/shorts/${id}`)}>
+                    <Button variant="outline" size="icon" onClick={() => router.push(`/roteiro/${id}`)}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div>
@@ -403,7 +403,7 @@ export default function ScriptEditPage() {
                         <p className="text-xs text-muted-foreground">{short.scenes.length} cenas • ~{short.scenes.length * 2 + 2} créditos totais</p>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">
-                        <Button variant="outline" className="flex-1 md:flex-none" onClick={() => router.push(`/shorts/${id}`)}>
+                        <Button variant="outline" className="flex-1 md:flex-none" onClick={() => router.push(`/roteiro/${id}`)}>
                             Sair sem salvar imagem
                         </Button>
                         <Button className="flex-1 md:flex-none h-12 px-8 text-md font-bold" onClick={handleApprove} disabled={approveScript.isPending}>

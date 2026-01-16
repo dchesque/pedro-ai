@@ -53,6 +53,17 @@ export interface Short {
     updatedAt: string
     completedAt?: string
     scenes: ShortScene[]
+    characters?: Array<{
+        id: string
+        shortId: string
+        characterId: string
+        role: string
+        character: {
+            id: string
+            name: string
+            imageUrl: string
+        }
+    }>
 }
 
 export interface CreateShortInput {
@@ -190,7 +201,7 @@ export function useUpdateScene() {
         mutationFn: ({ shortId, sceneId, data }: {
             shortId: string
             sceneId: string
-            data: { narration?: string; visualDesc?: string; duration?: number }
+            data: { narration?: string; visualDesc?: string; visualPrompt?: string; duration?: number }
         }) => api.put<{ scene: ShortScene }>(`/api/shorts/${shortId}/scenes/${sceneId}`, data),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['shorts', variables.shortId] })

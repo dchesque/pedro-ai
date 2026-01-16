@@ -139,14 +139,14 @@ export function ShortCard({ short, onGenerate, onDelete, isGenerating, isDeletin
             <CardFooter className="gap-2 pt-0">
                 {short.status === 'COMPLETED' ? (
                     <Button asChild className="flex-1" size="sm">
-                        <Link href={`/shorts/${short.id}`}>
+                        <Link href={`/roteiro/${short.id}`}>
                             <Play className="mr-2 h-4 w-4" />
-                            Ver Short
+                            Ver Roteiro
                         </Link>
                     </Button>
                 ) : needsReview ? (
                     <Button asChild className="flex-1" size="sm" variant="outline">
-                        <Link href={`/shorts/${short.id}/edit`}>
+                        <Link href={`/roteiro/${short.id}`}>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Revisar Roteiro
                         </Link>

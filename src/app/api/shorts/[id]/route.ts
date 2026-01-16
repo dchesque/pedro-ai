@@ -19,6 +19,14 @@ async function handleGet(
                 scenes: {
                     orderBy: { order: 'asc' },
                 },
+                characters: {
+                    include: {
+                        character: true
+                    },
+                    orderBy: { orderIndex: 'asc' }
+                },
+                styleRelation: true,
+                climate: true,
             },
         })
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.2.0] - 2026-01-16
+
+### Added
+- **Nova Visualização de Roteiro**: Implementada rota dedicada `/roteiro/[id]` com layout otimizado para storyboard.
+- **Storyboard Interativo**: Slider horizontal para navegação entre cenas com preview em tempo real.
+- **Painel de Detalhes da Cena**: Visualização rica de narração, prompts visuais e status de geração por cena.
+- **Resumo Estruturado**: Card executivo com Hook, Sinopse, CTA e detalhes técnicos (Estilo, Clima, IA).
+- **Modais de Gestão**: 
+  - `NarrationModal` para leitura integral do roteiro.
+  - `EditSceneModal` para ajustes rápidos de narração e prompt visual.
+
+### Changed
+- **API de Roteiros**: Backend agora inclui automaticamente relações de personagens, estilos e climas no detalhamento.
+- **Navegação Global**: Todos os links de "Ver Detalhes" agora apontam para a nova visualização em `/roteiro`.
+- **Schema de Validação**: Adicionado suporte ao campo `visualPrompt` na atualização de cenas.
+
+### Fixed
+- **Desativação de Rota Legada**: Página `/shorts/[id]` substituída permanentemente pela nova arquitetura.
+
 
 ## [3.1.1] - 2026-01-14
 

@@ -8,6 +8,7 @@ import { z } from 'zod'
 const UpdateSceneSchema = z.object({
     narration: z.string().optional(),
     visualDesc: z.string().optional(),
+    visualPrompt: z.string().optional(),
     duration: z.number().int().min(1).max(30).optional(),
 }).strict()
 

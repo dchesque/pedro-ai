@@ -168,7 +168,7 @@ export default function RoteiristaListingPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem asChild>
-                                                        <Link href={`/shorts/${short.id}`}>Ver Detalhes</Link>
+                                                        <Link href={`/roteiro/${short.id}`}>Ver Detalhes</Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem asChild>
                                                         <Link href={`/roteirista/${short.id}`}>Editar Roteiro</Link>
@@ -201,7 +201,7 @@ export default function RoteiristaListingPage() {
                                                 </span>
                                             </div>
                                             <Button asChild size="sm" variant="secondary" className="h-8 gap-2">
-                                                <Link href={`/shorts/${short.id}`}>
+                                                <Link href={`/roteiro/${short.id}`}>
                                                     {short.status === 'SCRIPT_READY' ? (
                                                         <>
                                                             <Play className="h-3.5 w-3.5" />
