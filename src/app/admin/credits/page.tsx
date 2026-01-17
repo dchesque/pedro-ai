@@ -30,6 +30,7 @@ import {
   useAdjustCredits,
   type CreditBalance
 } from "@/hooks/admin/use-admin-credits";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 
 export default function CreditsPage() {
   const [selectedUser, setSelectedUser] = useState<CreditBalance | null>(null);
@@ -87,13 +88,14 @@ export default function CreditsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Créditos</h1>
-          <p className="text-muted-foreground mt-2">Monitore e gerencie os créditos dos usuários</p>
-        </div>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Gerenciamento de"
+        subtitle="Créditos"
+        description="Monitore e gerencie os créditos dos usuários."
+        icon={DollarSign}
+        badge="CRÉDITOS"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6">

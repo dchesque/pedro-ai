@@ -13,6 +13,8 @@ import { ChevronLeft, Save, Sparkles, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { ModelSelector } from '@/components/admin/model-selector'
+import { StandardPageHeader } from "@/components/ui/standard-page-header"
+import { BotIcon } from "lucide-react"
 
 export default function AdminAgentEditPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -80,20 +82,27 @@ export default function AdminAgentEditPage({ params }: { params: Promise<{ id: s
     if (!agent) return <div className="p-8 text-center text-red-500">Agent não encontrado.</div>
 
     return (
-        <div className="container mx-auto py-8">
-            <div className="flex items-center gap-4 mb-8">
+        <div className="container mx-auto space-y-6">
+            <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={() => router.back()}>
                     <ChevronLeft />
                 </Button>
-                <div>
-                    <h1 className="text-3xl font-bold">Editar Agent</h1>
-                    <p className="text-muted-foreground">{agent.name} ({agent.type})</p>
-                </div>
-                <Button className="ml-auto gap-2" onClick={handleSave} disabled={updateMutation.isPending}>
-                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {updateMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
-                </Button>
+                <span className="text-sm text-muted-foreground">Voltar para lista</span>
             </div>
+
+            <StandardPageHeader
+                title="Editar"
+                subtitle="Agent"
+                description={`${agent.name} (${agent.type})`}
+                icon={BotIcon}
+                badge={agent.isGlobal ? "SYSTEM AGENT" : "CUSTOM AGENT"}
+                action={
+                    <Button className="gap-2" onClick={handleSave} disabled={updateMutation.isPending}>
+                        {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {updateMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                    </Button>
+                }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">

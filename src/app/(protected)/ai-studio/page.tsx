@@ -3,7 +3,7 @@
 import React from "react"
 import { CreditCard, ImageIcon, Video } from "lucide-react"
 
-import { usePageConfig } from "@/hooks/use-page-config"
+import { StandardPageHeader } from "@/components/ui/standard-page-header"
 import { useCredits } from "@/hooks/use-credits"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,10 +15,7 @@ import {
 import { type GenerateImageOutput, type GenerateVideoOutput } from "@/hooks/use-fal-generation"
 
 export default function AIStudioPage() {
-    usePageConfig('AI Studio', 'Crie imagens e vídeos incríveis com Inteligência Artificial.', [
-        { label: 'Início', href: '/dashboard' },
-        { label: 'AI Studio' },
-    ])
+    // usePageConfig helper removed in favor of StandardPageHeader
 
     const { credits } = useCredits()
     const [activeTab, setActiveTab] = React.useState<"image" | "video">("image")
@@ -49,25 +46,27 @@ export default function AIStudioPage() {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-6 lg:gap-8">
+        <div className="container mx-auto flex flex-col gap-6 lg:gap-8">
             {/* Header com Créditos */}
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-bold tracking-tight">AI Studio</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Sua central criativa de mídia com fal.ai
-                    </p>
-                </div>
-                <Card className="flex items-center gap-3 bg-primary/5 px-4 py-2 border-primary/20 shadow-none">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                    <div className="flex flex-col">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo</span>
-                        <span className="text-lg font-bold leading-none">
-                            {credits?.creditsRemaining ?? 0} <span className="text-xs font-normal">créditos</span>
-                        </span>
-                    </div>
-                </Card>
-            </div>
+            {/* Header com Créditos */}
+            <StandardPageHeader
+                title="Estúdio"
+                subtitle="AI"
+                description="Sua central criativa de mídia com fal.ai"
+                icon={ImageIcon}
+                badge="CREATIVE SUITE"
+                action={
+                    <Card className="flex items-center gap-3 bg-primary/5 px-4 py-2 border-primary/20 shadow-none">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <div className="flex flex-col">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo</span>
+                            <span className="text-lg font-bold leading-none">
+                                {credits?.creditsRemaining ?? 0} <span className="text-xs font-normal">créditos</span>
+                            </span>
+                        </div>
+                    </Card>
+                }
+            />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
                 {/* Formulários (Esquerda) */}

@@ -7,21 +7,20 @@ import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/comp
 import { Button } from '@/components/ui/button'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StandardPageHeader } from '@/components/ui/standard-page-header'
 
 export default function AgentsPage() {
     const { data, isLoading } = useAgents()
 
     return (
-        <div className="container mx-auto py-8">
-            <div className="flex flex-col gap-2 mb-8">
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                    <Sparkles className="h-8 w-8 text-primary" />
-                    Agents System v1.0
-                </h1>
-                <p className="text-muted-foreground">
-                    Assistentes especializados para criar configurações perfeitas para seus vídeos.
-                </p>
-            </div>
+        <div className="container mx-auto">
+            <StandardPageHeader
+                title="Sistema de"
+                subtitle="Agentes"
+                description="Assistentes especializados para criar configurações perfeitas para seus vídeos."
+                icon={Sparkles}
+                badge="SYSTEM V1.0"
+            />
 
             {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

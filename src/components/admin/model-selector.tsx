@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { Loader2, DollarSign, Zap, AlertTriangle } from 'lucide-react'
+import { Loader2, DollarSign, Zap, AlertTriangle, ExternalLink } from 'lucide-react'
 import { useProviders, useProviderModels } from '@/hooks/use-providers'
 import { Label } from '@/components/ui/label'
 import {
@@ -247,11 +247,24 @@ export function ModelSelector({
     )
 }
 
+
+function getModelUrl(provider: string, modelId: string): string | null {
+    if (provider === 'openrouter') {
+        return `https://openrouter.ai/models/${modelId}`
+    }
+    if (provider === 'fal') {
+        // fal model IDs are typically like "fal-ai/flux-pro"
+        return `https://fal.ai/models/${modelId}`
+    }
+    return null
+}
+
 /**
  * Card que exibe informações de pricing do modelo
  */
 function ModelPricingCard({ model }: { model: ProviderModel }) {
     const { pricing } = model
+    const modelUrl = getModelUrl(model.provider, model.id) // Assuming ProviderModel has provider field or we pass it
 
     return (
         <Card className="bg-muted/30 border-dashed">
@@ -262,7 +275,20 @@ function ModelPricingCard({ model }: { model: ProviderModel }) {
                     </div>
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{model.name}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{model.name}</span>
+                                {modelUrl && (
+                                    <a
+                                        href={modelUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-muted-foreground hover:text-primary transition-colors"
+                                        title="Ver na página do provider"
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                )}
+                            </div>
                             {pricing.estimatedCreditsPerUse !== undefined && (
                                 <Badge className="bg-primary/10 text-primary border-0">
                                     <Zap className="h-3 w-3 mr-1" />
@@ -303,12 +329,6 @@ function ModelPricingCard({ model }: { model: ProviderModel }) {
                                 </div>
                             )}
                         </div>
-
-                        {model.description && (
-                            <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
-                                {model.description}
-                            </p>
-                        )}
                     </div>
                 </div>
             </CardContent>

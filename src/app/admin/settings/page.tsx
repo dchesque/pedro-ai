@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal, DollarSign, ArrowRight } from "lucide-react";
+import { SlidersHorizontal, DollarSign, ArrowRight, Settings } from "lucide-react";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 
 export default function AdminSettingsPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Configurações do Administrador</h1>
-        <p className="text-muted-foreground mt-2">Configure os custos de funcionalidades e os créditos dos planos</p>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Configurações do"
+        subtitle="Administrador"
+        description="Configure os custos de funcionalidades e os créditos dos planos."
+        icon={Settings}
+        badge="CONFIGURAÇÕES"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6 hover:shadow-lg transition-shadow">

@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.3.1] - 2026-01-17
+
+### Changed
+- **Admin UI**: Simplificação dos cards em `/admin/models` e `/admin/prompts` removendo descrições longas e adicionando links diretos para os providers.
+- **Admin Layout**: Padronização visual completa de todas as páginas administrativas do sistema.
+
 ## [3.3.0] - 2026-01-16
 
 ### Added

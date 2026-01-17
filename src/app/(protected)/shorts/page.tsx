@@ -5,6 +5,7 @@ import { Plus, Video, Loader2, Play, Trash2, RefreshCw } from "lucide-react"
 
 import { usePageConfig } from "@/hooks/use-page-config"
 import { useCredits } from "@/hooks/use-credits"
+import { StandardPageHeader } from "@/components/ui/standard-page-header"
 import { useShorts, useCreateShort, useGenerateScript, useGenerateMedia, useDeleteShort, type Short } from "@/hooks/use-shorts"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -25,10 +26,7 @@ import { CreateShortForm } from "@/components/shorts/CreateShortForm"
 import { ShortCard } from "@/components/shorts/ShortCard"
 
 export default function ShortsPage() {
-    usePageConfig('Shorts', 'Crie shorts virais com IA de forma automática.', [
-        { label: 'Início', href: '/dashboard' },
-        { label: 'Shorts' },
-    ])
+    // usePageConfig helper removed in favor of StandardPageHeader
 
     const { credits } = useCredits()
     const { data, isLoading, error, refetch } = useShorts()
@@ -56,9 +54,10 @@ export default function ShortsPage() {
     const handleCreate = async (values: { theme: string; targetDuration: number; style: string; aiModel: string }) => {
         try {
             const result = await createShort.mutateAsync({
+                premise: values.theme,
                 theme: values.theme,
                 targetDuration: values.targetDuration,
-                style: values.style as any,
+                styleId: values.style,
                 aiModel: values.aiModel
             })
             setCreateDialogOpen(false)
@@ -83,45 +82,45 @@ export default function ShortsPage() {
     const shorts = data?.shorts ?? []
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-bold tracking-tight">Shorts</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Crie shorts virais automaticamente com IA
-                    </p>
-                </div>
+        <div className="container mx-auto space-y-6">
+            {/* Header section replaced by StandardPageHeader */}
+            <StandardPageHeader
+                title="Meus"
+                subtitle="Shorts"
+                description="Crie shorts virais automaticamente com IA."
+                icon={Video}
+                badge="ESTÚDIO IA"
+                action={
+                    <div className="flex items-center gap-4">
+                        <div className="bg-secondary/50 px-3 py-1.5 rounded-full border border-border flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Disponível</span>
+                            <span className="font-bold text-sm">{credits?.creditsRemaining ?? 0}</span>
+                            <span className="text-xs text-muted-foreground">créditos</span>
+                        </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="bg-secondary/50 px-3 py-1.5 rounded-full border border-border flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Disponível</span>
-                        <span className="font-bold text-sm">{credits?.creditsRemaining ?? 0}</span>
-                        <span className="text-xs text-muted-foreground">créditos</span>
+                        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="lg" className="h-14 px-8 rounded-2xl shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300 font-bold text-base gap-3">
+                                    <Plus className="h-5 w-5" />
+                                    Novo Short
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[500px]">
+                                <DialogHeader>
+                                    <DialogTitle>Criar Novo Short</DialogTitle>
+                                    <DialogDescription>
+                                        Defina o tema e estilo do seu short. A IA cuidará do resto.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <CreateShortForm
+                                    onSubmit={handleCreate}
+                                    isLoading={createShort.isPending}
+                                />
+                            </DialogContent>
+                        </Dialog>
                     </div>
-
-                    <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Novo Short
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
-                            <DialogHeader>
-                                <DialogTitle>Criar Novo Short</DialogTitle>
-                                <DialogDescription>
-                                    Defina o tema e estilo do seu short. A IA cuidará do resto.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <CreateShortForm
-                                onSubmit={handleCreate}
-                                isLoading={createShort.isPending}
-                            />
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </div>
+                }
+            />
 
             {/* Lista de Shorts */}
             {isLoading ? (

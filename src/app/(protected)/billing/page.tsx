@@ -9,7 +9,7 @@ import { CancelSubscriptionDialog } from "@/components/billing/cancel-subscripti
 import { usePublicPlans } from "@/hooks/use-public-plans";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCredits } from "@/hooks/use-credits";
-import { useSetPageMetadata } from "@/contexts/page-metadata";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 import { CreditCard, Calendar, Coins, Crown } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +20,7 @@ export default function BillingPage() {
   const { credits, isLoading } = useCredits();
   const { data: plansData, isLoading: isLoadingPlans } = usePublicPlans();
 
-  useSetPageMetadata({
-    title: "Cobrança e Assinatura",
-    description: "Gerencie seus créditos, plano e histórico de uso",
-    breadcrumbs: [
-      { label: "Início", href: "/dashboard" },
-      { label: "Cobrança" }
-    ]
-  });
+
 
   // Filter out plans with invalid prices (Asaas minimum is R$ 5.00 = 500 cents)
   // Valid: null, 0 (free), or >= 500 (paid)
@@ -53,8 +46,8 @@ export default function BillingPage() {
     if (!credits?.plan || credits.plan === "none" || credits.plan === "free") {
       return null;
     }
-    return validPlans.find(p => p.id === credits.plan) || { 
-      id: credits.plan, 
+    return validPlans.find(p => p.id === credits.plan) || {
+      id: credits.plan,
       name: credits.plan.charAt(0).toUpperCase() + credits.plan.slice(1),
       credits: credits.creditsTotal
     };
@@ -75,7 +68,14 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Cobrança &"
+        subtitle="Assinatura"
+        description="Gerencie seus créditos, plano e histórico de uso."
+        icon={CreditCard}
+        badge="FINANCEIRO"
+      />
       {currentPlan && (
         <Card className="border-primary/50 bg-primary/5">
           <CardHeader>
@@ -107,7 +107,7 @@ export default function BillingPage() {
                 <p className="text-sm text-muted-foreground">Plano</p>
                 <p className="text-2xl font-bold">{currentPlan.name}</p>
               </div>
-              
+
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Coins className="h-4 w-4" />
@@ -120,14 +120,14 @@ export default function BillingPage() {
                   <Progress value={credits?.percentage || 0} className="h-2" />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
                   Próxima Renovação
                 </p>
                 <p className="text-2xl font-bold">
-                  {credits?.billingPeriodEnd 
+                  {credits?.billingPeriodEnd
                     ? new Date(credits.billingPeriodEnd).toLocaleDateString('pt-BR')
                     : '-'
                   }
@@ -166,7 +166,7 @@ export default function BillingPage() {
                 {currentPlan ? "Alterar Plano" : "Escolha Seu Plano"}
               </CardTitle>
               <CardDescription>
-                {currentPlan 
+                {currentPlan
                   ? "Faça upgrade ou downgrade do seu plano atual"
                   : "Selecione o plano que melhor se adequa às suas necessidades"
                 }
@@ -185,11 +185,11 @@ export default function BillingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <CreditStatus showUpgradeButton={credits?.isLow} />
-              
+
               {credits?.isLow && (
                 <div className="bg-orange-50 dark:bg-orange-950/20 p-3 rounded-lg">
                   <p className="text-sm text-orange-800 dark:text-orange-200">
-                    <strong>Atenção:</strong> Seus créditos estão acabando. 
+                    <strong>Atenção:</strong> Seus créditos estão acabando.
                     Considere fazer upgrade do seu plano.
                   </p>
                 </div>
@@ -198,7 +198,7 @@ export default function BillingPage() {
               {credits?.isEmpty && (
                 <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-lg">
                   <p className="text-sm text-red-800 dark:text-red-200">
-                    <strong>Sem créditos:</strong> Você não pode realizar novas operações. 
+                    <strong>Sem créditos:</strong> Você não pode realizar novas operações.
                     Faça upgrade do seu plano para continuar.
                   </p>
                 </div>

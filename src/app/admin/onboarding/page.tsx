@@ -1,5 +1,7 @@
 import { DeveloperOnboarding } from "@/components/admin/onboarding/developer-onboarding";
 import { getEnvChecklist, isEnvConfigured } from "@/lib/onboarding/env-check";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
+import { CheckCircle2 } from "lucide-react";
 
 /**
  * Server Component - A checagem de variáveis de ambiente é feita no servidor
@@ -12,15 +14,14 @@ export default function AdminOnboardingPage() {
   const openRouterConfigured = isEnvConfigured('OPENROUTER_API_KEY');
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Primeiros passos</p>
-        <h1 className="text-3xl font-bold text-foreground">Configurações iniciais</h1>
-        <p className="text-muted-foreground">
-          Use este roteiro sempre que precisar preparar uma nova máquina de desenvolvimento ou validar o estado da
-          configuração do projeto.
-        </p>
-      </div>
+    <div className="container mx-auto space-y-8">
+      <StandardPageHeader
+        title="Configurações"
+        subtitle="Iniciais"
+        description="Use este roteiro sempre que precisar preparar uma nova máquina de desenvolvimento ou validar o estado da configuração do projeto."
+        icon={CheckCircle2}
+        badge="ONBOARDING"
+      />
 
       <DeveloperOnboarding envChecklist={envChecklist} openRouterConfigured={openRouterConfigured} />
     </div>

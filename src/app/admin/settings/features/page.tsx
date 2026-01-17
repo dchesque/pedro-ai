@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSettings, useUpdateAdminSettings } from "@/hooks/use-admin-settings";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
+import { DollarSign } from "lucide-react";
 
 type FeatureCosts = Record<string, number>
 
@@ -65,11 +67,14 @@ export default function FeatureCostsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Custos por Funcionalidade</h1>
-        <p className="text-muted-foreground mt-2">Configure os custos de crédito para cada funcionalidade do sistema</p>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Custos por"
+        subtitle="Funcionalidade"
+        description="Configure os custos de crédito para cada funcionalidade do sistema."
+        icon={DollarSign}
+        badge="PRECIFICAÇÃO"
+      />
 
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-foreground mb-4">Custos de Crédito por Funcionalidade</h2>

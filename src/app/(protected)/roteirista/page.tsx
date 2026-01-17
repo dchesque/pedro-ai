@@ -17,7 +17,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { useSetPageMetadata } from '@/contexts/page-metadata'
+import { StandardPageHeader } from '@/components/ui/standard-page-header'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
     DRAFT: { label: 'Rascunho', color: 'bg-slate-500/10 text-slate-600' },
@@ -41,26 +41,26 @@ export default function RoteiristaListingPage() {
         s.theme.toLowerCase().includes(search.toLowerCase())
     )
 
-    useSetPageMetadata({
-        title: "Roteirista",
-        description: "Gerencie seus roteiros e transforme ideias em vídeos virais.",
-        breadcrumbs: [
-            { label: "Início", href: "/dashboard" },
-            { label: "Roteirista" }
-        ]
-    });
+
 
     return (
-        <div className="space-y-8">
+        <div className="container mx-auto space-y-8">
             {/* Header - Simplified as metadata handles title/desc */}
-            <div className="flex flex-col md:flex-row md:items-center justify-end gap-4">
-                <Button asChild className="gap-2">
-                    <Link href="/roteirista/novo">
-                        <Plus className="h-4 w-4" />
-                        Novo Roteiro
-                    </Link>
-                </Button>
-            </div>
+            <StandardPageHeader
+                title="Gerenciador de"
+                subtitle="Roteiros"
+                description="Gerencie seus roteiros e transforme ideias em vídeos virais."
+                icon={FileText}
+                badge="ROTEIROS"
+                action={
+                    <Button asChild size="lg" className="h-14 px-8 rounded-2xl shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300 font-bold text-base gap-3">
+                        <Link href="/roteirista/novo">
+                            <Plus className="h-5 w-5" />
+                            Novo Roteiro
+                        </Link>
+                    </Button>
+                }
+            />
 
             {/* Stats / Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

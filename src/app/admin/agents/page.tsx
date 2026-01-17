@@ -9,18 +9,21 @@ import { Badge } from '@/components/ui/badge'
 import { Edit2, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { StandardPageHeader } from '@/components/ui/standard-page-header'
+import { BotIcon } from 'lucide-react'
 
 export default function AdminAgentsPage() {
     const { data, isLoading } = useAdminAgentsV2()
 
     return (
-        <div className="container mx-auto py-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold">Gerenciar Agents</h1>
-                    <p className="text-muted-foreground">Configure os assistants de Clima, Estilo e Custom.</p>
-                </div>
-            </div>
+        <div className="container mx-auto space-y-6">
+            <StandardPageHeader
+                title="Gerenciar"
+                subtitle="Agents"
+                description="Configure os assistants de Clima, Estilo e Custom."
+                icon={BotIcon}
+                badge="AGENTS"
+            />
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <Table>

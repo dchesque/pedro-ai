@@ -16,6 +16,8 @@ import {
   serializePlanForPersistence,
   createNewCustomPlan,
 } from "@/components/admin/plans/utils";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
+import { CreditCard } from "lucide-react";
 
 export default function BillingPlansPage() {
   const { toast } = useToast()
@@ -174,11 +176,14 @@ export default function BillingPlansPage() {
   const activePlanCount = Object.values(billingPlans).filter(plan => plan.active !== false).length
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Planos de Assinatura</h1>
-        <p className="text-muted-foreground mt-2">Gerencie os planos de assinatura e configure créditos mensais</p>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Planos de"
+        subtitle="Assinatura"
+        description="Gerencie os planos de assinatura e configure créditos mensais."
+        icon={CreditCard}
+        badge="PLANOS"
+      />
 
       <PlanSummaryCards totalPlans={planCount} activePlans={activePlanCount} />
 

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Save, Cpu, Sparkles, Loader2, Undo2 } from 'lucide-react'
+import { StandardPageHeader } from '@/components/ui/standard-page-header'
 import { useAdminModels, useSaveAdminModels } from '@/hooks/use-admin-models'
 import { ModelSelector } from '@/components/admin/model-selector'
 import { Button } from '@/components/ui/button'
@@ -117,38 +118,34 @@ export default function AdminModelsPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        <Cpu className="h-8 w-8 text-primary" />
-                        Modelos de IA
-                    </h1>
-                    <p className="text-muted-foreground mt-1">
-                        Configure o provider e modelo padrão para cada funcionalidade.
-                    </p>
-                </div>
-
-                <div className="flex gap-2">
-                    {hasChanges && (
-                        <Button variant="outline" onClick={handleReset}>
-                            <Undo2 className="h-4 w-4 mr-2" />
-                            Descartar
-                        </Button>
-                    )}
-                    <Button
-                        onClick={handleSave}
-                        disabled={!hasChanges || saveModels.isPending}
-                    >
-                        {saveModels.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                            <Save className="h-4 w-4 mr-2" />
+            <StandardPageHeader
+                title="Modelos de"
+                subtitle="IA"
+                description="Configure o provider e modelo padrão para cada funcionalidade."
+                icon={Cpu}
+                badge="INTELIGÊNCIA ARTIFICIAL"
+                action={
+                    <div className="flex gap-2">
+                        {hasChanges && (
+                            <Button variant="outline" onClick={handleReset}>
+                                <Undo2 className="h-4 w-4 mr-2" />
+                                Descartar
+                            </Button>
                         )}
-                        Salvar Configurações
-                    </Button>
-                </div>
-            </div>
+                        <Button
+                            onClick={handleSave}
+                            disabled={!hasChanges || saveModels.isPending}
+                        >
+                            {saveModels.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Save className="h-4 w-4 mr-2" />
+                            )}
+                            Salvar Configurações
+                        </Button>
+                    </div>
+                }
+            />
 
             {/* Info Card */}
             <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { useStyles, useDeleteStyle, Style } from '@/hooks/use-styles'
 import { StyleCard } from '@/components/estilos/StyleCard'
 import { useRouter } from 'next/navigation'
+import { StandardPageHeader } from '@/components/ui/standard-page-header'
 
 export default function EstilosPage() {
     const [search, setSearch] = useState('')
@@ -69,31 +70,28 @@ export default function EstilosPage() {
     }
 
     return (
-        <div className="container max-w-7xl mx-auto py-8 px-4 space-y-8 animate-in fade-in duration-700">
+        <div className="container mx-auto space-y-8 animate-in fade-in duration-700">
             {/* Header com Design Sistema */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-8">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <Wand2 className="h-5 w-5 text-primary" />
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground underline decoration-primary/30 underline-offset-8">Estilos & Climas</h1>
+            <StandardPageHeader
+                title="Estilos &"
+                subtitle="Climas"
+                description="Personalize o comportamento rítmico e a estética visual dos seus scripts gerados por IA."
+                icon={Wand2}
+                badge="PERSONALIZAÇÃO"
+                action={
+                    <div className="flex items-center gap-3">
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                                placeholder="Buscar..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-10 w-full md:w-[300px] bg-muted/30 border-border focus:border-primary/50 transition-all h-11"
+                            />
+                        </div>
                     </div>
-                    <p className="text-muted-foreground font-medium">
-                        Personalize o comportamento rítmico e a estética visual dos seus scripts gerados por IA.
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                            placeholder="Buscar..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-10 w-full md:w-[300px] bg-muted/30 border-border focus:border-primary/50 transition-all h-11"
-                        />
-                    </div>
-                </div>
-            </header>
+                }
+            />
 
             <Tabs defaultValue="climates" className="w-full">
                 <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">

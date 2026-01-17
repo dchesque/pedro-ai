@@ -10,22 +10,22 @@ import { useCredits } from '@/hooks/use-credits'
 import { useOpenRouterModels } from '@/hooks/use-openrouter-models'
 import { useGenerateImage } from '@/hooks/use-ai-image'
 import { useFileUpload } from '@/hooks/use-file-upload'
-import { 
-  useChatLogic, 
-  STATIC_MODELS, 
+import {
+  useChatLogic,
+  STATIC_MODELS,
   STATIC_IMAGE_MODELS_OPENROUTER,
-  createTextMessage 
+  createTextMessage
 } from '@/hooks/use-chat-logic'
 import { ChatHeader } from '@/components/ai-chat/ChatHeader'
 import { ChatMessages } from '@/components/ai-chat/ChatMessages'
 import { ChatInput } from '@/components/ai-chat/ChatInput'
 import type { UploadItem } from '@/components/ai-chat/FileAttachments'
 
+import { StandardPageHeader } from "@/components/ui/standard-page-header"
+import { MessageSquare } from "lucide-react"
+
 export default function AIChatPage() {
-  usePageConfig('Chat com IA', 'Converse com diferentes LLMs via OpenRouter.', [
-    { label: 'Início', href: '/dashboard' },
-    { label: 'Chat com IA' },
-  ])
+  // usePageConfig removed
 
   // Chat logic hook
   const {
@@ -259,47 +259,56 @@ export default function AIChatPage() {
   }, [hasUploadingAttachments, mode, readyAttachments.length, input, canPerformOperation])
 
   return (
-    <Card className="mx-auto flex w-full flex-1 flex-col gap-4 rounded-2xl p-3 sm:gap-6 sm:p-6 lg:min-h-[70dvh] shadow-none">
-      <ChatHeader
-        credits={credits}
-        onClearChat={() => setMessages([])}
+    <div className="container mx-auto flex flex-col gap-6">
+      <StandardPageHeader
+        title="Chat com"
+        subtitle="Inteligência"
+        description="Converse com diferentes LLMs via OpenRouter para auxiliar em suas tarefas."
+        icon={MessageSquare}
+        badge="ASSISTENTE V2"
       />
+      <Card className="mx-auto flex w-full flex-1 flex-col gap-4 rounded-2xl p-3 sm:gap-6 sm:p-6 lg:min-h-[70dvh] shadow-none">
+        <ChatHeader
+          credits={credits}
+          onClearChat={() => setMessages([])}
+        />
 
-      <ChatMessages
-        messages={deferredMessages}
-        isLoading={isLoading}
-        isPendingImage={generateImage.isPending}
-        onRetry={handleRetry}
-        extractTextFromMessage={extractTextFromMessage}
-      />
+        <ChatMessages
+          messages={deferredMessages}
+          isLoading={isLoading}
+          isPendingImage={generateImage.isPending}
+          onRetry={handleRetry}
+          extractTextFromMessage={extractTextFromMessage}
+        />
 
-      <ChatInput
-        input={input}
-        onInputChange={setInput}
-        onSubmit={handleSubmit}
-        mode={mode}
-        model={model}
-        modelItems={modelItems}
-        onModeChange={setMode}
-        onModelChange={setModel}
-        attachments={attachments}
-        onAttachFile={handleAttachFile}
-        onRemoveAttachment={removeAttachment}
-        onCancelUpload={handleCancelUpload}
-        isLoading={isLoading}
-        isPendingImage={generateImage.isPending}
-        hasUploadingAttachments={hasUploadingAttachments}
-        canSubmit={canSubmit}
-        creditCost={getCost(mode === 'image' ? 'image_generation' : 'ai_chat')}
-        creditLabel={mode === 'image' ? 'créditos' : 'crédito'}
-        onStop={() => void stop()}
-        fileInputRef={fileInputRef}
-        onFileSelected={onFileSelected}
-        dragActive={dragActive}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-      />
-    </Card>
+        <ChatInput
+          input={input}
+          onInputChange={setInput}
+          onSubmit={handleSubmit}
+          mode={mode}
+          model={model}
+          modelItems={modelItems}
+          onModeChange={setMode}
+          onModelChange={setModel}
+          attachments={attachments}
+          onAttachFile={handleAttachFile}
+          onRemoveAttachment={removeAttachment}
+          onCancelUpload={handleCancelUpload}
+          isLoading={isLoading}
+          isPendingImage={generateImage.isPending}
+          hasUploadingAttachments={hasUploadingAttachments}
+          canSubmit={canSubmit}
+          creditCost={getCost(mode === 'image' ? 'image_generation' : 'ai_chat')}
+          creditLabel={mode === 'image' ? 'créditos' : 'crédito'}
+          onStop={() => void stop()}
+          fileInputRef={fileInputRef}
+          onFileSelected={onFileSelected}
+          dragActive={dragActive}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+        />
+      </Card>
+    </div>
   )
 }

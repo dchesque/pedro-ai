@@ -35,7 +35,8 @@ import {
   Calendar,
   CreditCard,
   Edit,
-  Trash2
+  Trash2,
+  Users
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -43,6 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 import {
   useAdminUsers,
   useUpdateUserCredits,
@@ -186,98 +188,102 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Usuários</h1>
-          <p className="text-muted-foreground mt-2">Gerenciar todos os usuários registrados</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setConfirmOpen(true)}>Sincronizar do Clerk</Button>
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Sincronizar Usuários do Clerk</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <div className="space-y-2 text-left">
-                    <p className="text-sm">Esta ação irá:</p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Criar usuários do Clerk que ainda não existem no banco de dados</li>
-                      <li>Atualizar nome e email de usuários existentes</li>
-                      <li>Criar saldo de créditos (0 por padrão) para novos usuários</li>
-                    </ul>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Nota: Planos e créditos são gerenciados pelo sistema de pagamentos (Asaas), não pelo Clerk.
-                    </p>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Gerenciar"
+        subtitle="Usuários"
+        description="Gerencie todos os usuários registrados, convites e permissões."
+        icon={Users}
+        badge="USUÁRIOS"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(true)}>Sincronizar do Clerk</Button>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sincronizar Usuários do Clerk</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-2 text-left">
+                      <p className="text-sm">Esta ação irá:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Criar usuários do Clerk que ainda não existem no banco de dados</li>
+                        <li>Atualizar nome e email de usuários existentes</li>
+                        <li>Criar saldo de créditos (0 por padrão) para novos usuários</li>
+                      </ul>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Nota: Planos e créditos são gerenciados pelo sistema de pagamentos (Asaas), não pelo Clerk.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={runSync} disabled={syncFromClerkMutation.isPending}>
+                    {syncFromClerkMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Adicionar Usuário
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="text-foreground">Convidar Usuário</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
+                    Envie um convite para participar via e-mail. Se o usuário já existir, garantiremos que ele apareça na lista.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="inviteEmail">E-mail</Label>
+                    <Input
+                      id="inviteEmail"
+                      type="email"
+                      placeholder="user@example.com"
+                      className="pl-3"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
                   </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={runSync} disabled={syncFromClerkMutation.isPending}>
-                  {syncFromClerkMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Adicionar Usuário
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="text-foreground">Convidar Usuário</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Envie um convite para participar via e-mail. Se o usuário já existir, garantiremos que ele apareça na lista.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="inviteEmail">E-mail</Label>
-                  <Input
-                    id="inviteEmail"
-                    type="email"
-                    placeholder="user@example.com"
-                    className="pl-3"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="inviteName">Nome (opcional)</Label>
+                    <Input
+                      id="inviteName"
+                      placeholder="Jane Doe"
+                      className="pl-3"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="inviteName">Nome (opcional)</Label>
-                  <Input
-                    id="inviteName"
-                    placeholder="Jane Doe"
-                    className="pl-3"
-                    value={inviteName}
-                    onChange={(e) => setInviteName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setInviteOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  className="bg-primary hover:bg-primary/90"
-                  onClick={handleInviteUser}
-                  disabled={inviteUserMutation.isPending}
-                >
-                  {inviteUserMutation.isPending ? 'Enviando...' : 'Enviar Convite'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setInviteOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={handleInviteUser}
+                    disabled={inviteUserMutation.isPending}
+                  >
+                    {inviteUserMutation.isPending ? 'Enviando...' : 'Enviar Convite'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* ... existing tabs content ... */}
         <TabsList>
           <TabsTrigger value="users">Todos os Usuários</TabsTrigger>
           <TabsTrigger value="invites">Convites Pendentes</TabsTrigger>

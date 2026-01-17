@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, ExternalLink, RefreshCw } from "lucide-react";
+import { Trash2, ExternalLink, RefreshCw, HardDrive } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStorage, useDeleteStorageItem, type StorageItem } from "@/hooks/use-storage";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 
 
 export default function AdminStoragePage() {
@@ -61,16 +62,19 @@ export default function AdminStoragePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Armazenamento</h1>
-          <p className="text-muted-foreground mt-2">Navegue e gerencie os objetos enviados</p>
-        </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={loading}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Atualizar
-        </Button>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Gerenciamento de"
+        subtitle="Armazenamento"
+        description="Navegue e gerencie os objetos enviados para o bucket."
+        icon={HardDrive}
+        badge="STORAGE"
+        action={
+          <Button variant="outline" onClick={() => refetch()} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Atualizar
+          </Button>
+        }
+      />
 
       <Card className="p-6">
         <form onSubmit={onSearch} className="flex flex-col md:flex-row gap-3 mb-4">

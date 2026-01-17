@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Save, Search, Settings } from 'lucide-react';
+import { Loader2, Save, Search, Settings, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { StandardPageHeader } from '@/components/ui/standard-page-header';
 import {
     Dialog,
     DialogContent,
@@ -137,11 +138,14 @@ export default function SystemPromptsPage() {
     };
 
     return (
-        <div className="container py-8 space-y-8 max-w-[1600px]">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold">Prompts do Sistema</h1>
-                <p className="text-muted-foreground">Gerencie templates de IA organizados por módulo e funcionalidade.</p>
-            </div>
+        <div className="container mx-auto py-8 space-y-8">
+            <StandardPageHeader
+                title="Prompts do"
+                subtitle="Sistema"
+                description="Gerencie templates de IA organizados por módulo e funcionalidade."
+                icon={FileText}
+                badge="SISTEMA"
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">

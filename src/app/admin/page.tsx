@@ -4,10 +4,12 @@ import { Card } from "@/components/ui/card";
 import {
   Users,
   TrendingUp,
-  Activity
+  Activity,
+  LayoutDashboard
 } from "lucide-react";
 import { MrrBarChart, ArrBarChart, ChurnLineChart } from "@/components/charts/revenue-charts";
 import { useDashboard } from "@/hooks/use-dashboard";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboard();
@@ -34,14 +36,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Painel do Administrador</h1>
-          <p className="text-muted-foreground mt-2">Visão geral do sistema e análises</p>
-        </div>
-        <div />
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Painel do"
+        subtitle="Administrador"
+        description="Visão geral do sistema e análises."
+        icon={LayoutDashboard}
+        badge="ADMINISTRAÇÃO"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6">

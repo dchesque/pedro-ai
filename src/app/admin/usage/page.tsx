@@ -30,9 +30,11 @@ import {
   User,
   CreditCard,
   MessageSquare,
-  Image
+  Image,
+  History
 } from "lucide-react";
 import { useUsageHistory, UsageRecord } from "@/hooks/use-usage-history";
+import { StandardPageHeader } from "@/components/ui/standard-page-header";
 
 
 export default function UsagePage() {
@@ -128,20 +130,23 @@ export default function UsagePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Histórico de Uso</h1>
-          <p className="text-muted-foreground mt-2">Acompanhe o consumo de créditos e a atividade do usuário</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={exportToCSV}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Exportar CSV
-        </Button>
-      </div>
+    <div className="container mx-auto space-y-6">
+      <StandardPageHeader
+        title="Histórico de"
+        subtitle="Uso"
+        description="Acompanhe o consumo de créditos e a atividade do usuário."
+        icon={History}
+        badge="AUDITORIA"
+        action={
+          <Button
+            variant="outline"
+            onClick={exportToCSV}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6">
